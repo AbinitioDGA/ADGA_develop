@@ -11,8 +11,8 @@ program main
   implicit none
 
 
-  character(len=41), parameter :: filename = "SVO-Vertex-2016-02-19-Fri-17-50-41.hdf5" 
-  character(len=15), parameter :: filename_vertex = "vertex_sym.hdf5"
+!  character(len=41), parameter :: filename = "SVO-Vertex-2016-02-19-Fri-17-50-41.hdf5" 
+!  character(len=15), parameter :: filename_vertex = "vertex_sym.hdf5"
 
   integer(hid_t) :: file_id, file_vert_id, iw_id, iwb_id, iwf_id, siw_id, giw_id, plist_id, compound_id, r_id, k_id, hk_id, mu_id, dc_id, config_id, beta_id
   integer(hid_t) :: iw_space_id, iwb_space_id, iwf_space_id, siw_space_id, giw_space_id, k_space_id, hk_space_id, dc_space_id
@@ -39,7 +39,7 @@ program main
   complex(kind=8), allocatable :: hk(:,:,:)
   double precision, allocatable :: dc(:,:)
   
-  integer :: iw, ik, iq, ikq, iwf, iwb, iv, i, j, k, l, n, i1, i2, dum, dum1, nk, nq, nk_frac,ind_iwb, ind_grp, iwf1, iwf2
+  integer :: iw, ik, iq, ikq, iwf, iwb, iv, i, j, k, l, n, i1, i2, dum, dum1, nk, nq, ind_iwb, ind_grp, iwf1, iwf2
   integer :: imembers
   complex(kind=8), allocatable :: giw(:,:), gkiw(:,:)
   complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:) 
@@ -54,7 +54,7 @@ program main
   real(kind=8 ):: start, finish, start1, finish1
   complex(kind=8) :: alpha, delta
   integer :: iqw, qwstart, qwstop
-  logical :: update_chi_loc_flag, small_freq_box, orb_sym
+  logical :: update_chi_loc_flag!, small_freq_box, orb_sym
   integer :: b1, b2, b3, b4
 
   double precision :: u_value, kx, ky, kz
@@ -76,6 +76,14 @@ program main
   integer :: master
 #endif
 
+
+  ! read command line argument -> file name of config file
+  if (iargc().eq.0 .or. iargc().gt.1) then
+    write(*,*) 'The program has to be executed with exactly one argument. (Name of config file)'
+    stop
+  end if
+
+  call read_config()
   
 #ifdef MPI
   call MPI_init(ierr)
@@ -85,13 +93,13 @@ program main
 #endif
 
  
-  orb_sym = .true.
+!  orb_sym = .true.
 
-  small_freq_box = .false.
-  iwfmax_small = 60
-  iwbmax_small = 15 
+!  small_freq_box = .false.
+!  iwfmax_small = 60
+!  iwbmax_small = 15 
 
-  nk_frac = 1   !number of q-points in each direction nq=nk/nk_frac (cubic case assumed)
+!  nk_frac = 1   !number of q-points in each direction nq=nk/nk_frac (cubic case assumed)
 
   !THE FOLLOWING PARAMETERS ARE READ FROM THE W2DYNAMICS OUTPUT-FILE:
   !iwmax or iw_dims(1)/2    number of fermionic Matsubara frequencies for single particle quantities 
@@ -148,7 +156,6 @@ program main
      write(*,*) 'Error: Maximum number of fermionic frequencies =', iwfmax
   endif
   write(*,*) 'iwfmax=', iwfmax, 'iwfmax_small=', iwfmax_small
- 
 ! read bosonic Matsubara frequencies iwb-g4:
   call h5dopen_f(file_vert_id, ".axes/iwb-g4", iwb_id, error)
   call h5dget_space_f(iwb_id, iwb_space_id, error)
@@ -312,7 +319,7 @@ program main
   allocate(u_tmp(ndim, ndim, ndim, ndim))
   allocate(u_tilde_tmp(ndim, ndim, ndim, ndim))
 
-  open(21,file='umatrix.dat',status='old')
+  open(21,file=filename_umatrix,status='old')
   read(21,*)
 
   do n=1,ndim**4
