@@ -1,0 +1,8 @@
+.*
+*~
+
+*.mod
+*.o
+
+main
+vertex_chann_sym
