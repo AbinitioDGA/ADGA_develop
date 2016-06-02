@@ -36,8 +36,8 @@ program main
   complex(kind=8), allocatable :: siw(:,:)
   double precision, allocatable :: k_data(:,:), q_data(:,:) 
   double precision, allocatable :: hk_data(:,:,:,:)
-  complex(kind=8), allocatable :: hk(:,:,:)
   double precision, allocatable :: dc(:,:)
+  complex(kind=8), allocatable :: hk(:,:,:)
   
   integer :: iw, ik, iq, ikq, iwf, iwb, iv, i, j, k, l, n, dum, dum1, nk, nq, ind_iwb, ind_grp, iwf1, iwf2
   integer :: imembers
@@ -932,117 +932,7 @@ start = mpi_wtime()
      call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
 
 ! from here on: equation of motion     
-
-     !subtract -1 in the diagonal of the orbital blocks:
-     do i1=1,ndim2
-        do dum=0,2*iwfmax_small-1
-           
-           interm3_dens(i1,i1+dum*ndim2) = interm3_dens(i1,i1+dum*ndim2)-1.d0
-           interm3_magn(i1,i1+dum*ndim2) = interm3_magn(i1,i1+dum*ndim2)-1.d0
-
-        enddo
-     enddo
-     
-     
-
-     !call cpu_time(finish)
-     !write(*,*)'doing matrix multiplication:', finish-start
-
-
-     
-     !call cpu_time(start)
-
-     !EQUATION OF MOTION:
-     allocate(m_work(ndim2, maxdim), m_tot(ndim2, maxdim), u_work(ndim2,ndim2))
-     m_work = 0.d0
-     m_tot = 0.d0
-     u_work = 0.d0
-
-     !density part:
-     u_work = v + u - 0.5d0*u_tilde
-
-     !subtract dmft part (dmft self energy will be added in the end):
-     interm3_dens = interm3_dens - gamma_dmft_dens
-     
-     alpha = 1.d0
-     delta = 0.d0
-     call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, interm3_dens, ndim2, delta, m_work, ndim2)
-
-     m_tot = m_work
-
-     !magnetic part:
-     u_work = -1.5d0*u_tilde
-     m_work = 0.d0
-
-     !subtract dmft part:
-     interm3_magn = interm3_magn - gamma_dmft_magn
-
-     alpha = 1.d0
-     delta = 0.d0
-     call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, interm3_magn, ndim2, delta, m_work, ndim2)
-
-     m_tot = m_tot + m_work
-
-     !local part:
-     u_work = v + u
-     m_work = 0.d0
-
-     gamma_loc_sum_left = gamma_loc_sum_left - gamma_dmft_dens
-   
-     alpha = 1.d0
-     delta = 0.d0
-     call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, gamma_loc_sum_left, ndim2, delta, m_work, ndim2)
-
-     m_tot = m_tot - m_work
-
-     !break up the compound index:
-     allocate(m_tot_array(ndim,ndim,ndim,ndim,-iwfmax_small:iwfmax_small))
-     m_tot_array = 0.d0
-
-     i1 = 0
-     do i=1,ndim
-        do j=1,ndim
-           i1 = i1+1
-           i2 = 0
-           do iwf2=-iwfmax_small,iwfmax_small-1
-              do l=1,ndim
-                 do k=1,ndim
-                    i2 = i2+1
-                    
-                    m_tot_array(i,j,k,l,iwf2) = m_tot(i1,i2)
-
-                 enddo
-              enddo
-           enddo
-        enddo
-     enddo
-
-     
-     !compute k-dependent self energy:
-     do ik=1,nkp
-        ikq = kq_ind(ik,iq) 
-        do iwf=-iwfmax_small,iwfmax_small-1
-
-           call get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
-           
-           do i=1,ndim
-              do l=1,ndim
-                 do j=1,ndim
-                    do k=1,ndim
-
-                       sigma(i,l,iwf,ik) = sigma(i,l,iwf,ik)+m_tot_array(i,j,k,l,iwf)*gkiw(k,j)
-                       !sigma(i,l,iwf,ik) = sigma(i,l,iwf,ik)+m_tot_array(i,j,j,l,iwf)*gkiw(j,j) !test
-
-                    enddo
-                 enddo
-              enddo
-           enddo
-
-        enddo
-     enddo
-                
-
-     deallocate(m_tot, m_tot_array, m_work, u_work)
+     call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data)
 
      !call cpu_time(finish)
      !write(*,*)'equation of motion:', finish-start
@@ -1147,10 +1037,136 @@ subroutine output_chi_qw(chi_qw,q_data,qw,filename_output)
 end subroutine output_chi_qw
 
 
-subroutine calc_eom()
+subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data)
   use parameters_module
-  implicit none
+  use lapack_module
 
+  implicit none
+  complex(kind=8), allocatable :: u(:,:), u_tilde(:,:), u_work(:,:), m_work(:,:)
+  complex(kind=8) :: interm3_dens(ndim2,maxdim),interm3_magn(ndim2,maxdim)
+  complex(kind=8) :: gamma_dmft_dens(ndim2,maxdim), gamma_dmft_magn(ndim2,maxdim)
+  complex(kind=8) :: gamma_loc_sum_left(ndim2,maxdim)
+  complex(kind=8) :: alpha, delta
+  complex(kind=8) :: v(ndim2,ndim2),sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
+  complex(kind=8), allocatable :: m_tot_array(:,:,:,:,:),m_tot(:,:)
+  integer :: dum,i,j,iwf,iwb,iwf2,l,k,ik,iq,ikq,kq_ind(nkp,nqp)
+  real*8 :: iw_data(-iwmax:iwmax-1)
+  complex(kind=8) :: siw(-iwmax:iwmax-1,ndims)
+  complex(kind=8) :: hk(ndim,ndim,nkp)
+  double precision :: dc(2,ndim)
+  complex(kind=8) :: gkiw(ndim,ndim)
+
+
+  !subtract -1 in the diagonal of the orbital blocks:
+  do i1=1,ndim2
+     do dum=0,2*iwfmax_small-1
+        
+        interm3_dens(i1,i1+dum*ndim2) = interm3_dens(i1,i1+dum*ndim2)-1.d0
+        interm3_magn(i1,i1+dum*ndim2) = interm3_magn(i1,i1+dum*ndim2)-1.d0
+
+     enddo
+  enddo
+  
+  
+
+  !call cpu_time(finish)
+  !write(*,*)'doing matrix multiplication:', finish-start
+
+
+  
+  !call cpu_time(start)
+
+  !EQUATION OF MOTION:
+  allocate(m_work(ndim2, maxdim), m_tot(ndim2, maxdim), u_work(ndim2,ndim2))
+  m_work = 0.d0
+  m_tot = 0.d0
+  u_work = 0.d0
+
+  !density part:
+  u_work = v + u - 0.5d0*u_tilde
+
+  !subtract dmft part (dmft self energy will be added in the end):
+  interm3_dens = interm3_dens - gamma_dmft_dens
+  
+  alpha = 1.d0
+  delta = 0.d0
+  call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, interm3_dens, ndim2, delta, m_work, ndim2)
+
+  m_tot = m_work
+
+  !magnetic part:
+  u_work = -1.5d0*u_tilde
+  m_work = 0.d0
+
+  !subtract dmft part:
+  interm3_magn = interm3_magn - gamma_dmft_magn
+
+  alpha = 1.d0
+  delta = 0.d0
+  call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, interm3_magn, ndim2, delta, m_work, ndim2)
+
+  m_tot = m_tot + m_work
+
+  !local part:
+  u_work = v + u
+  m_work = 0.d0
+
+  gamma_loc_sum_left = gamma_loc_sum_left - gamma_dmft_dens
+  
+  alpha = 1.d0
+  delta = 0.d0
+  call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, gamma_loc_sum_left, ndim2, delta, m_work, ndim2)
+
+  m_tot = m_tot - m_work
+
+  !break up the compound index:
+  allocate(m_tot_array(ndim,ndim,ndim,ndim,-iwfmax_small:iwfmax_small))
+  m_tot_array = 0.d0
+
+  i1 = 0
+  do i=1,ndim
+     do j=1,ndim
+        i1 = i1+1
+        i2 = 0
+        do iwf2=-iwfmax_small,iwfmax_small-1
+           do l=1,ndim
+              do k=1,ndim
+                 i2 = i2+1
+                 
+                 m_tot_array(i,j,k,l,iwf2) = m_tot(i1,i2)
+
+              enddo
+           enddo
+        enddo
+     enddo
+  enddo
+
+  
+  !compute k-dependent self energy:
+  do ik=1,nkp
+     ikq = kq_ind(ik,iq) 
+     do iwf=-iwfmax_small,iwfmax_small-1
+
+        call get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
+        
+        do i=1,ndim
+           do l=1,ndim
+              do j=1,ndim
+                 do k=1,ndim
+
+                    sigma(i,l,iwf,ik) = sigma(i,l,iwf,ik)+m_tot_array(i,j,k,l,iwf)*gkiw(k,j)
+                    !sigma(i,l,iwf,ik) = sigma(i,l,iwf,ik)+m_tot_array(i,j,j,l,iwf)*gkiw(j,j) !test
+
+                 enddo
+              enddo
+           enddo
+        enddo
+
+     enddo
+  enddo
+             
+
+  deallocate(m_tot, m_tot_array, m_work, u_work)
 
 end subroutine calc_eom
 
