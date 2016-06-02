@@ -39,7 +39,7 @@ program main
   complex(kind=8), allocatable :: hk(:,:,:)
   double precision, allocatable :: dc(:,:)
   
-  integer :: iw, ik, iq, ikq, iwf, iwb, iv, i, j, k, l, n, i1, i2, i3, i4, dum, dum1, nk, nq, ind_iwb, ind_grp, iwf1, iwf2
+  integer :: iw, ik, iq, ikq, iwf, iwb, iv, i, j, k, l, n, dum, dum1, nk, nq, ind_iwb, ind_grp, iwf1, iwf2
   integer :: imembers
   complex(kind=8), allocatable :: giw(:,:), gkiw(:,:)
   complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:) 
@@ -85,6 +85,7 @@ program main
   end if
 
   call read_config()
+  call init()
   
 #ifdef MPI
   call MPI_init(ierr)
@@ -378,8 +379,6 @@ program main
   enddo
   close(35)
 
-  maxdim = ndim*ndim*2*iwfmax_small
-  ndim2 = ndim*ndim
 
   !allocate(chi0_loc(ndim2,ndim2)) !only for test reasons
   allocate(sum_chi0_loc(ndim2,ndim2)) !test
@@ -926,17 +925,11 @@ start = mpi_wtime()
      !stop
 
 
+
+
 ! Calculation of q dependent susceptibility by multiplication with chi0
-     do i1=1,2*iwfmax_small
-       do i2=1,ndim2
-         do i3=1,ndim2
-           do i4=1,ndim2
-             chi_qw_dens(i2,i3,iqw)=chi_qw_dens(i2,i3,iqw)+interm3_dens(i2,(i1-1)*ndim2+i4)*chi0_sum(i4,i3,i1-1-iwfmax_small)
-             chi_qw_magn(i2,i3,iqw)=chi_qw_magn(i2,i3,iqw)+interm3_magn(i2,(i1-1)*ndim2+i4)*chi0_sum(i4,i3,i1-1-iwfmax_small)
-           end do
-         end do
-       end do
-     end do
+     call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
+     call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
 
      
 
@@ -1117,7 +1110,24 @@ start = mpi_wtime()
     close(37)
     close(38)
     close(39)
-    
+
+    open(unit=10,file='Output/chi_qw_dens.dat')
+    open(unit=20,file='Output/chi_qw_magn.dat')
+    write(10,*) '#iwb  ','iq  ','      (q)      ','chi_dens'
+    write(20,*) '#iwb  ','iq  ','      (q)      ','chi_magn'
+    do i1=1,nqp*(2*iwbmax_small+1)
+      iq = qw(2,i1)
+      iwb = qw(1,i1)
+      write(10,'(I5,2X,I5,2X,5(E14.7E2,2X))') iwb,iq,q_data(:,iq),real(chi_qw_dens(1,1,i1),8),dimag(chi_qw_dens(1,1,i1))
+      write(20,'(I5,2X,I5,2X,5(E14.7E2,2X))') iwb,iq,q_data(:,iq),real(chi_qw_magn(1,1,i1),8),dimag(chi_qw_magn(1,1,i1))
+      if (mod(i1,nqp).eq.0) then
+        write(10,*) ' '
+        write(20,*) ' '
+      end if
+    end do
+    close(10)
+    close(20)
+      
   endif
   
 #endif
@@ -1126,7 +1136,24 @@ start = mpi_wtime()
 end program main
 
 
+subroutine calc_chi_qw(chi_qw,interm3,chi0_sum)
+  use parameters_module
+  implicit none
+  complex(kind=8) :: chi_qw(ndim2,ndim2)
+  complex(kind=8) :: interm3(ndim2,maxdim)
+  complex(kind=8) :: chi0_sum(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)
 
+  do i1=1,2*iwfmax_small
+    do i2=1,ndim2
+      do i3=1,ndim2
+        do i4=1,ndim2
+          chi_qw(i2,i3)=chi_qw(i2,i3)+interm3(i2,(i1-1)*ndim2+i4)*chi0_sum(i4,i3,i1-1-iwfmax_small)
+        end do
+      end do
+    end do
+  end do
+
+end subroutine calc_chi_qw
 
 subroutine get_giw(iw_data, hk, siw, dc, giw)
   use lapack_module
@@ -1201,7 +1228,7 @@ end subroutine get_gkiw
 subroutine get_chi0_loc(beta, iwf, iwb, giw, chi0_loc)
   use parameters_module
   implicit none
-  integer :: i, j, k, l, i1, i2
+  integer :: i, j, k, l
   integer :: iwf, iwb
   double precision :: beta
   complex(kind=8) :: giw(-iwmax:iwmax-1,ndim)
@@ -1230,7 +1257,7 @@ end subroutine get_chi0_loc
 subroutine get_chi0_loc_inv(beta, iwf, iwb, giw, chi0_loc)
   use parameters_module
   implicit none
-  integer :: i, j, k, l, i1, i2
+  integer :: i, j, k, l
   integer :: iwf, iwb
   double precision :: beta
   complex(kind=8) :: giw(-iwmax:iwmax-1,ndim)
@@ -1260,7 +1287,7 @@ subroutine get_chi0(beta, ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
   use lapack_module
   use parameters_module
   implicit none
-  integer :: i, j, k, l, i1, i2
+  integer :: i, j, k, l
   integer :: iwf, iwb, ik, ikq
   complex(kind=8) :: g1(ndim,ndim), g2(ndim,ndim)
   double precision :: iw_data(-iwmax:iwmax-1)
@@ -1344,16 +1371,4 @@ subroutine index2component_band(Nbands, ind, b1, b2, b3, b4)
 
 
 end subroutine index2component_band
-
-
-
-
-
-
-
-
-
-
-
-
 

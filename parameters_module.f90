@@ -4,7 +4,7 @@ module parameters_module
 
   complex(kind=8) ci
   parameter (ci=(0.d0,1.d0))
-  integer :: nkp, ndim, ndims, ndim2, maxdim
+  integer :: nkp, ndim, ndims, ndim2, maxdim,i1,i2,i3,i4
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,nk_frac
   double precision :: mu
   integer :: nqp
@@ -58,6 +58,9 @@ subroutine read_config()
   close(1)
 end subroutine read_config
 
-  
-
+subroutine init() 
+  implicit none
+  maxdim = ndim*ndim*2*iwfmax_small
+  ndim2 = ndim*ndim
+end subroutine init
 end module parameters_module
