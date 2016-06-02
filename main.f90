@@ -931,7 +931,7 @@ start = mpi_wtime()
      call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
      call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
 
-     
+! from here on: equation of motion     
 
      !subtract -1 in the diagonal of the orbital blocks:
      do i1=1,ndim2
@@ -1111,22 +1111,9 @@ start = mpi_wtime()
     close(38)
     close(39)
 
-    open(unit=10,file='Output/chi_qw_dens.dat')
-    open(unit=20,file='Output/chi_qw_magn.dat')
-    write(10,*) '#iwb  ','iq  ','      (q)      ','chi_dens'
-    write(20,*) '#iwb  ','iq  ','      (q)      ','chi_magn'
-    do i1=1,nqp*(2*iwbmax_small+1)
-      iq = qw(2,i1)
-      iwb = qw(1,i1)
-      write(10,'(I5,2X,I5,2X,5(E14.7E2,2X))') iwb,iq,q_data(:,iq),real(chi_qw_dens(1,1,i1),8),dimag(chi_qw_dens(1,1,i1))
-      write(20,'(I5,2X,I5,2X,5(E14.7E2,2X))') iwb,iq,q_data(:,iq),real(chi_qw_magn(1,1,i1),8),dimag(chi_qw_magn(1,1,i1))
-      if (mod(i1,nqp).eq.0) then
-        write(10,*) ' '
-        write(20,*) ' '
-      end if
-    end do
-    close(10)
-    close(20)
+    call output_chi_qw(chi_qw_dens,q_data,qw,'Output/chi_qw_dens.dat')
+    call output_chi_qw(chi_qw_magn,q_data,qw,'Output/chi_qw_magn.dat')
+
       
   endif
   
@@ -1135,6 +1122,37 @@ start = mpi_wtime()
      
 end program main
 
+
+! subroutine to output susceptibility
+! for now not adapted to more than 1 band
+! but i wrote it already somewhere for more bands...
+subroutine output_chi_qw(chi_qw,q_data,qw,filename_output)
+  use parameters_module
+  implicit none
+  character(len=*) :: filename_output
+  real*8 :: q_data(3,nqp)
+  complex(kind=8) :: chi_qw(ndim2,ndim2,nqp*(2*iwbmax_small+1))
+  integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1))
+    open(unit=10,file=filename_output)
+    write(10,*) '#iwb  ','iq  ','      (q)      ','chi_qw'
+    do i1=1,nqp*(2*iwbmax_small+1)
+      iq = qw(2,i1)
+      iwb = qw(1,i1)
+      write(10,'(I5,2X,I5,2X,5(E14.7E2,2X))') iwb,iq,q_data(:,iq),real(chi_qw(1,1,i1),8),dimag(chi_qw(1,1,i1))
+      if (mod(i1,nqp).eq.0) then
+        write(10,*) ' '
+      end if
+    end do
+    close(10)
+end subroutine output_chi_qw
+
+
+subroutine calc_eom()
+  use parameters_module
+  implicit none
+
+
+end subroutine calc_eom
 
 subroutine calc_chi_qw(chi_qw,interm3,chi0_sum)
   use parameters_module
