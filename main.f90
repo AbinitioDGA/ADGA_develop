@@ -39,14 +39,15 @@ program main
   complex(kind=8), allocatable :: hk(:,:,:)
   double precision, allocatable :: dc(:,:)
   
-  integer :: iw, ik, iq, ikq, iwf, iwb, iv, i, j, k, l, n, i1, i2, dum, dum1, nk, nq, ind_iwb, ind_grp, iwf1, iwf2
+  integer :: iw, ik, iq, ikq, iwf, iwb, iv, i, j, k, l, n, i1, i2, i3, i4, dum, dum1, nk, nq, ind_iwb, ind_grp, iwf1, iwf2
   integer :: imembers
   complex(kind=8), allocatable :: giw(:,:), gkiw(:,:)
   complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:) 
   double precision, allocatable :: tmp_r(:,:), tmp_i(:,:)
-  complex(kind=8), allocatable :: chi0_loc(:,:), chi0_loc_inv(:,:,:), chi0(:,:), chi0_sum(:,:), chi_loc_slice_dens(:,:), sum_chi0_loc(:,:)
+  complex(kind=8), allocatable :: chi0_loc(:,:), chi0_loc_inv(:,:,:), chi0(:,:,:), chi0_sum(:,:,:), chi_loc_slice_dens(:,:), sum_chi0_loc(:,:)
   complex(kind=8), allocatable ::  chi_loc_slice_magn(:,:), chi_loc_dens(:,:), chi_loc_magn(:,:), chi_loc(:,:)
   complex(kind=8), allocatable ::  chi_loc_magn_sum_left(:,:), chi_loc_dens_sum_left(:,:), gamma_dmft_dens(:,:), gamma_dmft_magn(:,:)
+  complex(kind=8), allocatable :: chi_qw_dens(:,:,:),chi_qw_magn(:,:,:)
   integer, allocatable :: kq_ind(:,:), qw(:,:)
   complex(kind=8), allocatable :: interm2_magn(:,:), interm3_dens(:,:), interm3_magn(:,:), c(:,:)
   complex(kind=8), allocatable :: interm1(:,:), interm1_v(:,:), interm2_dens(:,:)
@@ -384,8 +385,8 @@ program main
   allocate(sum_chi0_loc(ndim2,ndim2)) !test
 
   allocate(chi0_loc_inv(ndim2,ndim2,-iwfmax:iwfmax-1))
-  allocate(chi0(ndim2,ndim2))
-  allocate(chi0_sum(ndim2,ndim2))
+  allocate(chi0(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
+  allocate(chi0_sum(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)) 
   
   allocate(interm1(ndim2,ndim2))
   allocate(interm1_v(ndim2,ndim2))
@@ -456,6 +457,10 @@ program main
         qw(2,i1) = iq
      enddo
   enddo
+
+  allocate(chi_qw_dens(ndim2,ndim2,nqp*(2*iwbmax_small+1)),chi_qw_magn(ndim2,ndim2,nqp*(2*iwbmax_small+1)))
+  chi_qw_dens=0.d0
+  chi_qw_magn=0.d0
 
 
 !distribute the qw compound index:
@@ -690,31 +695,31 @@ start = mpi_wtime()
      sum_chi0_loc = 0.d0  !only to test summed up local bubble
 
      !call cpu_time(start)
-
+     chi0_sum=0.d0
      do iwf=-iwfmax_small,iwfmax_small-1
        
         ! compute k-summed (but still q-dependent) bubble chi0(i1,i2):
         !replace chi0_sum with chi0_loc for dmft test!!!!!!
-        chi0_sum = 0.d0
+!        chi0_sum = 0.d0
         do ik=1,nkp
            ikq = kq_ind(ik,iq) !Index of G(k+q)
-           call get_chi0(beta, ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0) 
+           call get_chi0(beta, ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0(:,:,iwf)) 
 
            !call get_chi0_loc(beta, iwf,iwb,giw,chi0_sum)
            
-           chi0_sum = chi0_sum+chi0
+           chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)+chi0(:,:,iwf)
         enddo
-        chi0_sum = chi0_sum/dble(nkp)
+        chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)/dble(nkp)
 
-           !test local bubble:
-           sum_chi0_loc = sum_chi0_loc + chi0_sum
+        !test local bubble:
+        sum_chi0_loc = sum_chi0_loc + chi0_sum(:,:,iwf)
 
         
         ! compute intermediate quantity chi0*chi0_loc_inv (chi0_loc_inv is diagonal):
         do j=1,ndim2
            do i=1,ndim2
 
-              interm1(i,j) = chi0_sum(i,j)*chi0_loc_inv(j,j,iwf) !remove one index for chi0_loc_inv
+              interm1(i,j) = chi0_sum(i,j,iwf)*chi0_loc_inv(j,j,iwf) !remove one index for chi0_loc_inv
           
            enddo
         enddo
@@ -728,7 +733,7 @@ start = mpi_wtime()
            do j=1,ndim2
               do k=1,ndim2
                     
-                 interm1_v(i,j) = interm1_v(i,j)+chi0_sum(i,k)*v(k,j)
+                 interm1_v(i,j) = interm1_v(i,j)+chi0_sum(i,k,iwf)*v(k,j)
                  
               enddo
            enddo
@@ -919,6 +924,19 @@ start = mpi_wtime()
      !   enddo
      !enddo
      !stop
+
+
+! Calculation of q dependent susceptibility by multiplication with chi0
+     do i1=1,2*iwfmax_small
+       do i2=1,ndim2
+         do i3=1,ndim2
+           do i4=1,ndim2
+             chi_qw_dens(i2,i3,iqw)=chi_qw_dens(i2,i3,iqw)+interm3_dens(i2,(i1-1)*ndim2+i4)*chi0_sum(i4,i3,i1-1-iwfmax_small)
+             chi_qw_magn(i2,i3,iqw)=chi_qw_magn(i2,i3,iqw)+interm3_magn(i2,(i1-1)*ndim2+i4)*chi0_sum(i4,i3,i1-1-iwfmax_small)
+           end do
+         end do
+       end do
+     end do
 
      
 
