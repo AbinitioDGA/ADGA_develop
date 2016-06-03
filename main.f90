@@ -918,11 +918,11 @@ write(*,*) 'iqw',iqw
 
 
 ! Calculation of q dependent susceptibility by multiplication with chi0
-!     call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
-!     call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
+     call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
+     call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
 
 ! from here on: equation of motion     
-     call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,u_tilde,gkiw,hk,dc,siw)
+!     call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,u_tilde,gkiw,hk,dc,siw)
 
      !call cpu_time(finish)
      !write(*,*)'equation of motion:', finish-start
@@ -950,10 +950,6 @@ write(*,*) 'iqw',iqw
      do iwf=-iwfmax_small,iwfmax_small-1
         do iband=1,ndim
            sigma_sum(iband, iband, iwf, ik) = sigma_sum(iband, iband, iwf, ik) + siw(iwf, iband)
-           if (sigma_sum(iband,iband,iwf,ik).ne.sigma_sum(iband,iband,iwf,ik)) then
-             write(*,*) 'nan in sigma_sum at',iband,iwf,ik
-             stop
-           end if
         enddo
      enddo
   enddo
@@ -968,9 +964,9 @@ write(*,*) 'iqw',iqw
 
   !TEST:
   if (mpi_wrank .eq. master) then
-    call output_eom(iw_data,k_data,sigma_sum,sigma_loc)
-!    call output_chi_qw(chi_qw_dens,q_data,qw,'chi_qw_dens.dat')
-!    call output_chi_qw(chi_qw_magn,q_data,qw,'chi_qw_magn.dat')
+!    call output_eom(iw_data,k_data,sigma_sum,sigma_loc)
+    call output_chi_qw(chi_qw_dens,q_data,qw,'chi_qw_dens.dat')
+    call output_chi_qw(chi_qw_magn,q_data,qw,'chi_qw_magn.dat')
 
       
   endif
