@@ -30,31 +30,34 @@ subroutine read_config()
   read(1,*)
   read(1,'(A)') str_tmp
   filename=trim(str_tmp)
-!  write(*,*) 'filename one-particle quantities: ',filename
+
   read(1,*)
   read(1,*)
   read(1,'(A)') str_tmp
   filename_vertex=trim(str_tmp)
-!  write(*,*) 'filename two-particle quantities: ',filename_vertex
+
   read(1,*)
   read(1,*)
   read(1,'(A)') str_tmp
   filename_umatrix=trim(str_tmp)
+
   read(1,*)
   read(1,*)
   read(1,*) int_tmp_1,int_tmp_2
   orb_sym=int_tmp_1
   small_freq_box=int_tmp_2
+
   read(1,*)
   read(1,*)
   read(1,*) int_tmp_1,int_tmp_2
   iwfmax_small=int_tmp_1
   iwbmax_small=int_tmp_2
-!  write(*,*) iwfmax_small
+
   read(1,*)
   read(1,*)
   read(1,*) int_tmp_1
   nk_frac = int_tmp_1
+
   read(1,*)
   read(1,*)
   read(1,'(A)') str_tmp

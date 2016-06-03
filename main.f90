@@ -81,7 +81,6 @@ program main
   end if
 
   call read_config()
-  call init()
   
 #ifdef MPI
   call MPI_init(ierr)
@@ -93,25 +92,11 @@ program main
  
 !  orb_sym = .true.
 
-<<<<<<< Updated upstream
 !  small_freq_box = .false.
 !  iwfmax_small = 60
 !  iwbmax_small = 15 
 
-<<<<<<< Updated upstream
 !  nk_frac = 1   !number of q-points in each direction nq=nk/nk_frac (cubic case assumed)
-=======
-=======
->>>>>>> Stashed changes
-  small_freq_box = .false.
-  iwfmax_small = 60
-  iwbmax_small = 1
-
-  nk_frac = 10   !number of q-points in each direction nq=nk/nk_frac (cubic case assumed)
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
   !THE FOLLOWING PARAMETERS ARE READ FROM THE W2DYNAMICS OUTPUT-FILE:
   !iwmax or iw_dims(1)/2    number of fermionic Matsubara frequencies for single particle quantities 
@@ -271,11 +256,11 @@ program main
   call h5dclose_f(k_id, error)
 
 ! write k-points:
-!  open(37, file='k_points.dat', status='unknown')
-!  do ik=1,100
-!    write(37,'(100F12.6)') k_data(2,ik), k_data(3,ik)
-!  enddo
-!  close(37)
+  open(37, file=trim(output_dir)//'k_points.dat', status='unknown')
+  do ik=1,100
+    write(37,'(100F12.6)') k_data(2,ik), k_data(3,ik)
+  enddo
+  close(37)
 
 ! read Hamiltonian H(k):
   call h5dopen_f(file_id, "start/hk/value", hk_id, error)
@@ -290,15 +275,17 @@ program main
   call h5dclose_f(hk_id, error)
 
 ! test hk:
-!  open(34, file="hk.dat", status='unknown')
-!  do ik=1,hk_dims(3)
-!     write(34,*)k_data(:,ik)
-!     do i=1,hk_dims(2)
-!        write(34,'(100F12.6)')hk(:,i,ik)
-!     enddo
-!  enddo
-!  close(34)
+  open(34, file=trim(output_dir)//"hk.dat", status='unknown')
+  do ik=1,hk_dims(3)
+     write(34,*)k_data(:,ik)
+     do i=1,hk_dims(2)
+        write(34,'(100F12.6)')hk(:,i,ik)
+     enddo
+  enddo
+  close(34)
 
+  maxdim = ndim*ndim*2*iwfmax_small
+  ndim2 = ndim*ndim
 
 ! read chemical potential:
   call h5dopen_f(file_id, "stat-001/mu/value", mu_id, error)
@@ -494,14 +481,14 @@ start = mpi_wtime()
 
   sigma = 0.d0
 
-  open(55, file=trim(output_dir)//"chi0_loc_sum.dat", status='unknown')
+!  open(55, file=trim(output_dir)//"chi0_loc_sum.dat", status='unknown')
 
   iwb = iwbmax_small+3
   do iqw=qwstart,qwstop
      update_chi_loc_flag = qw(1,iqw) .ne. iwb
-
      iq = qw(2,iqw)
      iwb = qw(1,iqw)
+write(*,*) 'iqw',iqw
 
      !to be done here: read nonlocal interaction v and go into compound index
      v = 0.d0
@@ -511,7 +498,6 @@ start = mpi_wtime()
   
         !call cpu_time(start)
         do iwf=-iwfmax,iwfmax-1
-
            ! compute local bubble chi0_loc^{-1}(i1,i2)(orbital compound index i1,i2):
            call get_chi0_loc_inv(beta, iwf, iwb, giw, chi0_loc_inv(:,:,iwf))
 
@@ -542,6 +528,7 @@ start = mpi_wtime()
         ind_iwb = iwb+iwbmax
         write(grpname_magn, '(A5,(I5.5),A1,(I5.5))'), "magn/", ind_iwb
         write(grpname_dens, '(A5,(I5.5),A1,(I5.5))'), "dens/", ind_iwb
+
 
         call h5fopen_f(filename_vertex, h5f_acc_rdonly_f, file_vert_id, error)
         call h5gopen_f(file_vert_id, grpname_magn, grp_magn_id, error) 
@@ -942,7 +929,7 @@ start = mpi_wtime()
 !     call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
 
 ! from here on: equation of motion     
-     call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data)
+     call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,u_tilde,gkiw,hk,dc,siw)
 
      !call cpu_time(finish)
      !write(*,*)'equation of motion:', finish-start
@@ -970,6 +957,10 @@ start = mpi_wtime()
      do iwf=-iwfmax_small,iwfmax_small-1
         do iband=1,ndim
            sigma_sum(iband, iband, iwf, ik) = sigma_sum(iband, iband, iwf, ik) + siw(iwf, iband)
+           if (sigma_sum(iband,iband,iwf,ik).ne.sigma_sum(iband,iband,iwf,ik)) then
+             write(*,*) 'nan in sigma_sum at',iband,iwf,ik
+             stop
+           end if
         enddo
      enddo
   enddo
@@ -984,35 +975,9 @@ start = mpi_wtime()
 
   !TEST:
   if (mpi_wrank .eq. master) then
-    open(34, file=trim(output_dir)//"siw_0_0_0_nostraight.dat", status='unknown')
-    open(35, file=trim(output_dir)//"siw_0_0_0.5_nostraight.dat", status='unknown')
-    open(36, file=trim(output_dir)//"siw_0_0.5_0.5_nostraight.dat", status='unknown')
-    open(37, file=trim(output_dir)//"siw_loc_nostraight.dat", status='unknown')
-    open(38, file=trim(output_dir)//"siw_iwf_0_nostraight.dat", status='unknown')
-    open(39, file=trim(output_dir)//"siw_0.5_0.5_0.5_nostraight.dat", status='unknown')
-
-    do ik=1,100
-       write(38,'(100F12.6)') k_data(2,ik), k_data(3,ik), (real(sigma_sum(i,i,0,ik)), aimag(sigma_sum(i,i,0,ik)), i=1,3)
-    enddo 
-
-    do iwf=-iwfmax_small,iwfmax_small-1
-       write(34,'(100F12.6)')iw_data(iwf), (real(sigma_sum(i,i,iwf,1)), aimag(sigma_sum(i,i,iwf,1)), i=1,3)
-       write(35,'(100F12.6)')iw_data(iwf), (real(sigma_sum(i,i,iwf,6)), aimag(sigma_sum(i,i,iwf,6)),i=1,3)
-       write(36,'(100F12.6)')iw_data(iwf), (real(sigma_sum(i,i,iwf,56)), aimag(sigma_sum(i,i,iwf,56)),i=1,3)
-       write(37,'(100F12.6)')iw_data(iwf), (real(sigma_loc(i,i,iwf)), aimag(sigma_loc(i,i,iwf)),i=1,3)
-       write(39,'(100F12.6)')iw_data(iwf), (real(sigma_sum(i,i,iwf,556)),aimag(sigma_sum(i,i,iwf,556)),i=1,3)
-
-    enddo
-
-    close(34)
-    close(35)
-    close(36)
-    close(37)
-    close(38)
-    close(39)
-
-    call output_chi_qw(chi_qw_dens,q_data,qw,'Output/chi_qw_dens.dat')
-    call output_chi_qw(chi_qw_magn,q_data,qw,'Output/chi_qw_magn.dat')
+    call output_eom(iw_data,k_data,sigma_sum,sigma_loc)
+!    call output_chi_qw(chi_qw_dens,q_data,qw,'chi_qw_dens.dat')
+!    call output_chi_qw(chi_qw_magn,q_data,qw,'chi_qw_magn.dat')
 
       
   endif
@@ -1021,6 +986,66 @@ start = mpi_wtime()
 
      
 end program main
+
+
+
+subroutine output_eom(iw_data,k_data,sigma_sum,sigma_loc)
+  use parameters_module
+  implicit none
+  real*8 :: iw_data(-iwmax:iwmax-1)
+  real*8 :: k_data(3,nkp)
+  complex(kind=8) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
+  complex(kind=8) :: sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1)
+  integer :: ik,iwf,i,iband
+
+  do ik=1,nkp
+     do iwf=-iwfmax_small,iwfmax_small-1
+        do iband=1,ndim
+           if (sigma_sum(iband,iband,iwf,ik).ne.sigma_sum(iband,iband,iwf,ik)) then
+             write(*,*) 'nan in sigma_sum at',iband,iwf,ik
+             stop
+           end if
+        enddo
+     enddo
+  enddo
+
+  open(34, file=trim(output_dir)//"siw_0_0_0_nostraight.dat", status='unknown')
+  open(35, file=trim(output_dir)//"siw_0_0_0.5_nostraight.dat", status='unknown')
+  open(36, file=trim(output_dir)//"siw_0_0.5_0.5_nostraight.dat", status='unknown')
+  open(37, file=trim(output_dir)//"siw_loc_nostraight.dat", status='unknown')
+  open(38, file=trim(output_dir)//"siw_iwf_0_nostraight.dat", status='unknown')
+  open(39, file=trim(output_dir)//"siw_0.5_0.5_0.5_nostraight.dat", status='unknown')
+  open(40, file=trim(output_dir)//"siw_all_nostraight.dat",status='unknown')
+
+  do ik=1,100
+     write(38,'(100F12.6)') k_data(2,ik), k_data(3,ik), (real(sigma_sum(i,i,0,ik)), aimag(sigma_sum(i,i,0,ik)), i=1,3)
+  enddo 
+
+  do iwf=-iwfmax_small,iwfmax_small-1
+     write(34,'(100F12.6)')iw_data(iwf), (real(sigma_sum(i,i,iwf,1)), aimag(sigma_sum(i,i,iwf,1)), i=1,3)
+     write(35,'(100F12.6)')iw_data(iwf), (real(sigma_sum(i,i,iwf,6)), aimag(sigma_sum(i,i,iwf,6)),i=1,3)
+     write(36,'(100F12.6)')iw_data(iwf), (real(sigma_sum(i,i,iwf,56)), aimag(sigma_sum(i,i,iwf,56)),i=1,3)
+     write(37,'(100F12.6)')iw_data(iwf), (real(sigma_loc(i,i,iwf)), aimag(sigma_loc(i,i,iwf)),i=1,3)
+     write(39,'(100F12.6)')iw_data(iwf), (real(sigma_sum(i,i,iwf,556)),aimag(sigma_sum(i,i,iwf,556)),i=1,3)
+  enddo
+
+  do iwf=-iwfmax_small,iwfmax_small-1
+    do ik=1,nkp
+      write(40,'(100F12.6)') dble(iwf), iw_data(iwf), dble(ik), k_data(1,ik), k_data(2,ik), k_data(3,ik), (real(sigma_sum(i,i,iwf,ik)), aimag(sigma_sum(i,i,iwf,ik)),i=1,3)
+    end do
+  end do
+
+
+  close(34)
+  close(35)
+  close(36)
+  close(37)
+  close(38)
+  close(39)
+  close(40)
+
+end subroutine output_eom
+
 
 
 ! subroutine to output susceptibility
@@ -1047,16 +1072,16 @@ subroutine output_chi_qw(chi_qw,q_data,qw,filename_output)
 end subroutine output_chi_qw
 
 
-subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data)
+subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,u_tilde,gkiw,hk,dc,siw)
   use parameters_module
   use lapack_module
 
   implicit none
-  complex(kind=8), allocatable :: u(:,:), u_tilde(:,:), u_work(:,:), m_work(:,:)
+  complex(kind=8), allocatable :: u_work(:,:), m_work(:,:)
   complex(kind=8) :: interm3_dens(ndim2,maxdim),interm3_magn(ndim2,maxdim)
   complex(kind=8) :: gamma_dmft_dens(ndim2,maxdim), gamma_dmft_magn(ndim2,maxdim)
   complex(kind=8) :: gamma_loc_sum_left(ndim2,maxdim)
-  complex(kind=8) :: alpha, delta
+  complex(kind=8) :: alpha, delta,u(ndim2,ndim2),u_tilde(ndim2,ndim2)
   complex(kind=8) :: v(ndim2,ndim2),sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
   complex(kind=8), allocatable :: m_tot_array(:,:,:,:,:),m_tot(:,:)
   integer :: dum,i,j,iwf,iwb,iwf2,l,k,ik,iq,ikq,kq_ind(nkp,nqp)
@@ -1066,7 +1091,7 @@ subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,ga
   double precision :: dc(2,ndim)
   complex(kind=8) :: gkiw(ndim,ndim)
 
-
+!write(*,*) ndim,ndims,maxdim,ndim2
   !subtract -1 in the diagonal of the orbital blocks:
   do i1=1,ndim2
      do dum=0,2*iwfmax_small-1
@@ -1077,6 +1102,18 @@ subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,ga
      enddo
   enddo
   
+  do i=1,ndim2
+    do j=1,maxdim
+      if (interm3_dens(i,j).ne.interm3_dens(i,j)) then
+        write(*,*) 'nan in dens'
+        stop
+      end if
+      if (interm3_magn(i,j).ne.interm3_magn(i,j)) then
+        write(*,*) 'nan in magn'
+        stop
+      end if
+    end do
+  end do
   
 
   !call cpu_time(finish)
@@ -1144,7 +1181,10 @@ subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,ga
                  i2 = i2+1
                  
                  m_tot_array(i,j,k,l,iwf2) = m_tot(i1,i2)
-
+                 if (m_tot(i1,i2).ne.m_tot(i1,i2)) then
+                   write(*,*) 'nan in mtot'
+                   stop
+                 end if
               enddo
            enddo
         enddo
@@ -1155,7 +1195,9 @@ subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,ga
   !compute k-dependent self energy:
   do ik=1,nkp
      ikq = kq_ind(ik,iq) 
+!write(*,*) ik,'/',nkp,'ok',ikq
      do iwf=-iwfmax_small,iwfmax_small-1
+!if (ik.eq.858) write(*,*) iwf,'/',iwfmax_small,'ok'
 
         call get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
         
@@ -1166,7 +1208,9 @@ subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,ga
 
                     sigma(i,l,iwf,ik) = sigma(i,l,iwf,ik)+m_tot_array(i,j,k,l,iwf)*gkiw(k,j)
                     !sigma(i,l,iwf,ik) = sigma(i,l,iwf,ik)+m_tot_array(i,j,j,l,iwf)*gkiw(j,j) !test
-
+                    if (sigma(i,l,iwf,ik).ne.sigma(i,l,iwf,ik)) then
+                      write(*,*) 'nan in sigma at',i,l,iwf,ik
+                    end if
                  enddo
               enddo
            enddo
@@ -1262,6 +1306,8 @@ subroutine get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
   do i=1,ndims
   gkiw(i,i) = gkiw(i,i)-siw(iwf-iwb,i) 
   enddo
+!write(*,*) 'gkiw',gkiw
+!if (ik.eq.858 .or. ik.eq.857) write(*,*) gkiw
   call inverse_matrix(gkiw)
   
   
