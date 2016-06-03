@@ -10,10 +10,6 @@ program main
 
   implicit none
 
-
-!  character(len=41), parameter :: filename = "SVO-Vertex-2016-02-19-Fri-17-50-41.hdf5" 
-!  character(len=15), parameter :: filename_vertex = "vertex_sym.hdf5"
-
   integer(hid_t) :: file_id, file_vert_id, iw_id, iwb_id, iwf_id, siw_id, giw_id, plist_id, compound_id, r_id, k_id, hk_id, mu_id, dc_id, config_id, beta_id
   integer(hid_t) :: iw_space_id, iwb_space_id, iwf_space_id, siw_space_id, giw_space_id, k_space_id, hk_space_id, dc_space_id
 
@@ -221,7 +217,7 @@ program main
   endif
 
   ! test siw:
-  open(34, file="siw.dat", status='unknown')
+  open(34, file=trim(output_dir)//"siw.dat", status='unknown')
   do iw=-iwmax,iwmax-1   
      write(34,'(100F12.6)')iw_data(iw), (real(siw(iw,i)),aimag(siw(iw,i)), i=1,ndims)
   enddo
@@ -258,7 +254,7 @@ program main
   endif 
 
 ! test giw:
-  open(54, file="giw.dat", status='unknown')
+  open(54, file=trim(output_dir)//"giw.dat", status='unknown')
   do iw=-iwmax,iwmax-1
      write(54,'(100F12.6)')iw_data(iw), (real(giw(iw,1)),aimag(giw(iw,1)),i=1,ndims)
   enddo
@@ -387,7 +383,7 @@ program main
   !write(*,*)'computing giw:', finish-start
  
 ! test giw:
-  open(35, file="giw_calc.dat", status='unknown')
+  open(35, file=trim(output_dir)//"giw_calc.dat", status='unknown')
   do iw=-iwmax,iwmax-1
      write(35,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,1)
   enddo
@@ -498,7 +494,7 @@ start = mpi_wtime()
 
   sigma = 0.d0
 
-  open(55, file="chi0_loc_sum.dat", status='unknown')
+  open(55, file=trim(output_dir)//"chi0_loc_sum.dat", status='unknown')
 
   iwb = iwbmax_small+3
   do iqw=qwstart,qwstop
@@ -942,8 +938,8 @@ start = mpi_wtime()
 
 
 ! Calculation of q dependent susceptibility by multiplication with chi0
-     call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
-     call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
+!     call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
+!     call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
 
 ! from here on: equation of motion     
      call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data)
@@ -988,12 +984,12 @@ start = mpi_wtime()
 
   !TEST:
   if (mpi_wrank .eq. master) then
-    open(34, file="siw_0_0_0_nostraight.dat", status='unknown')
-    open(35, file="siw_0_0_0.5_nostraight.dat", status='unknown')
-    open(36, file="siw_0_0.5_0.5_nostraight.dat", status='unknown')
-    open(37, file="siw_loc_nostraight.dat", status='unknown')
-    open(38, file="siw_iwf_0_nostraight.dat", status='unknown')
-    open(39, file="siw_0.5_0.5_0.5_nostraight.dat", status='unknown')
+    open(34, file=trim(output_dir)//"siw_0_0_0_nostraight.dat", status='unknown')
+    open(35, file=trim(output_dir)//"siw_0_0_0.5_nostraight.dat", status='unknown')
+    open(36, file=trim(output_dir)//"siw_0_0.5_0.5_nostraight.dat", status='unknown')
+    open(37, file=trim(output_dir)//"siw_loc_nostraight.dat", status='unknown')
+    open(38, file=trim(output_dir)//"siw_iwf_0_nostraight.dat", status='unknown')
+    open(39, file=trim(output_dir)//"siw_0.5_0.5_0.5_nostraight.dat", status='unknown')
 
     do ik=1,100
        write(38,'(100F12.6)') k_data(2,ik), k_data(3,ik), (real(sigma_sum(i,i,0,ik)), aimag(sigma_sum(i,i,0,ik)), i=1,3)
@@ -1037,7 +1033,7 @@ subroutine output_chi_qw(chi_qw,q_data,qw,filename_output)
   real*8 :: q_data(3,nqp)
   complex(kind=8) :: chi_qw(ndim2,ndim2,nqp*(2*iwbmax_small+1))
   integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1))
-    open(unit=10,file=filename_output)
+    open(unit=10,file=trim(output_dir)//filename_output)
     write(10,*) '#iwb  ','iq  ','      (q)      ','chi_qw'
     do i1=1,nqp*(2*iwbmax_small+1)
       iq = qw(2,i1)

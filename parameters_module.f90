@@ -8,7 +8,7 @@ module parameters_module
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,nk_frac
   double precision :: mu
   integer :: nqp
-  character(len=100) :: filename,filename_vertex,filename_umatrix
+  character(len=100) :: filename,filename_vertex,filename_umatrix,output_dir
   logical :: orb_sym,small_freq_box
 
 contains
@@ -55,6 +55,10 @@ subroutine read_config()
   read(1,*)
   read(1,*) int_tmp_1
   nk_frac = int_tmp_1
+  read(1,*)
+  read(1,*)
+  read(1,'(A)') str_tmp
+  output_dir=trim(str_tmp)
   close(1)
 end subroutine read_config
 
