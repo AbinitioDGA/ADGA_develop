@@ -90,13 +90,6 @@ program main
 #endif
 
  
-!  orb_sym = .true.
-
-!  small_freq_box = .false.
-!  iwfmax_small = 60
-!  iwbmax_small = 15 
-
-!  nk_frac = 1   !number of q-points in each direction nq=nk/nk_frac (cubic case assumed)
 
   !THE FOLLOWING PARAMETERS ARE READ FROM THE W2DYNAMICS OUTPUT-FILE:
   !iwmax or iw_dims(1)/2    number of fermionic Matsubara frequencies for single particle quantities 
@@ -998,17 +991,6 @@ subroutine output_eom(iw_data,k_data,sigma_sum,sigma_loc)
   complex(kind=8) :: sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1)
   integer :: ik,iwf,i,iband
 
-  do ik=1,nkp
-     do iwf=-iwfmax_small,iwfmax_small-1
-        do iband=1,ndim
-           if (sigma_sum(iband,iband,iwf,ik).ne.sigma_sum(iband,iband,iwf,ik)) then
-             write(*,*) 'nan in sigma_sum at',iband,iwf,ik
-             stop
-           end if
-        enddo
-     enddo
-  enddo
-
   open(34, file=trim(output_dir)//"siw_0_0_0_nostraight.dat", status='unknown')
   open(35, file=trim(output_dir)//"siw_0_0_0.5_nostraight.dat", status='unknown')
   open(36, file=trim(output_dir)//"siw_0_0.5_0.5_nostraight.dat", status='unknown')
@@ -1091,7 +1073,6 @@ subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,ga
   double precision :: dc(2,ndim)
   complex(kind=8) :: gkiw(ndim,ndim)
 
-!write(*,*) ndim,ndims,maxdim,ndim2
   !subtract -1 in the diagonal of the orbital blocks:
   do i1=1,ndim2
      do dum=0,2*iwfmax_small-1
@@ -1101,19 +1082,6 @@ subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,ga
 
      enddo
   enddo
-  
-  do i=1,ndim2
-    do j=1,maxdim
-      if (interm3_dens(i,j).ne.interm3_dens(i,j)) then
-        write(*,*) 'nan in dens'
-        stop
-      end if
-      if (interm3_magn(i,j).ne.interm3_magn(i,j)) then
-        write(*,*) 'nan in magn'
-        stop
-      end if
-    end do
-  end do
   
 
   !call cpu_time(finish)
@@ -1181,10 +1149,6 @@ subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,ga
                  i2 = i2+1
                  
                  m_tot_array(i,j,k,l,iwf2) = m_tot(i1,i2)
-                 if (m_tot(i1,i2).ne.m_tot(i1,i2)) then
-                   write(*,*) 'nan in mtot'
-                   stop
-                 end if
               enddo
            enddo
         enddo
@@ -1195,9 +1159,7 @@ subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,ga
   !compute k-dependent self energy:
   do ik=1,nkp
      ikq = kq_ind(ik,iq) 
-!write(*,*) ik,'/',nkp,'ok',ikq
      do iwf=-iwfmax_small,iwfmax_small-1
-!if (ik.eq.858) write(*,*) iwf,'/',iwfmax_small,'ok'
 
         call get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
         
@@ -1208,9 +1170,6 @@ subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,ga
 
                     sigma(i,l,iwf,ik) = sigma(i,l,iwf,ik)+m_tot_array(i,j,k,l,iwf)*gkiw(k,j)
                     !sigma(i,l,iwf,ik) = sigma(i,l,iwf,ik)+m_tot_array(i,j,j,l,iwf)*gkiw(j,j) !test
-                    if (sigma(i,l,iwf,ik).ne.sigma(i,l,iwf,ik)) then
-                      write(*,*) 'nan in sigma at',i,l,iwf,ik
-                    end if
                  enddo
               enddo
            enddo
@@ -1306,8 +1265,6 @@ subroutine get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
   do i=1,ndims
   gkiw(i,i) = gkiw(i,i)-siw(iwf-iwb,i) 
   enddo
-!write(*,*) 'gkiw',gkiw
-!if (ik.eq.858 .or. ik.eq.857) write(*,*) gkiw
   call inverse_matrix(gkiw)
   
   
