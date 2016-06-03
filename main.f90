@@ -97,11 +97,19 @@ program main
  
 !  orb_sym = .true.
 
+<<<<<<< Updated upstream
 !  small_freq_box = .false.
 !  iwfmax_small = 60
 !  iwbmax_small = 15 
 
 !  nk_frac = 1   !number of q-points in each direction nq=nk/nk_frac (cubic case assumed)
+=======
+  small_freq_box = .false.
+  iwfmax_small = 60
+  iwbmax_small = 1
+
+  nk_frac = 10   !number of q-points in each direction nq=nk/nk_frac (cubic case assumed)
+>>>>>>> Stashed changes
 
   !THE FOLLOWING PARAMETERS ARE READ FROM THE W2DYNAMICS OUTPUT-FILE:
   !iwmax or iw_dims(1)/2    number of fermionic Matsubara frequencies for single particle quantities 
