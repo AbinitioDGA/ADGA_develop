@@ -102,13 +102,19 @@ program main
 !  iwfmax_small = 60
 !  iwbmax_small = 15 
 
+<<<<<<< Updated upstream
 !  nk_frac = 1   !number of q-points in each direction nq=nk/nk_frac (cubic case assumed)
 =======
+=======
+>>>>>>> Stashed changes
   small_freq_box = .false.
   iwfmax_small = 60
   iwbmax_small = 1
 
   nk_frac = 10   !number of q-points in each direction nq=nk/nk_frac (cubic case assumed)
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
   !THE FOLLOWING PARAMETERS ARE READ FROM THE W2DYNAMICS OUTPUT-FILE:
