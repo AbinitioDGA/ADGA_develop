@@ -921,7 +921,7 @@ write(*,*) 'iqw',iqw
      call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
      call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
 
-! from here on: equation of motion     
+! from here on: equation of moti  on     
 !     call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,u_tilde,gkiw,hk,dc,siw)
 
      !call cpu_time(finish)
@@ -942,6 +942,14 @@ write(*,*) 'iqw',iqw
   allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1))
  
   call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+
+  if (mpi_wrank.eq.master) then
+    call MPI_reduce(MPI_IN_PLACE,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+    call MPI_reduce(MPI_IN_PLACE,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+  else 
+    call MPI_reduce(chi_qw_dens,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+    call MPI_reduce(chi_qw_magn,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+  end if
 
   sigma_sum = -sigma_sum/(beta*nqp)
  
