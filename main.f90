@@ -1046,19 +1046,14 @@ end subroutine output_eom
 
 
 ! subroutine to output susceptibility
-! for now not adapted to more than 1 band
-! but i wrote it already somewhere for more bands...
 subroutine output_chi_qw(chi_qw,iw_data,q_data,qw,filename_output)
   use parameters_module
   implicit none
   character(len=*) :: filename_output
   character(len=100) :: format_str
-  real*8 :: q_data(3,nqp)
-  real*8 :: iw_data(-iwmax:iwmax-1)
+  real*8 :: iw_data(-iwmax:iwmax-1), q_data(3,nqp), chi_qw_1q(2*ndim2**2)
   complex(kind=8) :: chi_qw(ndim2,ndim2,nqp*(2*iwbmax_small+1))
   integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i
-  real*8 :: chi_qw_1q(2*ndim2**2)
-
 
   ! create a format string that works for various orbital dimensions
   write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
