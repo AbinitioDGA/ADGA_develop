@@ -10,6 +10,7 @@ module parameters_module
   integer :: nqp
   character(len=100) :: filename,filename_vertex,filename_umatrix,output_dir
   logical :: orb_sym,small_freq_box
+  logical :: do_eom,do_chi
 
 contains
 subroutine read_config()
@@ -62,6 +63,12 @@ subroutine read_config()
   read(1,*)
   read(1,'(A)') str_tmp
   output_dir=trim(str_tmp)
+
+  read(1,*)
+  read(1,*)
+  read(1,*) int_tmp_1,int_tmp_2
+  do_chi=int_tmp_1
+  do_eom=int_tmp_2
   close(1)
 end subroutine read_config
 

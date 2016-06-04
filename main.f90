@@ -481,7 +481,11 @@ start = mpi_wtime()
      update_chi_loc_flag = qw(1,iqw) .ne. iwb
      iq = qw(2,iqw)
      iwb = qw(1,iqw)
-write(*,*) 'iqw',iqw
+
+     !Output the calculation progress
+     if (mpi_wrank .eq. master) then
+       write(*,*) 'iqw/qwstart/qwstop on master',iqw,"/",qwstart,"/",qwstop
+     end if
 
      !to be done here: read nonlocal interaction v and go into compound index
      v = 0.d0
@@ -916,13 +920,15 @@ write(*,*) 'iqw',iqw
 
 
 
-
-! Calculation of q dependent susceptibility by multiplication with chi0
-     call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
-     call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
-
-! from here on: equation of moti  on     
-!     call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,u_tilde,gkiw,hk,dc,siw)
+     if (do_chi) then
+       ! Calculation of q dependent susceptibility by multiplication with chi0
+       call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
+       call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
+     end if
+     if (do_eom) then
+       !equation of motion     
+       call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,u_tilde,gkiw,hk,dc,siw)
+     end if
 
      !call cpu_time(finish)
      !write(*,*)'equation of motion:', finish-start
@@ -938,45 +944,50 @@ write(*,*) 'iqw',iqw
 #endif
   
 #ifdef MPI
-  allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp))
-  allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1))
+! MPI reduction
+  if (do_eom) then
+    allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp))
+    allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1))
  
-  call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+    call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+    sigma_sum = -sigma_sum/(beta*nqp)
+   
+     ! local contribution is replaced by the DMFT self energy for better asymptotics
+    do ik=1,nkp
+       do iwf=-iwfmax_small,iwfmax_small-1
+          do iband=1,ndim
+             sigma_sum(iband, iband, iwf, ik) = sigma_sum(iband, iband, iwf, ik) + siw(iwf, iband)
+          enddo
+       enddo
+    enddo
 
-  if (mpi_wrank.eq.master) then
-    call MPI_reduce(MPI_IN_PLACE,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-    call MPI_reduce(MPI_IN_PLACE,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-  else 
-    call MPI_reduce(chi_qw_dens,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-    call MPI_reduce(chi_qw_magn,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+    sigma_loc = 0.d0
+    do ik=1,nkp
+      sigma_loc(:,:,:) = sigma_loc(:,:,:)+sigma_sum(:,:,:,ik)
+    enddo
+    sigma_loc = sigma_loc/dble(nkp)
   end if
-
-  sigma_sum = -sigma_sum/(beta*nqp)
- 
-   ! local contribution is replaced by the DMFT self energy for better asymptotics
-  do ik=1,nkp
-     do iwf=-iwfmax_small,iwfmax_small-1
-        do iband=1,ndim
-           sigma_sum(iband, iband, iwf, ik) = sigma_sum(iband, iband, iwf, ik) + siw(iwf, iband)
-        enddo
-     enddo
-  enddo
-
-  sigma_loc = 0.d0
-  do ik=1,nkp
-    sigma_loc(:,:,:) = sigma_loc(:,:,:)+sigma_sum(:,:,:,ik)
-  enddo
-  sigma_loc = sigma_loc/dble(nkp)
+  if (do_chi) then
+    if (mpi_wrank.eq.master) then
+      call MPI_reduce(MPI_IN_PLACE,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+      call MPI_reduce(MPI_IN_PLACE,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+    else 
+      call MPI_reduce(chi_qw_dens,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+      call MPI_reduce(chi_qw_magn,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+    end if
+  end if
 
   call MPI_finalize(ierr)
 
-  !TEST:
+! Output
   if (mpi_wrank .eq. master) then
-!    call output_eom(iw_data,k_data,sigma_sum,sigma_loc)
-    call output_chi_qw(chi_qw_dens,q_data,qw,'chi_qw_dens.dat')
-    call output_chi_qw(chi_qw_magn,q_data,qw,'chi_qw_magn.dat')
-
-      
+    if (do_eom) then
+      call output_eom(iw_data,k_data,sigma_sum,sigma_loc)
+    end if
+    if (do_chi) then
+      call output_chi_qw(chi_qw_dens,iw_data,q_data,qw,'chi_qw_dens.dat')
+      call output_chi_qw(chi_qw_magn,iw_data,q_data,qw,'chi_qw_magn.dat')
+    end if    
   endif
   
 #endif
@@ -1037,24 +1048,43 @@ end subroutine output_eom
 ! subroutine to output susceptibility
 ! for now not adapted to more than 1 band
 ! but i wrote it already somewhere for more bands...
-subroutine output_chi_qw(chi_qw,q_data,qw,filename_output)
+subroutine output_chi_qw(chi_qw,iw_data,q_data,qw,filename_output)
   use parameters_module
   implicit none
   character(len=*) :: filename_output
+  character(len=100) :: format_str
   real*8 :: q_data(3,nqp)
+  real*8 :: iw_data(-iwmax:iwmax-1)
   complex(kind=8) :: chi_qw(ndim2,ndim2,nqp*(2*iwbmax_small+1))
-  integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1))
-    open(unit=10,file=trim(output_dir)//filename_output)
-    write(10,*) '#iwb  ','iq  ','      (q)      ','chi_qw'
-    do i1=1,nqp*(2*iwbmax_small+1)
-      iq = qw(2,i1)
-      iwb = qw(1,i1)
-      write(10,'(I5,2X,I5,2X,5(E14.7E2,2X))') iwb,iq,q_data(:,iq),real(chi_qw(1,1,i1),8),dimag(chi_qw(1,1,i1))
-      if (mod(i1,nqp).eq.0) then
-        write(10,*) ' '
-      end if
+  integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i
+  real*8 :: chi_qw_1q(2*ndim2**2)
+
+
+  ! create a format string that works for various orbital dimensions
+  write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
+
+  ! open file and write head line
+  open(unit=10,file=trim(output_dir)//filename_output)
+  write(10,*) '#iwb  ','wb    ','iq  ','      (q)      ','chi_qw'
+
+  ! loop over all entries
+  do i1=1,nqp*(2*iwbmax_small+1)
+    iq = qw(2,i1)
+    iwb = qw(1,i1)
+    do i=1,ndim2**2!flatten the band matrix into one output line
+      chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1),8)
+      chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1))
     end do
-    close(10)
+    write(10,format_str) iwb,iw_data(iwb),iq,q_data(:,iq),chi_qw_1q
+
+    ! insert an empty line after each omega block. could be useful for plotting.
+    if (mod(i1,nqp).eq.0) then
+      write(10,*) ' '
+    end if
+
+  end do
+
+  close(10)
 end subroutine output_chi_qw
 
 
