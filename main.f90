@@ -7,6 +7,9 @@ program main
   use hdf5
   use lapack_module
   use parameters_module
+  use one_particle_quant_module
+  use eom_module
+  use susc_module
 
   implicit none
 
@@ -56,7 +59,7 @@ program main
 
   double precision :: u_value, kx, ky, kz
   double precision, allocatable :: u_tmp(:,:,:,:), u_tilde_tmp(:,:,:,:), hr(:,:), hi(:,:)
-  complex(kind=8), allocatable :: u(:,:), u_tilde(:,:), u_work(:,:), m_work(:,:)
+  complex(kind=8), allocatable :: u(:,:), u_tilde(:,:) 
   complex(kind=8), allocatable :: m_tot(:,:), m_tot_array(:,:,:,:,:), gamma_loc(:,:), gamma_loc_sum_left(:,:), v(:,:)
 
   complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_sum(:,:,:,:), sigma_loc(:,:,:)
@@ -448,8 +451,6 @@ program main
   enddo
 
   allocate(chi_qw_dens(ndim2,ndim2,nqp*(2*iwbmax_small+1)),chi_qw_magn(ndim2,ndim2,nqp*(2*iwbmax_small+1)))
-  chi_qw_dens=0.d0
-  chi_qw_magn=0.d0
 
 
 !distribute the qw compound index:
@@ -473,6 +474,8 @@ start = mpi_wtime()
 
 
   sigma = 0.d0
+  chi_qw_dens=0.d0
+  chi_qw_magn=0.d0
 
 !  open(55, file=trim(output_dir)//"chi0_loc_sum.dat", status='unknown')
 
@@ -920,20 +923,19 @@ start = mpi_wtime()
 
 
 
-     if (do_chi) then
+     !if (do_chi) then
        ! Calculation of q dependent susceptibility by multiplication with chi0
-       call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
-       call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
-     end if
+     !   call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
+     !   call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
+     !end if
      if (do_eom) then
        !equation of motion     
-       call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,u_tilde,gkiw,hk,dc,siw)
+        call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,v,u_tilde,hk,dc,siw)
      end if
 
      !call cpu_time(finish)
      !write(*,*)'equation of motion:', finish-start
-
-    
+     
   enddo !iqw
 
 #ifdef MPI
@@ -982,11 +984,11 @@ start = mpi_wtime()
 ! Output
   if (mpi_wrank .eq. master) then
     if (do_eom) then
-      call output_eom(iw_data,k_data,sigma_sum,sigma_loc)
+       call output_eom(iw_data,k_data,sigma_sum,sigma_loc)
     end if
     if (do_chi) then
-      call output_chi_qw(chi_qw_dens,iw_data,q_data,qw,'chi_qw_dens.dat')
-      call output_chi_qw(chi_qw_magn,iw_data,q_data,qw,'chi_qw_magn.dat')
+       call output_chi_qw(chi_qw_dens,iw_data,q_data,qw,'chi_qw_dens.dat')
+       call output_chi_qw(chi_qw_magn,iw_data,q_data,qw,'chi_qw_magn.dat')
     end if    
   endif
   
@@ -994,419 +996,6 @@ start = mpi_wtime()
 
      
 end program main
-
-
-
-subroutine output_eom(iw_data,k_data,sigma_sum,sigma_loc)
-  use parameters_module
-  implicit none
-  real*8 :: iw_data(-iwmax:iwmax-1)
-  real*8 :: k_data(3,nkp)
-  complex(kind=8) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
-  complex(kind=8) :: sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1)
-  integer :: ik,iwf,i,iband
-
-  open(34, file=trim(output_dir)//"siw_0_0_0_nostraight.dat", status='unknown')
-  open(35, file=trim(output_dir)//"siw_0_0_0.5_nostraight.dat", status='unknown')
-  open(36, file=trim(output_dir)//"siw_0_0.5_0.5_nostraight.dat", status='unknown')
-  open(37, file=trim(output_dir)//"siw_loc_nostraight.dat", status='unknown')
-  open(38, file=trim(output_dir)//"siw_iwf_0_nostraight.dat", status='unknown')
-  open(39, file=trim(output_dir)//"siw_0.5_0.5_0.5_nostraight.dat", status='unknown')
-  open(40, file=trim(output_dir)//"siw_all_nostraight.dat",status='unknown')
-
-  do ik=1,100
-     write(38,'(100F12.6)') k_data(2,ik), k_data(3,ik), (real(sigma_sum(i,i,0,ik)), aimag(sigma_sum(i,i,0,ik)), i=1,3)
-  enddo 
-
-  do iwf=-iwfmax_small,iwfmax_small-1
-     write(34,'(100F12.6)')iw_data(iwf), (real(sigma_sum(i,i,iwf,1)), aimag(sigma_sum(i,i,iwf,1)), i=1,3)
-     write(35,'(100F12.6)')iw_data(iwf), (real(sigma_sum(i,i,iwf,6)), aimag(sigma_sum(i,i,iwf,6)),i=1,3)
-     write(36,'(100F12.6)')iw_data(iwf), (real(sigma_sum(i,i,iwf,56)), aimag(sigma_sum(i,i,iwf,56)),i=1,3)
-     write(37,'(100F12.6)')iw_data(iwf), (real(sigma_loc(i,i,iwf)), aimag(sigma_loc(i,i,iwf)),i=1,3)
-     write(39,'(100F12.6)')iw_data(iwf), (real(sigma_sum(i,i,iwf,556)),aimag(sigma_sum(i,i,iwf,556)),i=1,3)
-  enddo
-
-  do iwf=-iwfmax_small,iwfmax_small-1
-    do ik=1,nkp
-      write(40,'(100F12.6)') dble(iwf), iw_data(iwf), dble(ik), k_data(1,ik), k_data(2,ik), k_data(3,ik), (real(sigma_sum(i,i,iwf,ik)), aimag(sigma_sum(i,i,iwf,ik)),i=1,3)
-    end do
-  end do
-
-
-  close(34)
-  close(35)
-  close(36)
-  close(37)
-  close(38)
-  close(39)
-  close(40)
-
-end subroutine output_eom
-
-
-
-! subroutine to output susceptibility
-subroutine output_chi_qw(chi_qw,iw_data,q_data,qw,filename_output)
-  use parameters_module
-  implicit none
-  character(len=*) :: filename_output
-  character(len=100) :: format_str
-  real*8 :: iw_data(-iwmax:iwmax-1), q_data(3,nqp), chi_qw_1q(2*ndim2**2)
-  complex(kind=8) :: chi_qw(ndim2,ndim2,nqp*(2*iwbmax_small+1))
-  integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i
-
-  ! create a format string that works for various orbital dimensions
-  write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
-
-  ! open file and write head line
-  open(unit=10,file=trim(output_dir)//filename_output)
-  write(10,*) '#iwb  ','wb    ','iq  ','      (q)      ','chi_qw'
-
-  ! loop over all entries
-  do i1=1,nqp*(2*iwbmax_small+1)
-    iq = qw(2,i1)
-    iwb = qw(1,i1)
-    do i=1,ndim2**2!flatten the band matrix into one output line
-      chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1),8)
-      chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1))
-    end do
-    write(10,format_str) iwb,iw_data(iwb),iq,q_data(:,iq),chi_qw_1q
-
-    ! insert an empty line after each omega block. could be useful for plotting.
-    if (mod(i1,nqp).eq.0) then
-      write(10,*) ' '
-    end if
-
-  end do
-
-  close(10)
-end subroutine output_chi_qw
-
-
-subroutine calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,u_tilde,gkiw,hk,dc,siw)
-  use parameters_module
-  use lapack_module
-
-  implicit none
-  complex(kind=8), allocatable :: u_work(:,:), m_work(:,:)
-  complex(kind=8) :: interm3_dens(ndim2,maxdim),interm3_magn(ndim2,maxdim)
-  complex(kind=8) :: gamma_dmft_dens(ndim2,maxdim), gamma_dmft_magn(ndim2,maxdim)
-  complex(kind=8) :: gamma_loc_sum_left(ndim2,maxdim)
-  complex(kind=8) :: alpha, delta,u(ndim2,ndim2),u_tilde(ndim2,ndim2)
-  complex(kind=8) :: v(ndim2,ndim2),sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
-  complex(kind=8), allocatable :: m_tot_array(:,:,:,:,:),m_tot(:,:)
-  integer :: dum,i,j,iwf,iwb,iwf2,l,k,ik,iq,ikq,kq_ind(nkp,nqp)
-  real*8 :: iw_data(-iwmax:iwmax-1)
-  complex(kind=8) :: siw(-iwmax:iwmax-1,ndims)
-  complex(kind=8) :: hk(ndim,ndim,nkp)
-  double precision :: dc(2,ndim)
-  complex(kind=8) :: gkiw(ndim,ndim)
-
-  !subtract -1 in the diagonal of the orbital blocks:
-  do i1=1,ndim2
-     do dum=0,2*iwfmax_small-1
-        
-        interm3_dens(i1,i1+dum*ndim2) = interm3_dens(i1,i1+dum*ndim2)-1.d0
-        interm3_magn(i1,i1+dum*ndim2) = interm3_magn(i1,i1+dum*ndim2)-1.d0
-
-     enddo
-  enddo
-  
-
-  !call cpu_time(finish)
-  !write(*,*)'doing matrix multiplication:', finish-start
-
-
-  
-  !call cpu_time(start)
-
-  !EQUATION OF MOTION:
-  allocate(m_work(ndim2, maxdim), m_tot(ndim2, maxdim), u_work(ndim2,ndim2))
-  m_work = 0.d0
-  m_tot = 0.d0
-  u_work = 0.d0
-
-  !density part:
-  u_work = v + u - 0.5d0*u_tilde
-
-  !subtract dmft part (dmft self energy will be added in the end):
-  interm3_dens = interm3_dens - gamma_dmft_dens
-  
-  alpha = 1.d0
-  delta = 0.d0
-  call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, interm3_dens, ndim2, delta, m_work, ndim2)
-
-  m_tot = m_work
-
-  !magnetic part:
-  u_work = -1.5d0*u_tilde
-  m_work = 0.d0
-
-  !subtract dmft part:
-  interm3_magn = interm3_magn - gamma_dmft_magn
-
-  alpha = 1.d0
-  delta = 0.d0
-  call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, interm3_magn, ndim2, delta, m_work, ndim2)
-
-  m_tot = m_tot + m_work
-
-  !local part:
-  u_work = v + u
-  m_work = 0.d0
-
-  gamma_loc_sum_left = gamma_loc_sum_left - gamma_dmft_dens
-  
-  alpha = 1.d0
-  delta = 0.d0
-  call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, gamma_loc_sum_left, ndim2, delta, m_work, ndim2)
-
-  m_tot = m_tot - m_work
-
-  !break up the compound index:
-  allocate(m_tot_array(ndim,ndim,ndim,ndim,-iwfmax_small:iwfmax_small))
-  m_tot_array = 0.d0
-
-  i1 = 0
-  do i=1,ndim
-     do j=1,ndim
-        i1 = i1+1
-        i2 = 0
-        do iwf2=-iwfmax_small,iwfmax_small-1
-           do l=1,ndim
-              do k=1,ndim
-                 i2 = i2+1
-                 
-                 m_tot_array(i,j,k,l,iwf2) = m_tot(i1,i2)
-              enddo
-           enddo
-        enddo
-     enddo
-  enddo
-
-  
-  !compute k-dependent self energy:
-  do ik=1,nkp
-     ikq = kq_ind(ik,iq) 
-     do iwf=-iwfmax_small,iwfmax_small-1
-
-        call get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
-        
-        do i=1,ndim
-           do l=1,ndim
-              do j=1,ndim
-                 do k=1,ndim
-
-                    sigma(i,l,iwf,ik) = sigma(i,l,iwf,ik)+m_tot_array(i,j,k,l,iwf)*gkiw(k,j)
-                    !sigma(i,l,iwf,ik) = sigma(i,l,iwf,ik)+m_tot_array(i,j,j,l,iwf)*gkiw(j,j) !test
-                 enddo
-              enddo
-           enddo
-        enddo
-
-     enddo
-  enddo
-             
-
-  deallocate(m_tot, m_tot_array, m_work, u_work)
-
-end subroutine calc_eom
-
-subroutine calc_chi_qw(chi_qw,interm3,chi0_sum)
-  use parameters_module
-  implicit none
-  complex(kind=8) :: chi_qw(ndim2,ndim2)
-  complex(kind=8) :: interm3(ndim2,maxdim)
-  complex(kind=8) :: chi0_sum(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)
-
-  do i1=1,2*iwfmax_small
-    do i2=1,ndim2
-      do i3=1,ndim2
-        do i4=1,ndim2
-          chi_qw(i2,i3)=chi_qw(i2,i3)+interm3(i2,(i1-1)*ndim2+i4)*chi0_sum(i4,i3,i1-1-iwfmax_small)
-        end do
-      end do
-    end do
-  end do
-
-end subroutine calc_chi_qw
-
-subroutine get_giw(iw_data, hk, siw, dc, giw)
-  use lapack_module
-  use parameters_module
-  implicit none
- 
-  double precision :: iw_data(-iwmax:iwmax-1)
-  complex(kind=8) :: hk(ndim,ndim,nkp)
-  complex(kind=8) :: siw(-iwmax:iwmax-1,ndims)
-  double precision :: dc(2,ndim)
-  integer :: ik, iw, i
-  complex(kind=8) :: g(ndim,ndim), g2(ndim,ndim)
-  complex(kind=8), intent (out) :: giw(-iwmax:iwmax-1,ndim)
-
-  giw = 0.d0
-  do ik=1,nkp
-     g(:,:) = -hk(:,:,ik)
-     do iw=0,iwmax-1 !use symmetry of giw(-w)=giw^*(w) 
-        do i=1,ndim
-           g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)
-        enddo
-        do i=1,ndims
-           g(i,i) = g(i,i)-siw(iw,i) !no spin dependence in single particle Greens function
-        enddo
-        g2 = g(:,:)
-        call inverse_matrix(g2)
-        do i=1,ndim
-           giw(iw,i) = giw(iw,i)+g2(i,i)
-        enddo
-     enddo
-  enddo
-
-  do iw=0,iwmax-1
-     do i=1,ndim
-        giw(-iw-1,i) = real(giw(iw,i),kind=8)-ci*aimag(giw(iw,i))
-     enddo
-  enddo
-
-  giw = giw/dble(nkp)
-
-end subroutine get_giw
-
-
-
-subroutine get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
-  use lapack_module
-  use parameters_module
-  implicit none
-  integer :: i
-  integer :: iwf, iwb, ikq
-  double precision :: iw_data(-iwmax:iwmax-1)
-  complex(kind=8) :: hk(ndim,ndim,nkp)
-  complex(kind=8) :: siw(-iwmax:iwmax-1,ndims)
-  double precision :: dc(2,ndim)
-  complex(kind=8), intent(out) :: gkiw(ndim,ndim)
-
-  
-  gkiw(:,:) = -hk(:,:,ikq)
-  do i=1,ndim
-     gkiw(i,i) = ci*iw_data(iwf-iwb)+mu-hk(i,i,ikq)-dc(1,i)
-  enddo
-  do i=1,ndims
-  gkiw(i,i) = gkiw(i,i)-siw(iwf-iwb,i) 
-  enddo
-  call inverse_matrix(gkiw)
-  
-  
-end subroutine get_gkiw
-
-
-
-subroutine get_chi0_loc(beta, iwf, iwb, giw, chi0_loc)
-  use parameters_module
-  implicit none
-  integer :: i, j, k, l
-  integer :: iwf, iwb
-  double precision :: beta
-  complex(kind=8) :: giw(-iwmax:iwmax-1,ndim)
-  complex(kind=8), intent(out) :: chi0_loc(ndim*ndim,ndim*ndim)
-  
-  chi0_loc = 0.d0
-  i1 = 0
-  do i=1,ndim
-     do j=1,ndim
-        i1=i1+1
-        i2=0
-        do l=1,ndim
-           do k=1,ndim
-              i2=i2+1
-              if(i==l .and. j==k)then
-                 chi0_loc(i1,i2) = - beta*giw(iwf,i)*giw(iwf-iwb,j)
-              endif
-           enddo
-        enddo
-     enddo
-  enddo
-
-end subroutine get_chi0_loc
-  
-  
-subroutine get_chi0_loc_inv(beta, iwf, iwb, giw, chi0_loc)
-  use parameters_module
-  implicit none
-  integer :: i, j, k, l
-  integer :: iwf, iwb
-  double precision :: beta
-  complex(kind=8) :: giw(-iwmax:iwmax-1,ndim)
-  complex(kind=8), intent(out) :: chi0_loc(ndim*ndim,ndim*ndim)
-  
-  chi0_loc = 0.d0
-  i1 = 0
-  do i=1,ndim
-     do j=1,ndim
-        i1=i1+1
-        i2=0
-        do l=1,ndim
-           do k=1,ndim
-              i2=i2+1
-              if(i==l .and. j==k)then
-                 chi0_loc(i1,i2) = -1.d0/(beta*giw(iwf,i)*giw(iwf-iwb,j))
-              endif
-           enddo
-        enddo
-     enddo
-  enddo
-
-end subroutine get_chi0_loc_inv
-
-
-subroutine get_chi0(beta, ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
-  use lapack_module
-  use parameters_module
-  implicit none
-  integer :: i, j, k, l
-  integer :: iwf, iwb, ik, ikq
-  complex(kind=8) :: g1(ndim,ndim), g2(ndim,ndim)
-  double precision :: iw_data(-iwmax:iwmax-1)
-  complex(kind=8) :: hk(ndim,ndim,nkp)
-  complex(kind=8) :: siw(-iwmax:iwmax-1,ndims)
-  double precision :: dc(2,ndim), beta
-  complex(kind=8), intent(out) :: chi0(ndim*ndim,ndim*ndim)
-
-  g1(:,:) = -hk(:,:,ik)
-  do i=1,ndim
-     g1(i,i) = ci*iw_data(iwf)+mu-hk(i,i,ik)-dc(1,i)
-  enddo
-  do i=1,ndims
-  g1(i,i) = g1(i,i)-siw(iwf,i) 
-  enddo
-  call inverse_matrix(g1)
-
-  g2(:,:) = -hk(:,:,ikq)
-  do i=1,ndim
-     g2(i,i) = ci*iw_data(iwf-iwb)+mu-hk(i,i,ikq)-dc(1,i)
-  enddo
-  do i=1,ndims
-  g2(i,i) = g2(i,i)-siw(iwf-iwb,i) 
-  enddo
-  call inverse_matrix(g2)
-  
-  chi0 = 0.d0
-  i1 = 0
-  do i=1,ndim
-     do j=1,ndim
-        i1=i1+1
-        i2=0
-        do l=1,ndim
-           do k=1,ndim
-              i2=i2+1
-              chi0(i1,i2) = - beta*g1(i,l)*g2(k,j)
-           enddo
-        enddo
-     enddo
-  enddo
-
-end subroutine get_chi0
-
 
 
 subroutine component2index_band(Nbands, ind, b1, b2, b3, b4)
