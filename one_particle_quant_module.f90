@@ -75,12 +75,11 @@ end subroutine get_gkiw
 
 
 
-subroutine get_chi0_loc(beta, iwf, iwb, giw, chi0_loc)
+subroutine get_chi0_loc(iwf, iwb, giw, chi0_loc)
   use parameters_module
   implicit none
   integer :: i, j, k, l
   integer :: iwf, iwb
-  double precision :: beta
   complex(kind=8) :: giw(-iwmax:iwmax-1,ndim)
   complex(kind=8), intent(out) :: chi0_loc(ndim*ndim,ndim*ndim)
   
@@ -104,12 +103,11 @@ subroutine get_chi0_loc(beta, iwf, iwb, giw, chi0_loc)
 end subroutine get_chi0_loc
   
   
-subroutine get_chi0_loc_inv(beta, iwf, iwb, giw, chi0_loc)
+subroutine get_chi0_loc_inv(iwf, iwb, giw, chi0_loc)
   use parameters_module
   implicit none
   integer :: i, j, k, l
   integer :: iwf, iwb
-  double precision :: beta
   complex(kind=8) :: giw(-iwmax:iwmax-1,ndim)
   complex(kind=8), intent(out) :: chi0_loc(ndim*ndim,ndim*ndim)
   
@@ -133,7 +131,7 @@ subroutine get_chi0_loc_inv(beta, iwf, iwb, giw, chi0_loc)
 end subroutine get_chi0_loc_inv
 
 
-subroutine get_chi0(beta, ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
+subroutine get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
   use lapack_module
   use parameters_module
   implicit none
@@ -143,7 +141,7 @@ subroutine get_chi0(beta, ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
   double precision :: iw_data(-iwmax:iwmax-1)
   complex(kind=8) :: hk(ndim,ndim,nkp)
   complex(kind=8) :: siw(-iwmax:iwmax-1,ndims)
-  double precision :: dc(2,ndim), beta
+  double precision :: dc(2,ndim)
   complex(kind=8), intent(out) :: chi0(ndim*ndim,ndim*ndim)
 
   g1(:,:) = -hk(:,:,ik)

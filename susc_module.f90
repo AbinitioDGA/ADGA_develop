@@ -1,6 +1,5 @@
 module susc_module
   use parameters_module
-  use one_particle_quant_module
   implicit none
 
   contains

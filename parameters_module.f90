@@ -6,7 +6,7 @@ module parameters_module
   parameter (ci=(0.d0,1.d0))
   integer :: nkp, ndim, ndims, ndim2, maxdim,i1,i2,i3,i4
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,nk_frac
-  double precision :: mu
+  double precision :: mu, beta
   integer :: nqp
   character(len=100) :: filename,filename_vertex,filename_umatrix,output_dir
   logical :: orb_sym,small_freq_box

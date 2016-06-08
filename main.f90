@@ -63,7 +63,6 @@ program main
   complex(kind=8), allocatable :: m_tot(:,:), m_tot_array(:,:,:,:,:), gamma_loc(:,:), gamma_loc_sum_left(:,:), v(:,:)
 
   complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_sum(:,:,:,:), sigma_loc(:,:,:)
-  double precision :: beta
   integer(hsize_t) ::  inull
   integer :: iwb_zero, iband, ispin
 
@@ -484,7 +483,7 @@ start = mpi_wtime()
      update_chi_loc_flag = qw(1,iqw) .ne. iwb
      iq = qw(2,iqw)
      iwb = qw(1,iqw)
-
+  
      !Output the calculation progress
      if (mpi_wrank .eq. master) then
        write(*,*) 'iqw/qwstart/qwstop on master',iqw,"/",qwstart,"/",qwstop
@@ -499,7 +498,7 @@ start = mpi_wtime()
         !call cpu_time(start)
         do iwf=-iwfmax,iwfmax-1
            ! compute local bubble chi0_loc^{-1}(i1,i2)(orbital compound index i1,i2):
-           call get_chi0_loc_inv(beta, iwf, iwb, giw, chi0_loc_inv(:,:,iwf))
+           call get_chi0_loc_inv(iwf, iwb, giw, chi0_loc_inv(:,:,iwf))
 
            ! test chi0_loc_inv:
            !  open(36, file="chi0_loc_inv.dat", status='unknown')
@@ -699,7 +698,7 @@ start = mpi_wtime()
 !        chi0_sum = 0.d0
         do ik=1,nkp
            ikq = kq_ind(ik,iq) !Index of G(k+q)
-           call get_chi0(beta, ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0(:,:,iwf)) 
+           call get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0(:,:,iwf)) 
 
            !call get_chi0_loc(beta, iwf,iwb,giw,chi0_sum)
            
@@ -923,11 +922,11 @@ start = mpi_wtime()
 
 
 
-     !if (do_chi) then
+     if (do_chi) then
        ! Calculation of q dependent susceptibility by multiplication with chi0
-     !   call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
-     !   call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
-     !end if
+        call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
+        call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
+     end if
      if (do_eom) then
        !equation of motion     
         call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,v,u_tilde,hk,dc,siw)
@@ -950,25 +949,9 @@ start = mpi_wtime()
   if (do_eom) then
     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp))
     allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1))
- 
     call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
-    sigma_sum = -sigma_sum/(beta*nqp)
-   
-     ! local contribution is replaced by the DMFT self energy for better asymptotics
-    do ik=1,nkp
-       do iwf=-iwfmax_small,iwfmax_small-1
-          do iband=1,ndim
-             sigma_sum(iband, iband, iwf, ik) = sigma_sum(iband, iband, iwf, ik) + siw(iwf, iband)
-          enddo
-       enddo
-    enddo
+ end if
 
-    sigma_loc = 0.d0
-    do ik=1,nkp
-      sigma_loc(:,:,:) = sigma_loc(:,:,:)+sigma_sum(:,:,:,ik)
-    enddo
-    sigma_loc = sigma_loc/dble(nkp)
-  end if
   if (do_chi) then
     if (mpi_wrank.eq.master) then
       call MPI_reduce(MPI_IN_PLACE,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
@@ -984,7 +967,7 @@ start = mpi_wtime()
 ! Output
   if (mpi_wrank .eq. master) then
     if (do_eom) then
-       call output_eom(iw_data,k_data,sigma_sum,sigma_loc)
+       call output_eom(iw_data, k_data, sigma_sum, siw)
     end if
     if (do_chi) then
        call output_chi_qw(chi_qw_dens,iw_data,q_data,qw,'chi_qw_dens.dat')

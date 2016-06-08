@@ -135,14 +135,32 @@ end subroutine calc_eom
 
 
 
-subroutine output_eom(iw_data,k_data,sigma_sum,sigma_loc)
+subroutine output_eom(iw_data,k_data,sigma_sum, siw)
   use parameters_module
   implicit none
-  real*8 :: iw_data(-iwmax:iwmax-1)
-  real*8 :: k_data(3,nkp)
+  real*8, intent(in) :: iw_data(-iwmax:iwmax-1)
+  real*8, intent(in) :: k_data(3,nkp)
+  complex(kind=8), intent(in) :: siw(-iwmax:iwmax-1,ndims) 
   complex(kind=8) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
   complex(kind=8) :: sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1)
   integer :: ik,iwf,i,iband
+
+  sigma_sum = -sigma_sum/(beta*nqp)
+
+  ! local contribution is replaced by the DMFT self energy for better asymptotics
+    do ik=1,nkp
+       do iwf=-iwfmax_small,iwfmax_small-1
+          do iband=1,ndim
+             sigma_sum(iband, iband, iwf, ik) = sigma_sum(iband, iband, iwf, ik) + siw(iwf, iband)
+          enddo
+       enddo
+    enddo
+
+    sigma_loc = 0.d0
+    do ik=1,nkp
+      sigma_loc(:,:,:) = sigma_loc(:,:,:)+sigma_sum(:,:,:,ik)
+    enddo
+    sigma_loc = sigma_loc/dble(nkp)
 
   open(34, file=trim(output_dir)//"siw_0_0_0_nostraight.dat", status='unknown')
   open(35, file=trim(output_dir)//"siw_0_0_0.5_nostraight.dat", status='unknown')

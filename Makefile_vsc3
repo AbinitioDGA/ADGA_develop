@@ -31,7 +31,7 @@ vertex_chann_sym: $(OBJECTS)
 main.o: parameters_module.o index.o lapack_module.o one_particle_quant_module.o susc_module.o eom_module.o
 vertex_chann_sym.o: hdf5_module.o
 eom_module.o: parameters_module.o one_particle_quant_module.o
-susc_module.o: parameters_module.o one_particle_quant_module.o
+susc_module.o: parameters_module.o 
 one_particle_quant_module.o: lapack_module.o parameters_module.o
 
 %.o: %.f90
