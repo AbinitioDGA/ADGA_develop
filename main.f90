@@ -40,7 +40,7 @@ program main
   
   integer :: iw, ik, iq, ikq, iwf, iwb, iv, i, j, k, l, n, dum, dum1, nk, nq, ind_iwb, ind_grp, iwf1, iwf2
   integer :: imembers
-  complex(kind=8), allocatable :: giw(:,:), gkiw(:,:)
+  complex(kind=8), allocatable :: giw(:,:)
   complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:) 
   double precision, allocatable :: tmp_r(:,:), tmp_i(:,:)
   complex(kind=8), allocatable :: chi0_loc(:,:), chi0_loc_inv(:,:,:), chi0(:,:,:), chi0_sum(:,:,:), chi_loc_slice_dens(:,:), sum_chi0_loc(:,:)
@@ -54,13 +54,13 @@ program main
   real(kind=8 ):: start, finish, start1, finish1
   complex(kind=8) :: alpha, delta
   integer :: iqw, qwstart, qwstop
-  logical :: update_chi_loc_flag!, small_freq_box, orb_sym
+  logical :: update_chi_loc_flag
   integer :: b1, b2, b3, b4
 
   double precision :: u_value, kx, ky, kz
   double precision, allocatable :: u_tmp(:,:,:,:), u_tilde_tmp(:,:,:,:), hr(:,:), hi(:,:)
   complex(kind=8), allocatable :: u(:,:), u_tilde(:,:) 
-  complex(kind=8), allocatable :: m_tot(:,:), m_tot_array(:,:,:,:,:), gamma_loc(:,:), gamma_loc_sum_left(:,:), v(:,:)
+  complex(kind=8), allocatable :: gamma_loc(:,:), gamma_loc_sum_left(:,:), v(:,:)
 
   complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_sum(:,:,:,:), sigma_loc(:,:,:)
   integer(hsize_t) ::  inull
@@ -100,6 +100,34 @@ program main
   !ndims or siw_dims(3)   number of d-bands
 
 !#################################################################
+
+
+! read  external w2wannier Hamitonian:
+!  open(21, file="SVO_k20.hk", status='unknown')
+
+!  read(21,*) nkp,ndim
+!  allocate(hr(ndim,ndim),hi(ndim,ndim))
+!  allocate(hk(ndim,ndim,nkp))
+!  allocate(k_data(3,nkp))
+
+!  do ik=1,nkp
+
+!     read(21,*)kx,ky,kz
+!     k_data(1,ik) = kx
+!     k_data(2,ik) = ky
+!     k_data(3,ik) = kz
+
+!     do i=1,ndim
+!        read(21,*) (hr(i,j),hi(i,j),j=1,ndim)
+!     enddo
+
+!     hk(:,:,ik)=hr(:,:)+ci*hi(:,:)
+   
+!  enddo
+
+!  close(21)
+
+
  
   
 !##################  READ W2DYNAMICS HDF5 OUTPUT FILE  #####################################
@@ -148,6 +176,7 @@ program main
      write(*,*) 'Error: Maximum number of fermionic frequencies =', iwfmax
   endif
   write(*,*) 'iwfmax=', iwfmax, 'iwfmax_small=', iwfmax_small
+
 ! read bosonic Matsubara frequencies iwb-g4:
   call h5dopen_f(file_vert_id, ".axes/iwb-g4", iwb_id, error)
   call h5dget_space_f(iwb_id, iwb_space_id, error)
@@ -270,14 +299,14 @@ program main
   call h5dclose_f(hk_id, error)
 
 ! test hk:
-  open(34, file=trim(output_dir)//"hk.dat", status='unknown')
-  do ik=1,hk_dims(3)
-     write(34,*)k_data(:,ik)
-     do i=1,hk_dims(2)
-        write(34,'(100F12.6)')hk(:,i,ik)
-     enddo
-  enddo
-  close(34)
+!  open(34, file=trim(output_dir)//"hk.dat", status='unknown')
+!  do ik=1,hk_dims(3)
+!     write(34,*)k_data(:,ik)
+!     do i=1,hk_dims(2)
+!        write(34,'(100F12.6)')hk(:,i,ik)
+!     enddo
+!  enddo
+!  close(34)
 
   maxdim = ndim*ndim*2*iwfmax_small
   ndim2 = ndim*ndim
@@ -356,13 +385,8 @@ program main
 !################################################################################################
 
 ! compute local single-particle Greens function:
-  call cpu_time(start)
-
 !  allocate(giw(-iwmax:iwmax-1),ndim) 
 !  call get_giw(iw_data, hk, siw, dc, giw)
-!  call cpu_time(finish)
-
-  !write(*,*)'computing giw:', finish-start
  
 ! test giw:
   open(35, file=trim(output_dir)//"giw_calc.dat", status='unknown')
@@ -394,10 +418,7 @@ program main
   allocate(interm3_dens(ndim2,maxdim))!allocate somewhere else?
   allocate(interm3_magn(ndim2,maxdim))
   allocate(gamma_loc_sum_left(ndim2,maxdim))
-
-  allocate(gkiw(ndim,ndim))
   allocate(sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
-
   allocate(v(ndim2,ndim2))
 
 
@@ -494,33 +515,19 @@ start = mpi_wtime()
 
      !update chi_loc only if iwb is different than the previous one:
      if(update_chi_loc_flag) then    
-  
-        !call cpu_time(start)
-        do iwf=-iwfmax,iwfmax-1
-           ! compute local bubble chi0_loc^{-1}(i1,i2)(orbital compound index i1,i2):
-           call get_chi0_loc_inv(iwf, iwb, giw, chi0_loc_inv(:,:,iwf))
-
-           ! test chi0_loc_inv:
-           !  open(36, file="chi0_loc_inv.dat", status='unknown')
-           !  do i1=1,ndim2
-           !     do i2=1,ndim2
-           !        write(36,*)i1,i2,chi0_loc_inv(i1,i2,iwf)
-           !     enddo
-           !  enddo
-
-        enddo
-        !call cpu_time(finish)
-        !write(*,*) 'calculating chi0_loc_inv', finish-start
         
-        !call cpu_time(start)
-
+        ! compute local bubble chi0_loc^{-1}(i1,i2)(orbital compound index i1,i2):
+        do iwf=-iwfmax,iwfmax-1
+           call get_chi0_loc_inv(iwf, iwb, giw, chi0_loc_inv(:,:,iwf))
+        enddo
+       
         !get iwb-slice of w2dynamics vertex:
         allocate(g4iw_magn(ndims, ndims, -iwfmax:iwfmax-1, ndims, ndims, -iwfmax:iwfmax-1))
         allocate(g4iw_dens(ndims, ndims, -iwfmax:iwfmax-1, ndims, ndims, -iwfmax:iwfmax-1))
         allocate(tmp_r(-iwfmax:iwfmax-1, -iwfmax:iwfmax-1))
         allocate(tmp_i(-iwfmax:iwfmax-1, -iwfmax:iwfmax-1))
         tmp_dims = (/2*iwfmax, 2*iwfmax/)
-
+        
         g4iw_magn = 0.d0
         g4iw_dens = 0.d0
  
@@ -572,9 +579,6 @@ start = mpi_wtime()
         chi_loc_magn = 0.d0
         chi_loc_dens = 0.d0
 
-        !open(73, file="chi_loc_magn_before.dat", status='unknown') !test
-        !open(74, file="chi_loc_magn_after.dat", status='unknown') !test
-        
         i2 = 0
         do iwf2=-iwfmax_small,iwfmax_small-1
            do l=1,ndim
@@ -588,18 +592,10 @@ start = mpi_wtime()
                           chi_loc_magn(i1,i2) = g4iw_magn(i,j,iwf1,k,l,iwf2)
                           chi_loc_dens(i1,i2) = g4iw_dens(i,j,iwf1,k,l,iwf2)
 
-                           !if (iwf2==0 .and. iwb==1)then !test
-                           !     write(73,'(100F12.6)') iw_data(iwf1), chi_loc_magn(i1,i2)
-                           !  endif
-
                           !straight term is subtracted (twice) only in the dens channel and only for iw=0:
                           if((iwb .eq. iwb_zero) .and. i==j .and. k==l)then
                              chi_loc_dens(i1,i2) = chi_loc_dens(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l) 
                           endif
-
-                         !if (iwf2==0 .and. iwb==1)then !test
-                         !       write(74,'(100F12.6)') iw_data(iwf1), chi_loc_magn(i1,i2)
-                         !endif
 
                        enddo
                     enddo
@@ -608,25 +604,18 @@ start = mpi_wtime()
            enddo
         enddo
 
-        !close(73) !test
-        !close(74)
-
         deallocate(g4iw_magn, g4iw_dens, tmp_r, tmp_i)
        
         !time reversal symmetry (which is simply a transpose in our compound index)
         do i1=1,maxdim
            do i2=i1+1,maxdim
-
               chi_loc_magn(i1,i2) = 0.5d0*(chi_loc_magn(i1,i2)+chi_loc_magn(i2,i1))
               chi_loc_magn(i2,i1) = chi_loc_magn(i1,i2)
 
               chi_loc_dens(i1,i2) = 0.5d0*(chi_loc_dens(i1,i2)+chi_loc_dens(i2,i1))
               chi_loc_dens(i2,i1) = chi_loc_dens(i1,i2)
-
            enddo
         enddo
-
-        
 
         !compute chi_loc*chi0_loc_inv (chi0_loc_inv is diagonal in compound index):
         !use blas-routine instead?
@@ -634,30 +623,25 @@ start = mpi_wtime()
         do iwf=-iwfmax_small,iwfmax_small-1
            do i2=1,ndim2
               do i1=1,maxdim
-           
                  chi_loc_magn(i1,i2+dum*ndim2) = chi_loc_magn(i1,i2+dum*ndim2)*chi0_loc_inv(i2,i2,iwf)
                  chi_loc_dens(i1,i2+dum*ndim2) = chi_loc_dens(i1,i2+dum*ndim2)*chi0_loc_inv(i2,i2,iwf)
-
               enddo
            enddo
            dum = dum+1
         enddo
 
-           
         !sum up the left fermionic frequency of chi_loc (quantity needed afterwards)
         chi_loc_magn_sum_left = 0.d0
         chi_loc_dens_sum_left = 0.d0
 
         do i1=1,ndim2
            do dum=0,2*iwfmax_small-1
-              
               chi_loc_magn_sum_left(i1,:) = chi_loc_magn_sum_left(i1,:)+chi_loc_magn(i1+dum*ndim2,:)
               chi_loc_dens_sum_left(i1,:) = chi_loc_dens_sum_left(i1,:)+chi_loc_dens(i1+dum*ndim2,:)
-              
            enddo
         enddo
         
-        !call cpu_time(finish)
+       
         gamma_dmft_dens = 0.d0
         gamma_dmft_magn = 0.d0
 
@@ -672,10 +656,8 @@ start = mpi_wtime()
               gamma_dmft_magn(i1,i1+dum*ndim2) = chi_loc_magn_sum_left(i1,i1+dum*ndim2)-1.d0
            enddo
         enddo
-        !write(*,*)'update local quantities:', finish-start
       
-     endif
-
+     endif !update local quantities
 
      dum1 = 0 !index for second matrix multiplication to get interm2
      
@@ -685,41 +667,25 @@ start = mpi_wtime()
      interm2_dens = 0.d0
      interm2_magn = 0.d0
      gamma_loc = 0.d0
-
-     !chi_loc_magn = 0.d0 !only for test reason (when chi_loc_magn is replaced with chi0_loc) 
-     sum_chi0_loc = 0.d0  !only to test summed up local bubble
-
-     !call cpu_time(start)
      chi0_sum=0.d0
+
      do iwf=-iwfmax_small,iwfmax_small-1
        
         ! compute k-summed (but still q-dependent) bubble chi0(i1,i2):
-        !replace chi0_sum with chi0_loc for dmft test!!!!!!
-!        chi0_sum = 0.d0
         do ik=1,nkp
            ikq = kq_ind(ik,iq) !Index of G(k+q)
            call get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0(:,:,iwf)) 
-
-           !call get_chi0_loc(beta, iwf,iwb,giw,chi0_sum)
-           
            chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)+chi0(:,:,iwf)
         enddo
         chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)/dble(nkp)
 
-        !test local bubble:
-        sum_chi0_loc = sum_chi0_loc + chi0_sum(:,:,iwf)
-
-        
         ! compute intermediate quantity chi0*chi0_loc_inv (chi0_loc_inv is diagonal):
         do j=1,ndim2
            do i=1,ndim2
-
               interm1(i,j) = chi0_sum(i,j,iwf)*chi0_loc_inv(j,j,iwf) !remove one index for chi0_loc_inv
-          
-           enddo
+          enddo
         enddo
         
-
         ! compute part containing nonlocal interaction v: chi0*v
         ! do it with matrix multiplication routine?
         interm1_v = 0.d0
@@ -727,9 +693,7 @@ start = mpi_wtime()
         do i=1,ndim2
            do j=1,ndim2
               do k=1,ndim2
-                    
                  interm1_v(i,j) = interm1_v(i,j)+chi0_sum(i,k,iwf)*v(k,j)
-                 
               enddo
            enddo
         enddo
@@ -740,36 +704,7 @@ start = mpi_wtime()
         chi_loc_slice_magn(:,:) = chi_loc_magn((dum1*ndim2)+1 : (dum1+1)*ndim2, :)
         chi_loc_slice_dens(:,:) = chi_loc_dens((dum1*ndim2)+1 : (dum1+1)*ndim2, :)
         
-             
-!########################################################################
 
-        !test, replace chi_loc by bubble:
-        !chi_loc_slice_magn = 0.d0
-      
- 
-        !call get_chi0_loc(beta, iwf, iwb, giw, chi0_loc)
-
-        !do i=1,ndim2
-        !   do j=1,ndim2
-        !      chi_loc_slice_magn(i,j+(dum1*ndim2)) = chi0_loc(i,j)
-        !   enddo
-        !enddo
-
-        !do i=1,ndim2
-        !   do j=1,ndim2
-        !      chi_loc_magn_sum_left(i,j+(dum1*ndim2)) = chi0_loc(i,j)
-        !   enddo
-        !enddo
-
-        !do i=1,ndim2
-        !   do j=1,ndim2
-        !      chi_loc_magn(i+(dum1*ndim2),j+(dum1*ndim2)) = chi0_loc(i,j)
-        !   enddo
-        !enddo
-
-!########################################################################
-     
-              
         ! compute intermediate quantity (chi0*chi0_loc_inv)*chi_loc:
         c = 0.d0
         alpha = 1.d0
@@ -796,12 +731,10 @@ start = mpi_wtime()
             
              
         ! subtract interm1(diagonal in iwf) from interm2:
-        ! (for 'chi0 test' replace interm1 with chi0_sum)
         do i=1,ndim2
            do j=1,ndim2
               interm2_dens(i+(dum1*ndim2),j+(dum1*ndim2)) = interm2_dens(i+(dum1*ndim2),j+(dum1*ndim2))-interm1(i,j)
               interm2_magn(i+(dum1*ndim2),j+(dum1*ndim2)) = interm2_magn(i+(dum1*ndim2),j+(dum1*ndim2))-interm1(i,j)
-              !interm2_magn(i+(dum1*ndim2),j+(dum1*ndim2)) = interm2_magn(i+(dum1*ndim2),j+(dum1*ndim2))-chi0_sum(i,j)
            enddo
         enddo
 
@@ -840,20 +773,13 @@ start = mpi_wtime()
                     
         dum1 = dum1+1
      enddo !iwf
-
-     !call cpu_time(finish)
-     !write(*,*)'doing the iwf-loop:', finish-start
-
-     !call cpu_time(start)
      
      !sum up left iwf-index of interm2_dens and store the quantity (is afterwards directly used in the EOM):
      gamma_loc_sum_left = 0.d0
 
      do i1=1,ndim2
         do dum=0,2*iwfmax_small-1
-              
            gamma_loc_sum_left(i1,:) = gamma_loc_sum_left(i1,:)+gamma_loc(i1+dum*ndim2,:)
-              
         enddo
      enddo
 
@@ -863,36 +789,11 @@ start = mpi_wtime()
      !construct quantity that is inverted right afterwards:
      interm2_dens = chi_loc_dens-interm2_dens
      interm2_magn = chi_loc_magn-interm2_magn
-
-     !call cpu_time(finish)
-     !write(*,*)'do steps in between:', finish-start
-
-#ifdef MPI
-  start1 = mpi_wtime()
-#endif
-
+     
      call inverse_matrix(interm2_dens)
      call inverse_matrix(interm2_magn)
 
-#ifdef MPI
-  finish1 = mpi_wtime()
-  !if(mpi_wrank .eq. master) then
-  !  write(*,*)'doing inversion:',finish1-start1
-  !endif
-#endif
-       
 
-     !check:
-     !do i=1,maxdim
-     !   do j=1,maxdim
-     !      write(*,*) i, j, interm2_dens(i,j)
-     !   enddo
-     !enddo
-
-     !call cpu_time(finish)
-     !write(*,*)'doing inversion:', finish-start
-     
-     !call cpu_time(start)
 
      !do matrix multiplication chi_loc_sum_left*interm2
      interm3_dens = 0.d0
@@ -912,79 +813,61 @@ start = mpi_wtime()
 
      deallocate(interm2_dens, interm2_magn)
 
-     !output for 'chi0 test' (unitary matrix in orbital compound index):
-     !do i=1,ndim2
-     !   do j=i,maxdim
-     !      write(*,*) i, j, interm3_magn(i,j)
-     !   enddo
-     !enddo
-     !stop
-
-
-
      if (do_chi) then
-       ! Calculation of q dependent susceptibility by multiplication with chi0
+        ! Calculation of q dependent susceptibility by multiplication with chi0
         call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
         call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
      end if
      if (do_eom) then
-       !equation of motion     
+        !equation of motion     
         call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,v,u_tilde,hk,dc,siw)
      end if
-
-     !call cpu_time(finish)
-     !write(*,*)'equation of motion:', finish-start
-     
+  
   enddo !iqw
 
-#ifdef MPI
-  finish = mpi_wtime()
-  if (mpi_wrank .eq. master) then
-    write(*,*)'doing one qw-loop:', finish-start
-  endif
-#endif
   
 #ifdef MPI
-! MPI reduction
+  ! MPI reduction
   if (do_eom) then
-    allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp))
-    allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1))
-    call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
- end if
-
-  if (do_chi) then
-    if (mpi_wrank.eq.master) then
-      call MPI_reduce(MPI_IN_PLACE,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-      call MPI_reduce(MPI_IN_PLACE,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-    else 
-      call MPI_reduce(chi_qw_dens,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-      call MPI_reduce(chi_qw_magn,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-    end if
+     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp))
+     allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1))
+     call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+     sigma_sum = -sigma_sum/(beta*nqp)
+     call add_siw_dmft(siw, sigma_sum, sigma_loc)
   end if
 
+  if (do_chi) then
+     if (mpi_wrank.eq.master) then
+        call MPI_reduce(MPI_IN_PLACE,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+        call MPI_reduce(MPI_IN_PLACE,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+     else 
+        call MPI_reduce(chi_qw_dens,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+        call MPI_reduce(chi_qw_magn,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+     end if
+  end if
+  
   call MPI_finalize(ierr)
 
 ! Output
   if (mpi_wrank .eq. master) then
-    if (do_eom) then
-       call output_eom(iw_data, k_data, sigma_sum, siw)
-    end if
-    if (do_chi) then
-       call output_chi_qw(chi_qw_dens,iw_data,q_data,qw,'chi_qw_dens.dat')
-       call output_chi_qw(chi_qw_magn,iw_data,q_data,qw,'chi_qw_magn.dat')
-    end if    
+     if (do_eom) then
+        call output_eom(iw_data, k_data, sigma_sum, sigma_loc)
+     end if
+     if (do_chi) then
+        call output_chi_qw(chi_qw_dens,iw_data,q_data,qw,'chi_qw_dens.dat')
+        call output_chi_qw(chi_qw_magn,iw_data,q_data,qw,'chi_qw_magn.dat')
+     end if
   endif
   
 #endif
 
-     
 end program main
 
 
+
+
 subroutine component2index_band(Nbands, ind, b1, b2, b3, b4)
-
   implicit none
-
   integer,intent(in) :: Nbands
   integer,intent(in) :: b1, b2, b3, b4
   integer,intent(out) :: ind
@@ -997,9 +880,7 @@ end subroutine component2index_band
 
 ! converting an index into a band pattern
 subroutine index2component_band(Nbands, ind, b1, b2, b3, b4)
-
   implicit none
-
   integer,intent(in) :: Nbands,ind
   integer,intent(out) :: b1, b2, b3, b4
   integer :: tmp1,tmp2,tmp3,ind_tmp
@@ -1016,7 +897,6 @@ subroutine index2component_band(Nbands, ind, b1, b2, b3, b4)
   b2 = (ind_tmp-tmp1*(b1-1))/tmp2 + 1
   b3 = (ind_tmp-tmp1*(b1-1)-tmp2*(b2-1))/tmp3 + 1
   b4 = (ind_tmp-tmp1*(b1-1)-tmp2*(b2-1)-tmp3*(b3-1)) + 1
-
 
 end subroutine index2component_band
 
