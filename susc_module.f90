@@ -10,12 +10,12 @@ module susc_module
       complex(kind=8), intent(out) :: chi_qw(ndim2,ndim2)
       complex(kind=8), intent(in) :: interm3(ndim2,maxdim)
       complex(kind=8), intent(in) :: chi0_sum(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)
-
-      do i1=1,2*iwfmax_small
+      integer :: iwf,iband
+      do i1=1,ndim2
          do i2=1,ndim2
-            do i3=1,ndim2
-               do i4=1,ndim2
-                  chi_qw(i2,i3)=chi_qw(i2,i3)+interm3(i2,(i1-1)*ndim2+i4)*chi0_sum(i4,i3,i1-1-iwfmax_small)
+            do iwf=1,2*iwfmax_small
+               do iband=1,ndim2
+                  chi_qw(i1,i2)=chi_qw(i1,i2)+interm3(i1,(iwf-1)*ndim2+iband)*chi0_sum(iband,i2,iwf-1-iwfmax_small)
                end do
             end do
          end do
