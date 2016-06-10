@@ -24,7 +24,7 @@ LDFLAGS += -lhdf5_fortran -lhdf5hl_fortran -llapack -lblas -limf
 LDINCLUDE += -L/opt/hdf5-1.8.15/lib/
 
 # get source files
-F90_MAIN_SOURCES := main.f90 parameters_module.f90 index.f90 lapack_module.f90 
+F90_MAIN_SOURCES := main.f90 parameters_module.f90 index.f90 lapack_module.f90 one_particle_quant_module.f90 susc_module.f90 eom_module.f90
 F90_SOURCES := vertex_chann_sym.f90 hdf5_module.f90 
 MAIN_OBJECTS := $(patsubst %.f90,%.o,$(F90_MAIN_SOURCES))
 OBJECTS := $(patsubst %.f90,%.o,$(F90_SOURCES))
@@ -38,7 +38,10 @@ main: $(MAIN_OBJECTS)
 vertex_chann_sym: $(OBJECTS) 
 	$(LD) $(OBJECTS) -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
 
-main.o: parameters_module.o index.o lapack_module.o
+main.o: parameters_module.o index.o lapack_module.o one_particle_quant_module.o susc_module.o eom_module.o
+eom_module.o: parameters_module.o one_particle_quant_module.o
+susc_module.o: parameters_module.o 
+one_particle_quant_module.o: lapack_module.o parameters_module.o
 vertex_chann_sym.o: hdf5_module.o
 
 %.o: %.f90
