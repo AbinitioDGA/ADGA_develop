@@ -854,8 +854,8 @@ start = mpi_wtime()
         call output_eom(iw_data, k_data, sigma_sum, sigma_loc)
      end if
      if (do_chi) then
-        call output_chi_qw(chi_qw_dens,iw_data,q_data,qw,'chi_qw_dens.dat')
-        call output_chi_qw(chi_qw_magn,iw_data,q_data,qw,'chi_qw_magn.dat')
+        call output_chi_qw(chi_qw_dens,iwb_data,q_data,qw,'chi_qw_dens.dat')
+        call output_chi_qw(chi_qw_magn,iwb_data,q_data,qw,'chi_qw_magn.dat')
      end if
   endif
   
