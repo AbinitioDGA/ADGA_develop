@@ -39,6 +39,9 @@ module susc_module
 
       ! open file and write head line
       open(unit=10,file=trim(output_dir)//filename_output)
+      ! the file header should contain important information
+      write(10,*) '#iwbmax, nqp, ndim, beta, mu'
+      write(10,*) iwbmax,nqp,ndim,beta,mu
       write(10,*) '#iwb  ','wb    ','iq  ','      (q)      ','chi_qw'
   
       ! loop over all entries
