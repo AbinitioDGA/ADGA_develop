@@ -5,7 +5,7 @@ module one_particle_quant_module
 
   contains
 
-    subroutine get_giw(iw_data, hk, siw, dc, giw)
+subroutine get_giw(iw_data, hk, siw, dc, giw)
   use lapack_module
   use parameters_module
   implicit none

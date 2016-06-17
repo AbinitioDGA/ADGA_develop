@@ -43,10 +43,11 @@ program main
   complex(kind=8), allocatable :: giw(:,:)
   complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:) 
   double precision, allocatable :: tmp_r(:,:), tmp_i(:,:)
-  complex(kind=8), allocatable :: chi0_loc(:,:), chi0_loc_inv(:,:,:), chi0(:,:,:), chi0_sum(:,:,:), chi_loc_slice_dens(:,:), sum_chi0_loc(:,:)
-  complex(kind=8), allocatable ::  chi_loc_slice_magn(:,:), chi_loc_dens(:,:), chi_loc_magn(:,:), chi_loc(:,:)
+  complex(kind=8), allocatable :: chi0_loc(:,:,:), chi0_loc_inv(:,:,:), chi0(:,:,:), chi0_sum(:,:,:), chi_loc_slice_dens(:,:), sum_chi0_loc(:,:)
+  complex(kind=8), allocatable ::  chi_loc_slice_magn(:,:), chi_loc_dens_full(:,:), chi_loc_magn_full(:,:), chi_loc(:,:)
   complex(kind=8), allocatable ::  chi_loc_magn_sum_left(:,:), chi_loc_dens_sum_left(:,:), gamma_dmft_dens(:,:), gamma_dmft_magn(:,:)
-  complex(kind=8), allocatable :: chi_qw_dens(:,:,:),chi_qw_magn(:,:,:)
+  complex(kind=8), allocatable :: chi_qw_dens(:,:,:),chi_qw_magn(:,:,:),bubble(:,:,:),chi_qw_full(:,:,:)
+  complex(kind=8), allocatable :: chi_loc_dens(:,:,:),chi_loc_magn(:,:,:),bubble_loc(:,:,:)
   integer, allocatable :: kq_ind(:,:), qw(:,:)
   complex(kind=8), allocatable :: interm2_magn(:,:), interm3_dens(:,:), interm3_magn(:,:), c(:,:)
   complex(kind=8), allocatable :: interm1(:,:), interm1_v(:,:), interm2_dens(:,:)
@@ -396,7 +397,7 @@ program main
   close(35)
 
 
-  !allocate(chi0_loc(ndim2,ndim2)) !only for test reasons
+  allocate(chi0_loc(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)) 
   allocate(sum_chi0_loc(ndim2,ndim2)) !test
 
   allocate(chi0_loc_inv(ndim2,ndim2,-iwfmax:iwfmax-1))
@@ -411,14 +412,13 @@ program main
   allocate(chi_loc_slice_magn(ndim2,maxdim))
   allocate(chi_loc_dens_sum_left(ndim2,maxdim))
   allocate(chi_loc_magn_sum_left(ndim2,maxdim))
-  allocate(chi_loc_magn(maxdim,maxdim))
-  allocate(chi_loc_dens(maxdim,maxdim))
+  allocate(chi_loc_magn_full(maxdim,maxdim))
+  allocate(chi_loc_dens_full(maxdim,maxdim))
   allocate(c(ndim2,maxdim))
 
   allocate(interm3_dens(ndim2,maxdim))!allocate somewhere else?
   allocate(interm3_magn(ndim2,maxdim))
   allocate(gamma_loc_sum_left(ndim2,maxdim))
-  allocate(sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
   allocate(v(ndim2,ndim2))
 
 
@@ -470,9 +470,6 @@ program main
      enddo
   enddo
 
-  allocate(chi_qw_dens(ndim2,ndim2,nqp*(2*iwbmax_small+1)),chi_qw_magn(ndim2,ndim2,nqp*(2*iwbmax_small+1)))
-
-
 !distribute the qw compound index:
 #ifdef MPI
   qwstop = 0
@@ -486,16 +483,29 @@ program main
   qwstop = nqp*(2*iwbmax_small+1)
 #endif
 
+if (do_chi) then
+  allocate(chi_qw_dens(ndim2,ndim2,qwstart:qwstop),chi_qw_magn(ndim2,ndim2,qwstart:qwstop))
+  allocate(bubble(ndim2,ndim2,qwstart:qwstop))
+  allocate(chi_loc_dens(ndim2,ndim2,-iwbmax_small:iwbmax_small),chi_loc_magn(ndim2,ndim2,-iwbmax_small:iwbmax_small))
+  allocate(bubble_loc(ndim2,ndim2,-iwbmax_small:iwbmax_small))
+  chi_qw_dens=0.d0
+  chi_qw_magn=0.d0
+  bubble=0.d0
+  chi_loc_dens=0.d0
+  chi_loc_magn=0.d0
+  bubble_loc=0.d0
+end if
+
 #ifdef MPI
 write(*,*)'rank=',mpi_wrank, 'qwstart=', qwstart, 'qwstop=', qwstop
 start = mpi_wtime()
 #endif
 
 
-
+if (do_eom) then
+  allocate(sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
   sigma = 0.d0
-  chi_qw_dens=0.d0
-  chi_qw_magn=0.d0
+end if
 
 !  open(55, file=trim(output_dir)//"chi0_loc_sum.dat", status='unknown')
 
@@ -576,8 +586,8 @@ start = mpi_wtime()
 
      
         !compute chi_loc (go into compound index and subtract straight term):
-        chi_loc_magn = 0.d0
-        chi_loc_dens = 0.d0
+        chi_loc_magn_full = 0.d0
+        chi_loc_dens_full = 0.d0
 
         i2 = 0
         do iwf2=-iwfmax_small,iwfmax_small-1
@@ -589,12 +599,12 @@ start = mpi_wtime()
                     do i=1,ndim
                        do j=1,ndim
                           i1 = i1+1
-                          chi_loc_magn(i1,i2) = g4iw_magn(i,j,iwf1,k,l,iwf2)
-                          chi_loc_dens(i1,i2) = g4iw_dens(i,j,iwf1,k,l,iwf2)
+                          chi_loc_magn_full(i1,i2) = g4iw_magn(i,j,iwf1,k,l,iwf2)
+                          chi_loc_dens_full(i1,i2) = g4iw_dens(i,j,iwf1,k,l,iwf2)
 
                           !straight term is subtracted (twice) only in the dens channel and only for iw=0:
                           if((iwb .eq. iwb_zero) .and. i==j .and. k==l)then
-                             chi_loc_dens(i1,i2) = chi_loc_dens(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l) 
+                             chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l) 
                           endif
 
                        enddo
@@ -609,11 +619,11 @@ start = mpi_wtime()
         !time reversal symmetry (which is simply a transpose in our compound index)
         do i1=1,maxdim
            do i2=i1+1,maxdim
-              chi_loc_magn(i1,i2) = 0.5d0*(chi_loc_magn(i1,i2)+chi_loc_magn(i2,i1))
-              chi_loc_magn(i2,i1) = chi_loc_magn(i1,i2)
+              chi_loc_magn_full(i1,i2) = 0.5d0*(chi_loc_magn_full(i1,i2)+chi_loc_magn_full(i2,i1))
+              chi_loc_magn_full(i2,i1) = chi_loc_magn_full(i1,i2)
 
-              chi_loc_dens(i1,i2) = 0.5d0*(chi_loc_dens(i1,i2)+chi_loc_dens(i2,i1))
-              chi_loc_dens(i2,i1) = chi_loc_dens(i1,i2)
+              chi_loc_dens_full(i1,i2) = 0.5d0*(chi_loc_dens_full(i1,i2)+chi_loc_dens_full(i2,i1))
+              chi_loc_dens_full(i2,i1) = chi_loc_dens_full(i1,i2)
            enddo
         enddo
 
@@ -623,21 +633,21 @@ start = mpi_wtime()
         do iwf=-iwfmax_small,iwfmax_small-1
            do i2=1,ndim2
               do i1=1,maxdim
-                 chi_loc_magn(i1,i2+dum*ndim2) = chi_loc_magn(i1,i2+dum*ndim2)*chi0_loc_inv(i2,i2,iwf)
-                 chi_loc_dens(i1,i2+dum*ndim2) = chi_loc_dens(i1,i2+dum*ndim2)*chi0_loc_inv(i2,i2,iwf)
+                 chi_loc_magn_full(i1,i2+dum*ndim2) = chi_loc_magn_full(i1,i2+dum*ndim2)*chi0_loc_inv(i2,i2,iwf)
+                 chi_loc_dens_full(i1,i2+dum*ndim2) = chi_loc_dens_full(i1,i2+dum*ndim2)*chi0_loc_inv(i2,i2,iwf)
               enddo
            enddo
            dum = dum+1
         enddo
 
         !sum up the left fermionic frequency of chi_loc (quantity needed afterwards)
-        chi_loc_magn_sum_left = 0.d0
+        chi_loc_magn_sum_left = 0.d0!von rechts mit chi0_loc mutliplizieren
         chi_loc_dens_sum_left = 0.d0
 
         do i1=1,ndim2
            do dum=0,2*iwfmax_small-1
-              chi_loc_magn_sum_left(i1,:) = chi_loc_magn_sum_left(i1,:)+chi_loc_magn(i1+dum*ndim2,:)
-              chi_loc_dens_sum_left(i1,:) = chi_loc_dens_sum_left(i1,:)+chi_loc_dens(i1+dum*ndim2,:)
+              chi_loc_magn_sum_left(i1,:) = chi_loc_magn_sum_left(i1,:)+chi_loc_magn_full(i1+dum*ndim2,:)
+              chi_loc_dens_sum_left(i1,:) = chi_loc_dens_sum_left(i1,:)+chi_loc_dens_full(i1+dum*ndim2,:)
            enddo
         enddo
         
@@ -668,6 +678,7 @@ start = mpi_wtime()
      interm2_magn = 0.d0
      gamma_loc = 0.d0
      chi0_sum=0.d0
+     chi0_loc=0.d0
 
      do iwf=-iwfmax_small,iwfmax_small-1
        
@@ -678,6 +689,11 @@ start = mpi_wtime()
            chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)+chi0(:,:,iwf)
         enddo
         chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)/dble(nkp)
+
+!        if (do_chi .and. update_chi_loc_flag) then
+        if (do_chi) then! also here, demand iq=1
+          call get_chi0_loc(iwf,iwb,giw,chi0_loc(:,:,iwf))
+        end if
 
         ! compute intermediate quantity chi0*chi0_loc_inv (chi0_loc_inv is diagonal):
         do j=1,ndim2
@@ -701,8 +717,8 @@ start = mpi_wtime()
         interm1_v = interm1_v/(beta**2)
 
         !get horizontal slice of chi_loc for matmul (interm2):
-        chi_loc_slice_magn(:,:) = chi_loc_magn((dum1*ndim2)+1 : (dum1+1)*ndim2, :)
-        chi_loc_slice_dens(:,:) = chi_loc_dens((dum1*ndim2)+1 : (dum1+1)*ndim2, :)
+        chi_loc_slice_magn(:,:) = chi_loc_magn_full((dum1*ndim2)+1 : (dum1+1)*ndim2, :)
+        chi_loc_slice_dens(:,:) = chi_loc_dens_full((dum1*ndim2)+1 : (dum1+1)*ndim2, :)
         
 
         ! compute intermediate quantity (chi0*chi0_loc_inv)*chi_loc:
@@ -787,8 +803,8 @@ start = mpi_wtime()
 
 
      !construct quantity that is inverted right afterwards:
-     interm2_dens = chi_loc_dens-interm2_dens
-     interm2_magn = chi_loc_magn-interm2_magn
+     interm2_dens = chi_loc_dens_full-interm2_dens
+     interm2_magn = chi_loc_magn_full-interm2_magn
      
      call inverse_matrix(interm2_dens)
      call inverse_matrix(interm2_magn)
@@ -817,6 +833,13 @@ start = mpi_wtime()
         ! Calculation of q dependent susceptibility by multiplication with chi0
         call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
         call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
+        call calc_bubble_simple(bubble(:,:,iqw),chi0_sum)
+        ! Calculation of local susceptibility and bubble
+        if (iq.eq.1) then !this should be calculated only once, otherwise wrong result due to mpi_reduce sum.
+          call calc_chi_qw(chi_loc_dens(:,:,iwb),chi_loc_dens_sum_left,chi0_loc)
+          call calc_chi_qw(chi_loc_magn(:,:,iwb),chi_loc_magn_sum_left,chi0_loc)
+          call calc_bubble_simple(bubble_loc(:,:,iwb),chi0_loc)
+        end if
      end if
      if (do_eom) then
         !equation of motion     
@@ -827,35 +850,77 @@ start = mpi_wtime()
 
   
 #ifdef MPI
-  ! MPI reduction
+  ! MPI reduction and output
   if (do_eom) then
      allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp))
      allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1))
      call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      sigma_sum = -sigma_sum/(beta*nqp)
      call add_siw_dmft(siw, sigma_sum, sigma_loc)
+
+     if (mpi_wrank .eq. master) then
+       call output_eom(iw_data, k_data, sigma_sum, sigma_loc)
+     end if
+     deallocate(sigma,sigma_sum,sigma_loc)
   end if
 
   if (do_chi) then
      if (mpi_wrank.eq.master) then
-        call MPI_reduce(MPI_IN_PLACE,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-        call MPI_reduce(MPI_IN_PLACE,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+!        call MPI_reduce(MPI_IN_PLACE,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+!        call MPI_reduce(MPI_IN_PLACE,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+!        call MPI_reduce(MPI_IN_PLACE,bubble,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+        call MPI_reduce(MPI_IN_PLACE,chi_loc_dens,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+        call MPI_reduce(MPI_IN_PLACE,chi_loc_magn,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+        call MPI_reduce(MPI_IN_PLACE,bubble_loc,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
      else 
-        call MPI_reduce(chi_qw_dens,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-        call MPI_reduce(chi_qw_magn,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+!        call MPI_reduce(chi_qw_dens,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+!        call MPI_reduce(chi_qw_magn,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+!        call MPI_reduce(bubble,bubble,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+        call MPI_reduce(chi_loc_dens,chi_loc_dens,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+        call MPI_reduce(chi_loc_magn,chi_loc_magn,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+        call MPI_reduce(bubble_loc,bubble_loc,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
      end if
+
+    allocate(chi_qw_full(1,1,1))
+    if (mpi_wrank .eq. master) then 
+      deallocate(chi_qw_full)
+      allocate(chi_qw_full(ndim2,ndim2,nqp*(2*iwbmax+1))) 
+    end if
+    chi_qw_full=0.d0
+
+    call MPI_gather(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
+
+    if (mpi_wrank .eq. master) then 
+      call output_chi_qw(chi_qw_full,iwb_data,q_data,qw,'chi_qw_dens.dat')
+    end if
+
+    call MPI_gather(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
+
+    if (mpi_wrank .eq. master) then 
+      call output_chi_qw(chi_qw_full,iwb_data,q_data,qw,'chi_qw_magn.dat')
+    end if
+
+    call MPI_gather(bubble,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
+
+    if (mpi_wrank .eq. master) then 
+      call output_chi_qw(chi_qw_full,iwb_data,q_data,qw,'bubble.dat')
+    end if
+
+    deallocate(chi_qw_full)
   end if
   
   call MPI_finalize(ierr)
 
 ! Output
   if (mpi_wrank .eq. master) then
-     if (do_eom) then
-        call output_eom(iw_data, k_data, sigma_sum, sigma_loc)
-     end if
      if (do_chi) then
-        call output_chi_qw(chi_qw_dens,iwb_data,q_data,qw,'chi_qw_dens.dat')
-        call output_chi_qw(chi_qw_magn,iwb_data,q_data,qw,'chi_qw_magn.dat')
+!        call output_chi_qw(chi_qw_dens,iwb_data,q_data,qw,'chi_qw_dens.dat')
+!        call output_chi_qw(chi_qw_magn,iwb_data,q_data,qw,'chi_qw_magn.dat')
+!        call output_chi_qw(bubble,iwb_data,q_data,qw,'bubble.dat')
+        call output_chi_loc(chi_loc_dens,iwb_data,'chi_loc_dens.dat')
+        call output_chi_loc(chi_loc_magn,iwb_data,'chi_loc_magn.dat')
+        call output_chi_loc(bubble_loc,iwb_data,'bubble_loc.dat')
+write(*,*) bubble_loc
      end if
   endif
   
