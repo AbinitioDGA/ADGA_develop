@@ -211,6 +211,7 @@ program main
   siw = siw/2.d0
 
   call h5dclose_f(siw_id, error)
+  deallocate(siw_data)
 
   if (orb_sym) then
 
@@ -248,6 +249,7 @@ program main
   giw = giw/2.d0
 
   call h5dclose_f(giw_id, error)
+  deallocate(giw_data)
   
   if (orb_sym) then
 
@@ -298,6 +300,7 @@ program main
   hk = 0.d0
   hk(:,:,:) = hk_data(1,:,:,:)+ci*hk_data(2,:,:,:)
   call h5dclose_f(hk_id, error)
+  deallocate(hk_data)
 
 ! test hk:
 !  open(34, file=trim(output_dir)//"hk.dat", status='unknown')
@@ -398,26 +401,21 @@ program main
 
 
   allocate(chi0_loc(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)) 
-  allocate(sum_chi0_loc(ndim2,ndim2)) !test
+!  allocate(sum_chi0_loc(ndim2,ndim2)) !test
 
   allocate(chi0_loc_inv(ndim2,ndim2,-iwfmax:iwfmax-1))
-  allocate(chi0(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
   allocate(chi0_sum(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)) 
   
   allocate(interm1(ndim2,ndim2))
   allocate(interm1_v(ndim2,ndim2))
   
   allocate(gamma_dmft_dens(ndim2,maxdim), gamma_dmft_magn(ndim2,maxdim))
-  allocate(chi_loc_slice_dens(ndim2,maxdim))
-  allocate(chi_loc_slice_magn(ndim2,maxdim))
   allocate(chi_loc_dens_sum_left(ndim2,maxdim))
   allocate(chi_loc_magn_sum_left(ndim2,maxdim))
   allocate(chi_loc_magn_full(maxdim,maxdim))
   allocate(chi_loc_dens_full(maxdim,maxdim))
   allocate(c(ndim2,maxdim))
 
-  allocate(interm3_dens(ndim2,maxdim))!allocate somewhere else?
-  allocate(interm3_magn(ndim2,maxdim))
   allocate(gamma_loc_sum_left(ndim2,maxdim))
   allocate(v(ndim2,ndim2))
 
@@ -674,6 +672,9 @@ end if
      allocate(interm2_dens(maxdim,maxdim))
      allocate(interm2_magn(maxdim,maxdim))
      allocate(gamma_loc(maxdim,maxdim))
+     allocate(chi0(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
+     allocate(chi_loc_slice_dens(ndim2,maxdim))
+     allocate(chi_loc_slice_magn(ndim2,maxdim))
      interm2_dens = 0.d0
      interm2_magn = 0.d0
      gamma_loc = 0.d0
@@ -790,6 +791,8 @@ end if
         dum1 = dum1+1
      enddo !iwf
      
+     deallocate(chi0,chi_loc_slice_dens,chi_loc_slice_magn)
+
      !sum up left iwf-index of interm2_dens and store the quantity (is afterwards directly used in the EOM):
      gamma_loc_sum_left = 0.d0
 
@@ -805,11 +808,14 @@ end if
      !construct quantity that is inverted right afterwards:
      interm2_dens = chi_loc_dens_full-interm2_dens
      interm2_magn = chi_loc_magn_full-interm2_magn
-     
+    
+ 
      call inverse_matrix(interm2_dens)
      call inverse_matrix(interm2_magn)
 
 
+     allocate(interm3_dens(ndim2,maxdim))!allocate somewhere else?
+     allocate(interm3_magn(ndim2,maxdim))
 
      !do matrix multiplication chi_loc_sum_left*interm2
      interm3_dens = 0.d0
@@ -845,9 +851,12 @@ end if
         !equation of motion     
         call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,v,u_tilde,hk,dc,siw)
      end if
-  
+    deallocate(interm3_dens,interm3_magn) 
   enddo !iqw
 
+  deallocate(hk,giw,dc,u,u_tilde,chi0_loc,chi0_loc_inv,chi0_sum,interm1,interm1_v,gamma_dmft_dens,gamma_dmft_magn)
+  deallocate(chi_loc_dens_sum_left,chi_loc_magn_sum_left)
+  deallocate(chi_loc_magn_full,chi_loc_dens_full,gamma_loc_sum_left,v,c)
   
 #ifdef MPI
   ! MPI reduction and output
@@ -865,22 +874,16 @@ end if
   end if
 
   if (do_chi) then
-     if (mpi_wrank.eq.master) then
-!        call MPI_reduce(MPI_IN_PLACE,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-!        call MPI_reduce(MPI_IN_PLACE,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-!        call MPI_reduce(MPI_IN_PLACE,bubble,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-        call MPI_reduce(MPI_IN_PLACE,chi_loc_dens,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-        call MPI_reduce(MPI_IN_PLACE,chi_loc_magn,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-        call MPI_reduce(MPI_IN_PLACE,bubble_loc,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-     else 
-!        call MPI_reduce(chi_qw_dens,chi_qw_dens,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-!        call MPI_reduce(chi_qw_magn,chi_qw_magn,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-!        call MPI_reduce(bubble,bubble,ndim2*ndim2*nqp*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-        call MPI_reduce(chi_loc_dens,chi_loc_dens,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-        call MPI_reduce(chi_loc_magn,chi_loc_magn,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-        call MPI_reduce(bubble_loc,bubble_loc,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-     end if
-
+    if (mpi_wrank.eq.master) then
+       call MPI_reduce(MPI_IN_PLACE,chi_loc_dens,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+       call MPI_reduce(MPI_IN_PLACE,chi_loc_magn,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+       call MPI_reduce(MPI_IN_PLACE,bubble_loc,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+    else 
+       call MPI_reduce(chi_loc_dens,chi_loc_dens,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+       call MPI_reduce(chi_loc_magn,chi_loc_magn,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+       call MPI_reduce(bubble_loc,bubble_loc,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+       deallocate(chi_loc_dens,chi_loc_magn,bubble_loc)
+    end if
     allocate(chi_qw_full(1,1,1))
     if (mpi_wrank .eq. master) then 
       deallocate(chi_qw_full)
@@ -889,19 +892,19 @@ end if
     chi_qw_full=0.d0
 
     call MPI_gather(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
-
+    deallocate(chi_qw_dens)
     if (mpi_wrank .eq. master) then 
       call output_chi_qw(chi_qw_full,iwb_data,q_data,qw,'chi_qw_dens.dat')
     end if
 
     call MPI_gather(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
-
+    deallocate(chi_qw_magn)
     if (mpi_wrank .eq. master) then 
       call output_chi_qw(chi_qw_full,iwb_data,q_data,qw,'chi_qw_magn.dat')
     end if
 
     call MPI_gather(bubble,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
-
+    deallocate(bubble)
     if (mpi_wrank .eq. master) then 
       call output_chi_qw(chi_qw_full,iwb_data,q_data,qw,'bubble.dat')
     end if
@@ -914,18 +917,15 @@ end if
 ! Output
   if (mpi_wrank .eq. master) then
      if (do_chi) then
-!        call output_chi_qw(chi_qw_dens,iwb_data,q_data,qw,'chi_qw_dens.dat')
-!        call output_chi_qw(chi_qw_magn,iwb_data,q_data,qw,'chi_qw_magn.dat')
-!        call output_chi_qw(bubble,iwb_data,q_data,qw,'bubble.dat')
         call output_chi_loc(chi_loc_dens,iwb_data,'chi_loc_dens.dat')
         call output_chi_loc(chi_loc_magn,iwb_data,'chi_loc_magn.dat')
         call output_chi_loc(bubble_loc,iwb_data,'bubble_loc.dat')
-write(*,*) bubble_loc
+        deallocate(chi_loc_dens,chi_loc_magn,bubble_loc)
      end if
   endif
   
 #endif
-
+deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,qw)
 end program main
 
 
