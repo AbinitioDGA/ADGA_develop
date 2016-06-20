@@ -43,7 +43,7 @@ program main
   complex(kind=8), allocatable :: giw(:,:)
   complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:) 
   double precision, allocatable :: tmp_r(:,:), tmp_i(:,:)
-  complex(kind=8), allocatable :: chi0_loc(:,:,:), chi0_loc_inv(:,:,:), chi0(:,:,:), chi0_sum(:,:,:), chi_loc_slice_dens(:,:), sum_chi0_loc(:,:)
+  complex(kind=8), allocatable :: chi0_loc(:,:,:), chi0_loc_inv(:,:,:), chi0(:,:), chi0_sum(:,:,:), chi_loc_slice_dens(:,:), sum_chi0_loc(:,:)
   complex(kind=8), allocatable ::  chi_loc_slice_magn(:,:), chi_loc_dens_full(:,:), chi_loc_magn_full(:,:), chi_loc(:,:)
   complex(kind=8), allocatable ::  chi_loc_magn_sum_left(:,:), chi_loc_dens_sum_left(:,:), gamma_dmft_dens(:,:), gamma_dmft_magn(:,:)
   complex(kind=8), allocatable :: chi_qw_dens(:,:,:),chi_qw_magn(:,:,:),bubble(:,:,:),chi_qw_full(:,:,:)
@@ -54,7 +54,7 @@ program main
 
   real(kind=8 ):: start, finish, start1, finish1
   complex(kind=8) :: alpha, delta
-  integer :: iqw, qwstart, qwstop
+  integer :: iqw, qwstart, qwstop,iwstart,iwstop
   logical :: update_chi_loc_flag
   integer :: b1, b2, b3, b4
 
@@ -529,9 +529,12 @@ end if
            call get_chi0_loc_inv(iwf, iwb, giw, chi0_loc_inv(:,:,iwf))
         enddo
         if (do_chi) then
+           call cpu_time(start)
            do iwf=-iwmax+iwbmax,iwmax-iwbmax-1
              call get_chi0_loc(  iwf, iwb, giw, chi0_loc(:,:,iwf))
            enddo
+           call cpu_time(finish)
+           write(*,*) finish-start
         end if
        
 !        if (do_chi .and. update_chi_loc_flag) then
@@ -679,7 +682,7 @@ end if
      allocate(interm2_dens(maxdim,maxdim))
      allocate(interm2_magn(maxdim,maxdim))
      allocate(gamma_loc(maxdim,maxdim))
-     allocate(chi0(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
+     allocate(chi0(ndim2,ndim2))
      allocate(chi_loc_slice_dens(ndim2,maxdim))
      allocate(chi_loc_slice_magn(ndim2,maxdim))
      interm2_dens = 0.d0
@@ -687,15 +690,29 @@ end if
      gamma_loc = 0.d0
      chi0_sum=0.d0
      
-     do iwf=-iwmax+iwbmax,iwmax-iwbmax-1
+     call cpu_time(start)
+     if (do_eom) then 
+       iwstart=-iwfmax_small
+       iwstop=iwfmax_small-1
+     end if
+ 
+     ! use with caution: calculation of chi0_sum in large frequency box takes a lot of time
+     ! not needed for EoM.
+     if (do_chi) then 
+       iwstart=-iwmax+iwbmax
+       iwstop=iwmax-iwbmax-1
+     end if
+     do iwf=iwstart,iwstop
         ! compute k-summed (but still q-dependent) bubble chi0(i1,i2):
         do ik=1,nkp
            ikq = kq_ind(ik,iq) !Index of G(k+q)
-           call get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0(:,:,iwf)) 
-           chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)+chi0(:,:,iwf)
+           call get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0(:,:)) 
+           chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)+chi0(:,:)
         enddo
         chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)/dble(nkp)
      end do
+     call cpu_time(finish)
+     write(*,*) finish-start
 
      do iwf=-iwfmax_small,iwfmax_small-1
         ! compute intermediate quantity chi0*chi0_loc_inv (chi0_loc_inv is diagonal):
