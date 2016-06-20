@@ -400,11 +400,10 @@ program main
   close(35)
 
 
-  allocate(chi0_loc(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)) 
-!  allocate(sum_chi0_loc(ndim2,ndim2)) !test
+  allocate(chi0_loc(ndim2,ndim2,-iwmax+iwbmax:iwmax-iwbmax-1)) 
+  allocate(chi0_sum(ndim2,ndim2,-iwmax+iwbmax:iwmax-iwbmax-1)) 
 
   allocate(chi0_loc_inv(ndim2,ndim2,-iwfmax:iwfmax-1))
-  allocate(chi0_sum(ndim2,ndim2,-iwmax+iwbmax:iwmax-iwbmax-1)) 
   
   allocate(interm1(ndim2,ndim2))
   allocate(interm1_v(ndim2,ndim2))
@@ -524,13 +523,16 @@ end if
      !update chi_loc only if iwb is different than the previous one:
      if(update_chi_loc_flag) then    
         
+        chi0_loc=0.d0
         ! compute local bubble chi0_loc^{-1}(i1,i2)(orbital compound index i1,i2):
         do iwf=-iwfmax,iwfmax-1
            call get_chi0_loc_inv(iwf, iwb, giw, chi0_loc_inv(:,:,iwf))
-           if (do_chi) then
-             call get_chi0_loc(  iwf, iwb, giw, chi0_loc(:,:,iwf))
-           end if
         enddo
+        if (do_chi) then
+           do iwf=-iwmax+iwbmax,iwmax-iwbmax-1
+             call get_chi0_loc(  iwf, iwb, giw, chi0_loc(:,:,iwf))
+           enddo
+        end if
        
 !        if (do_chi .and. update_chi_loc_flag) then
 
@@ -684,7 +686,6 @@ end if
      interm2_magn = 0.d0
      gamma_loc = 0.d0
      chi0_sum=0.d0
-     chi0_loc=0.d0
      
      do iwf=-iwmax+iwbmax,iwmax-iwbmax-1
         ! compute k-summed (but still q-dependent) bubble chi0(i1,i2):
