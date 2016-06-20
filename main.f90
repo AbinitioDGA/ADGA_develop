@@ -404,7 +404,7 @@ program main
 !  allocate(sum_chi0_loc(ndim2,ndim2)) !test
 
   allocate(chi0_loc_inv(ndim2,ndim2,-iwfmax:iwfmax-1))
-  allocate(chi0_sum(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)) 
+  allocate(chi0_sum(ndim2,ndim2,-iwmax+iwbmax:iwmax-iwbmax-1)) 
   
   allocate(interm1(ndim2,ndim2))
   allocate(interm1_v(ndim2,ndim2))
@@ -527,8 +527,13 @@ end if
         ! compute local bubble chi0_loc^{-1}(i1,i2)(orbital compound index i1,i2):
         do iwf=-iwfmax,iwfmax-1
            call get_chi0_loc_inv(iwf, iwb, giw, chi0_loc_inv(:,:,iwf))
+           if (do_chi) then
+             call get_chi0_loc(  iwf, iwb, giw, chi0_loc(:,:,iwf))
+           end if
         enddo
        
+!        if (do_chi .and. update_chi_loc_flag) then
+
         !get iwb-slice of w2dynamics vertex:
         allocate(g4iw_magn(ndims, ndims, -iwfmax:iwfmax-1, ndims, ndims, -iwfmax:iwfmax-1))
         allocate(g4iw_dens(ndims, ndims, -iwfmax:iwfmax-1, ndims, ndims, -iwfmax:iwfmax-1))
@@ -680,9 +685,8 @@ end if
      gamma_loc = 0.d0
      chi0_sum=0.d0
      chi0_loc=0.d0
-
-     do iwf=-iwfmax_small,iwfmax_small-1
-       
+     
+     do iwf=-iwmax+iwbmax,iwmax-iwbmax-1
         ! compute k-summed (but still q-dependent) bubble chi0(i1,i2):
         do ik=1,nkp
            ikq = kq_ind(ik,iq) !Index of G(k+q)
@@ -690,12 +694,9 @@ end if
            chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)+chi0(:,:,iwf)
         enddo
         chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)/dble(nkp)
+     end do
 
-!        if (do_chi .and. update_chi_loc_flag) then
-        if (do_chi) then! also here, demand iq=1
-          call get_chi0_loc(iwf,iwb,giw,chi0_loc(:,:,iwf))
-        end if
-
+     do iwf=-iwfmax_small,iwfmax_small-1
         ! compute intermediate quantity chi0*chi0_loc_inv (chi0_loc_inv is diagonal):
         do j=1,ndim2
            do i=1,ndim2
@@ -839,12 +840,12 @@ end if
         ! Calculation of q dependent susceptibility by multiplication with chi0
         call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
         call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
-        call calc_bubble_simple(bubble(:,:,iqw),chi0_sum)
+        call calc_bubble(bubble(:,:,iqw),chi0_sum)
         ! Calculation of local susceptibility and bubble
         if (iq.eq.1) then !this should be calculated only once, otherwise wrong result due to mpi_reduce sum.
           call calc_chi_qw(chi_loc_dens(:,:,iwb),chi_loc_dens_sum_left,chi0_loc)
           call calc_chi_qw(chi_loc_magn(:,:,iwb),chi_loc_magn_sum_left,chi0_loc)
-          call calc_bubble_simple(bubble_loc(:,:,iwb),chi0_loc)
+          call calc_bubble(bubble_loc(:,:,iwb),chi0_loc)
         end if
      end if
      if (do_eom) then

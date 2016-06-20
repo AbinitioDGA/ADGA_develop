@@ -23,18 +23,18 @@ module susc_module
       chi_qw=chi_qw/beta
     end subroutine calc_chi_qw
 
-    subroutine calc_bubble_simple(bubble,chi0_sum)
+    subroutine calc_bubble(bubble,chi0_sum)
       use parameters_module
       implicit none
-      complex(kind=8), intent(in) :: chi0_sum(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)
+      complex(kind=8), intent(in) :: chi0_sum(ndim2,ndim2,-iwmax+iwbmax:iwmax-iwbmax-1)
       complex(kind=8) :: bubble(ndim2,ndim2)
       integer :: iwf
       bubble=0.d0
-      do iwf=-iwfmax_small,iwfmax_small-1
+      do iwf=-iwmax+iwbmax,iwmax-iwbmax-1
         bubble(:,:)=bubble(:,:)+chi0_sum(:,:,iwf)
       end do
       bubble=bubble/beta
-    end subroutine calc_bubble_simple
+    end subroutine calc_bubble
 
     ! subroutine to output susceptibility
     subroutine output_chi_qw(chi_qw,iwb_data,q_data,qw,filename_output)
@@ -109,7 +109,7 @@ module susc_module
       close(10)
     end subroutine output_chi_loc
 
-    subroutine calc_bubble(bubble,iwb,iq,kq_ind,iw_data,siw,hk,dc)
+    subroutine calc_bubble_old(bubble,iwb,iq,kq_ind,iw_data,siw,hk,dc)
       use parameters_module
       use one_particle_quant_module
       implicit none
@@ -134,6 +134,6 @@ module susc_module
           end do
         end do
       end do
-    end subroutine calc_bubble
+    end subroutine calc_bubble_old
 
 end module
