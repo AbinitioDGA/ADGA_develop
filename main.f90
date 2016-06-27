@@ -180,6 +180,7 @@ program main
      write(*,*) 'Error: Maximum number of fermionic frequencies =', iwfmax
   endif
   write(*,*) 'iwfmax=', iwfmax, 'iwfmax_small=', iwfmax_small
+  write(*,*) 'iwmax=', iwmax
 
 ! read bosonic Matsubara frequencies iwb-g4:
   call h5dopen_f(file_vert_id, ".axes/iwb-g4", iwb_id, error)
@@ -405,6 +406,7 @@ program main
 
   allocate(chi0_loc(ndim2,ndim2,-iwmax+iwbmax:iwmax-iwbmax-1)) 
   allocate(chi0_sum(ndim2,ndim2,-iwmax+iwbmax:iwmax-iwbmax-1)) 
+!  allocate(chi0_sum(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)) 
 
   allocate(chi0_loc_inv(ndim2,ndim2,-iwfmax:iwfmax-1))
   
@@ -416,6 +418,10 @@ program main
   allocate(chi_loc_magn_sum_left(ndim2,maxdim))
   allocate(chi_loc_magn_full(maxdim,maxdim))
   allocate(chi_loc_dens_full(maxdim,maxdim))
+     allocate(chi_loc_slice_dens(ndim2,maxdim))
+     allocate(chi_loc_slice_magn(ndim2,maxdim))
+     allocate(interm3_dens(ndim2,maxdim))!allocate somewhere else?
+     allocate(interm3_magn(ndim2,maxdim))
   allocate(c(ndim2,maxdim))
 
   allocate(gamma_loc_sum_left(ndim2,maxdim))
@@ -701,8 +707,6 @@ end if
      allocate(interm2_magn(maxdim,maxdim))
      allocate(gamma_loc(maxdim,maxdim))
      allocate(chi0(ndim2,ndim2))
-     allocate(chi_loc_slice_dens(ndim2,maxdim))
-     allocate(chi_loc_slice_magn(ndim2,maxdim))
      interm2_dens = 0.d0
      interm2_magn = 0.d0
      gamma_loc = 0.d0
@@ -828,7 +832,7 @@ end if
         dum1 = dum1+1
      enddo !iwf
      
-     deallocate(chi0,chi_loc_slice_dens,chi_loc_slice_magn)
+     deallocate(chi0)
 
      !sum up left iwf-index of interm2_dens and store the quantity (is afterwards directly used in the EOM):
      gamma_loc_sum_left = 0.d0
@@ -851,9 +855,6 @@ end if
      call inverse_matrix(interm2_magn)
 
 
-     allocate(interm3_dens(ndim2,maxdim))!allocate somewhere else?
-     allocate(interm3_magn(ndim2,maxdim))
-
      !do matrix multiplication chi_loc_sum_left*interm2
      interm3_dens = 0.d0
      interm3_magn = 0.d0
@@ -874,14 +875,14 @@ end if
 
      if (do_chi) then
         ! Calculation of q dependent susceptibility by multiplication with chi0
-        call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
-        call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
+        call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum(:,:,-iwfmax_small:iwfmax_small-1))
+        call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum(:,:,-iwfmax_small:iwfmax_small-1))
         call calc_bubble(bubble(:,:,iqw),chi0_sum)
 
         ! Calculation of local susceptibility and bubble
         if (iq.eq.1) then !this should be calculated only once, otherwise wrong result due to mpi_reduce sum.
-          call calc_chi_qw(chi_loc_dens(:,:,iwb),chi_loc_dens_sum_left,chi0_loc)
-          call calc_chi_qw(chi_loc_magn(:,:,iwb),chi_loc_magn_sum_left,chi0_loc)
+          call calc_chi_qw(chi_loc_dens(:,:,iwb),chi_loc_dens_sum_left,chi0_loc(:,:,-iwfmax_small:iwfmax_small-1))
+          call calc_chi_qw(chi_loc_magn(:,:,iwb),chi_loc_magn_sum_left,chi0_loc(:,:,-iwfmax_small:iwfmax_small-1))
           call calc_bubble(bubble_loc(:,:,iwb),chi0_loc)
         end if
      end if
@@ -889,12 +890,13 @@ end if
         !equation of motion     
         call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,v,u_tilde,hk,dc,siw)
      end if
-    deallocate(interm3_dens,interm3_magn) 
   enddo !iqw
 
+    deallocate(interm3_dens,interm3_magn) 
   deallocate(hk,giw,dc,u,u_tilde,chi0_loc,chi0_loc_inv,chi0_sum,interm1,interm1_v,gamma_dmft_dens,gamma_dmft_magn)
   deallocate(chi_loc_dens_sum_left,chi_loc_magn_sum_left)
   deallocate(chi_loc_magn_full,chi_loc_dens_full,gamma_loc_sum_left,v,c)
+  deallocate(chi_loc_slice_dens,chi_loc_slice_magn)
   
 #ifdef MPI
   ! MPI reduction and output
