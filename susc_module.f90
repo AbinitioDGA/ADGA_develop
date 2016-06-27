@@ -77,6 +77,32 @@ module susc_module
       close(10)
     end subroutine output_chi_qw
 
+    ! subroutine to output one line of susceptibility
+    subroutine output_chi_qw_1line(chi_qw,iwb_data,q_data,qw,iqw,rank,filename_output)
+      use parameters_module
+      implicit none
+      character(len=*) :: filename_output
+      character(len=100) :: format_str
+      real*8 :: iwb_data(-iwbmax:iwbmax), q_data(3,nqp), chi_qw_1q(2*ndim2**2)
+      complex(kind=8) :: chi_qw(ndim2,ndim2)
+      integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i,iqw,rank,un
+
+      ! create a format string that works for various orbital dimensions
+      write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
+
+      ! open file and write head line
+      un=10000+rank
+      open(unit=un,file=trim(output_dir)//filename_output,access='append')
+         iq = qw(2,iqw)
+         iwb = qw(1,iqw)
+         do i=1,ndim2**2!flatten the band matrix into one output line
+            chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1),8)
+            chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1))
+         end do
+         write(un,format_str) iwb,iwb_data(iwb),iq,q_data(:,iq),chi_qw_1q
+      close(un)
+    end subroutine output_chi_qw_1line
+
     subroutine output_chi_loc(chi_qw,iwb_data,filename_output)
       use parameters_module
       implicit none
@@ -108,6 +134,31 @@ module susc_module
       end do
       close(10)
     end subroutine output_chi_loc
+
+    subroutine output_chi_loc_1line(chi_qw,iwb_data,iwb,rank,filename_output)
+      use parameters_module
+      implicit none
+      character(len=*) :: filename_output
+      character(len=100) :: format_str
+      real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
+      complex(kind=8) :: chi_qw(ndim2,ndim2)
+      integer :: iwb,i,un,rank
+
+      ! create a format string that works for various orbital dimensions
+      write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X',2*ndim2**2,'(E14.7E2,2X))'
+
+      ! open file and write head line
+      un=20000+rank
+      open(unit=un,file=trim(output_dir)//filename_output,access='append')
+  
+         do i=1,ndim2**2!flatten the band matrix into one output line
+            chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1),8)
+            chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1))
+         end do
+         write(un,format_str) iwb,iwb_data(iwb),chi_qw_1q
+
+      close(un)
+    end subroutine output_chi_loc_1line
 
     subroutine calc_bubble_old(bubble,iwb,iq,kq_ind,iw_data,siw,hk,dc)
       use parameters_module

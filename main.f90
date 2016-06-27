@@ -18,6 +18,7 @@ program main
 
   character(len=20) :: grpname_magn, grpname_dens, name_buffer
   character(len=30) :: name_buffer_dset
+  character(len=100) :: out_tmp,rank_str
   integer(hid_t) :: grp_magn_id, grp_dens_id, nmembers, itype, dset_magn_id, dset_dens_id
   integer(hid_t) :: type_i_id, type_r_id
   integer(hsize_t), dimension(2) :: tmp_dims
@@ -74,6 +75,7 @@ program main
   integer :: mpi_wrank
   integer :: mpi_wsize
   integer :: master
+  integer,allocatable :: rct(:),disp(:)
 #endif
 
 
@@ -90,6 +92,7 @@ program main
   call MPI_comm_rank(MPI_COMM_WORLD,mpi_wrank,ierr)
   call MPI_comm_size(MPI_COMM_WORLD,mpi_wsize,ierr)
   master = 0
+  allocate(rct(mpi_wsize),disp(mpi_wsize))
 #endif
 
  
@@ -469,12 +472,27 @@ program main
 
 !distribute the qw compound index:
 #ifdef MPI
+  rct=0
+  disp=0
   qwstop = 0
   do i=0,mpi_wrank
      j = (nqp*(2*iwbmax_small+1) - qwstop)/(mpi_wsize-i)
      qwstart = qwstop + 1
      qwstop = qwstop + j
   enddo
+  rct(mpi_wrank+1)=(qwstop-qwstart+1)*ndim2**2
+  if (mpi_wrank .eq. master) then
+    call MPI_reduce(MPI_IN_PLACE,rct,mpi_wsize,MPI_INTEGER,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+  else
+    call MPI_reduce(rct,rct,mpi_wsize,MPI_INTEGER,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+  end if
+  if (mpi_wrank .eq. master) then
+    do i=2,mpi_wsize
+      disp(i)=sum(rct(1:i-1))! the first displacing has to be 0
+    end do
+    write(*,*) 'receive ct',rct
+    write(*,*) 'displacing',disp
+  end if
 #else 
   qwstart = 1
   qwstop = nqp*(2*iwbmax_small+1)
@@ -513,9 +531,9 @@ end if
      iwb = qw(1,iqw)
   
      !Output the calculation progress
-     if (mpi_wrank .eq. master) then
-       write(*,*) 'iqw/qwstart/qwstop on master',iqw,"/",qwstart,"/",qwstop
-     end if
+!     if (mpi_wrank .eq. master) then
+       write(*,'((A),I5,2X,I6,2X,I6,2X,I6)') 'iqw/qwstart/qwstop on rank',mpi_wrank,iqw,qwstart,qwstop
+!     end if
 
      !to be done here: read nonlocal interaction v and go into compound index
      v = 0.d0
@@ -712,7 +730,7 @@ end if
         chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)/dble(nkp)
      end do
      call cpu_time(finish)
-     write(*,*) finish-start
+!     write(*,*) finish-start
 
      do iwf=-iwfmax_small,iwfmax_small-1
         ! compute intermediate quantity chi0*chi0_loc_inv (chi0_loc_inv is diagonal):
@@ -859,6 +877,7 @@ end if
         call calc_chi_qw(chi_qw_dens(:,:,iqw),interm3_dens,chi0_sum)
         call calc_chi_qw(chi_qw_magn(:,:,iqw),interm3_magn,chi0_sum)
         call calc_bubble(bubble(:,:,iqw),chi0_sum)
+
         ! Calculation of local susceptibility and bubble
         if (iq.eq.1) then !this should be calculated only once, otherwise wrong result due to mpi_reduce sum.
           call calc_chi_qw(chi_loc_dens(:,:,iwb),chi_loc_dens_sum_left,chi0_loc)
@@ -910,19 +929,19 @@ end if
     end if
     chi_qw_full=0.d0
 
-    call MPI_gather(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
+    call MPI_gatherv(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(chi_qw_dens)
     if (mpi_wrank .eq. master) then 
       call output_chi_qw(chi_qw_full,iwb_data,q_data,qw,'chi_qw_dens.dat')
     end if
 
-    call MPI_gather(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
+    call MPI_gatherv(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(chi_qw_magn)
     if (mpi_wrank .eq. master) then 
       call output_chi_qw(chi_qw_full,iwb_data,q_data,qw,'chi_qw_magn.dat')
     end if
 
-    call MPI_gather(bubble,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
+    call MPI_gatherv(bubble,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,     MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(bubble)
     if (mpi_wrank .eq. master) then 
       call output_chi_qw(chi_qw_full,iwb_data,q_data,qw,'bubble.dat')
