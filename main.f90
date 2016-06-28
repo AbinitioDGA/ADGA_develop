@@ -418,10 +418,10 @@ program main
   allocate(chi_loc_magn_sum_left(ndim2,maxdim))
   allocate(chi_loc_magn_full(maxdim,maxdim))
   allocate(chi_loc_dens_full(maxdim,maxdim))
-     allocate(chi_loc_slice_dens(ndim2,maxdim))
-     allocate(chi_loc_slice_magn(ndim2,maxdim))
-     allocate(interm3_dens(ndim2,maxdim))!allocate somewhere else?
-     allocate(interm3_magn(ndim2,maxdim))
+  allocate(chi_loc_slice_dens(ndim2,maxdim))
+  allocate(chi_loc_slice_magn(ndim2,maxdim))
+  allocate(interm3_dens(ndim2,maxdim))!allocate somewhere else?
+  allocate(interm3_magn(ndim2,maxdim))
   allocate(c(ndim2,maxdim))
 
   allocate(gamma_loc_sum_left(ndim2,maxdim))
@@ -532,15 +532,11 @@ end if
 
   iwb = iwbmax_small+3
   do iqw=qwstart,qwstop
+     call cpu_time(start)
      update_chi_loc_flag = qw(1,iqw) .ne. iwb
      iq = qw(2,iqw)
      iwb = qw(1,iqw)
   
-     !Output the calculation progress
-!     if (mpi_wrank .eq. master) then
-       write(*,'((A),I5,2X,I6,2X,I6,2X,I6)') 'iqw/qwstart/qwstop on rank',mpi_wrank,iqw,qwstart,qwstop
-!     end if
-
      !to be done here: read nonlocal interaction v and go into compound index
      v = 0.d0
 
@@ -553,12 +549,9 @@ end if
            call get_chi0_loc_inv(iwf, iwb, giw, chi0_loc_inv(:,:,iwf))
         enddo
         if (do_chi) then
-           call cpu_time(start)
            do iwf=-iwmax+iwbmax,iwmax-iwbmax-1
              call get_chi0_loc(  iwf, iwb, giw, chi0_loc(:,:,iwf))
            enddo
-           call cpu_time(finish)
-           write(*,*) finish-start
         end if
        
 !        if (do_chi .and. update_chi_loc_flag) then
@@ -712,7 +705,7 @@ end if
      gamma_loc = 0.d0
      chi0_sum=0.d0
      
-     call cpu_time(start)
+!     call cpu_time(start)
      if (do_eom) then 
        iwstart=-iwfmax_small
        iwstop=iwfmax_small-1
@@ -733,7 +726,7 @@ end if
         enddo
         chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)/dble(nkp)
      end do
-     call cpu_time(finish)
+!     call cpu_time(finish)
 !     write(*,*) finish-start
 
      do iwf=-iwfmax_small,iwfmax_small-1
@@ -890,9 +883,15 @@ end if
         !equation of motion     
         call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,v,u_tilde,hk,dc,siw)
      end if
+     call cpu_time(finish)
+
+     !Output the calculation progress
+!     if (mpi_wrank .eq. master) then
+       write(*,'((A),I5,2X,I6,2X,I6,2X,I6,2X,(A),F8.4)') 'iqw/qwstart/qwstop on rank',mpi_wrank,iqw,qwstart,qwstop,'time ',finish-start
+!     end if
   enddo !iqw
 
-    deallocate(interm3_dens,interm3_magn) 
+  deallocate(interm3_dens,interm3_magn) 
   deallocate(hk,giw,dc,u,u_tilde,chi0_loc,chi0_loc_inv,chi0_sum,interm1,interm1_v,gamma_dmft_dens,gamma_dmft_magn)
   deallocate(chi_loc_dens_sum_left,chi_loc_magn_sum_left)
   deallocate(chi_loc_magn_full,chi_loc_dens_full,gamma_loc_sum_left,v,c)
