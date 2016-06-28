@@ -151,7 +151,17 @@ subroutine get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
   do i=1,ndims
   g1(i,i) = g1(i,i)-siw(iwf,i) 
   enddo
-  call inverse_matrix(g1)
+
+
+  if (ndim .eq. 1) then
+    g1(1,1)=1.d0/g1(1,1)
+  else if (ndim .eq. 2) then
+    call inverse_matrix_2(g1)
+  else if (ndim .eq. 3) then
+    call inverse_matrix_3(g1)
+  else
+    call inverse_matrix(g1)
+  end if
 
   g2(:,:) = -hk(:,:,ikq)
   do i=1,ndim
@@ -160,8 +170,17 @@ subroutine get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
   do i=1,ndims
   g2(i,i) = g2(i,i)-siw(iwf-iwb,i) 
   enddo
-  call inverse_matrix(g2)
-  
+
+  if (ndim .eq. 1) then
+    g2(1,1)=1.d0/g2(1,1)
+  else if (ndim .eq. 2) then
+    call inverse_matrix_2(g2)
+  else if (ndim .eq. 3) then
+    call inverse_matrix_3(g2)
+  else
+    call inverse_matrix(g2)
+  end if 
+
   chi0 = 0.d0
   i1 = 0
   do i=1,ndim
@@ -179,5 +198,43 @@ subroutine get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
 
 end subroutine get_chi0
 
+subroutine inverse_matrix_3(A)
+  implicit none
+  complex(kind=8) :: A(3,3),B(3,3),detinv
+  
+  ! Calculate the inverse determinant of the matrix
+  detinv = 1.d0/(A(1,1)*A(2,2)*A(3,3) - A(1,1)*A(2,3)*A(3,2)&
+               - A(1,2)*A(2,1)*A(3,3) + A(1,2)*A(2,3)*A(3,1)&
+               + A(1,3)*A(2,1)*A(3,2) - A(1,3)*A(2,2)*A(3,1))
+
+  ! Calculate the inverse of the matrix
+  B(1,1) = +detinv * (A(2,2)*A(3,3) - A(2,3)*A(3,2))
+  B(2,1) = -detinv * (A(2,1)*A(3,3) - A(2,3)*A(3,1))
+  B(3,1) = +detinv * (A(2,1)*A(3,2) - A(2,2)*A(3,1))
+  B(1,2) = -detinv * (A(1,2)*A(3,3) - A(1,3)*A(3,2))
+  B(2,2) = +detinv * (A(1,1)*A(3,3) - A(1,3)*A(3,1))
+  B(3,2) = -detinv * (A(1,1)*A(3,2) - A(1,2)*A(3,1))
+  B(1,3) = +detinv * (A(1,2)*A(2,3) - A(1,3)*A(2,2))
+  B(2,3) = -detinv * (A(1,1)*A(2,3) - A(1,3)*A(2,1))
+  B(3,3) = +detinv * (A(1,1)*A(2,2) - A(1,2)*A(2,1))
+ 
+  A=B
+end subroutine inverse_matrix_3
+
+subroutine inverse_matrix_2(A)
+  implicit none
+  complex(kind=8) :: A(2,2),B(2,2),detinv
+
+ ! Calculate the inverse determinant of the matrix
+  detinv = 1.d0/(A(1,1)*A(2,2) - A(1,2)*A(2,1))
+
+  ! Calculate the inverse of the matrix
+  B(1,1) = +detinv * A(2,2)
+  B(2,1) = -detinv * A(2,1)
+  B(1,2) = -detinv * A(1,2)
+  B(2,2) = +detinv * A(1,1)
+
+  A=B
+end subroutine inverse_matrix_2
 
 end module
