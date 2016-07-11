@@ -5,6 +5,7 @@ module parameters_module
   complex(kind=8) ci
   parameter (ci=(0.d0,1.d0))
   integer :: nkp, ndim, ndims, ndim2, maxdim,i1,i2,i3,i4
+  integer :: nkpx,nkpy,nkpz,nqpx,nqpy,nqpz
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,nk_frac
   double precision :: mu, beta
   integer :: nqp

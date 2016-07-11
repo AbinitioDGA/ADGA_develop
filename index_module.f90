@@ -97,7 +97,7 @@ subroutine index_kq_search(k_data, q_data, index)
       !   enddo
       !enddo
 
-end subroutine index_kq 
+end subroutine index_kq_search
 
 
 subroutine index_kq(index)

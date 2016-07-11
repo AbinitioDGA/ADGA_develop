@@ -3,6 +3,11 @@
 
 *.mod
 *.o
+*.slrm
+*.log
+*.conf
+*.btr
+*.out
 
 main
 vertex_chann_sym

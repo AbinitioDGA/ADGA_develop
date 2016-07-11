@@ -10,6 +10,7 @@ program main
   use one_particle_quant_module
   use eom_module
   use susc_module
+  use index_module
 
   implicit none
 
@@ -430,6 +431,9 @@ program main
 
   !define q-grid:
   nk = nkp**(1./3.)  
+  nkpx=nk
+  nkpy=nk
+  nkpz=nk
 
   if(mod(nk,nk_frac).ne.0)then
      stop 'mismatch between k- and q-grid!'
@@ -437,7 +441,9 @@ program main
 
   nq = nk/nk_frac
   nqp = nq**3  
- 
+  nqpx=nq
+  nqpy=nq
+  nqpz=nq 
   allocate(q_data(3,nqp))
 
   i1=0
@@ -456,7 +462,7 @@ program main
   call cpu_time(start)
   allocate(kq_ind(nkp,nqp))
 !  call index_kq_search(k_data, q_data, kq_ind) !assumes cubic case
-  call index_kq(index) ! new method
+  call index_kq(kq_ind) ! new method
   call cpu_time(finish)
   write(*,*)'finding k-q index:', finish-start
 
