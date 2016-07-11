@@ -455,9 +455,10 @@ program main
   !search for k+q - index:
   call cpu_time(start)
   allocate(kq_ind(nkp,nqp))
-  call index_kq(k_data, q_data, kq_ind) !assumes cubic case
+!  call index_kq_search(k_data, q_data, kq_ind) !assumes cubic case
+  call index_kq(index) ! new method
   call cpu_time(finish)
-  !write(*,*)'finding k-q index:', finish-start
+  write(*,*)'finding k-q index:', finish-start
 
 
 

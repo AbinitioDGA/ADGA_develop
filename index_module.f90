@@ -1,4 +1,10 @@
-subroutine index_kq(k_data, q_data, index)
+module index_module
+  implicit none
+  public
+
+contains
+
+subroutine index_kq_search(k_data, q_data, index)
   
       use parameters_module
       implicit none
@@ -61,9 +67,19 @@ subroutine index_kq(k_data, q_data, index)
                write(*,*)k_data(:,jkp)
                STOP 'k out of bound'
             endif
-
+!! Consistency check of new integer-based method
+!            if (index(ikp,jkp).ne.k_minus_q(ikp,jkp)) then
+!              write(*,*) 'k-q mismatch at ik',ikp,'iq',jkp
+!              write(*,*) 'k-q',k_minus_q(ikp,jkp),'correct',index(ikp,jkp)
+!              write(*,*) ikp,k_minus_q(ikp,jkp)
+!              STOP 
+!            end if
+!            if (index(ikp,jkp) .eq. k_minus_q(ikp,jkp)) then
+!              cnt=cnt+1
+!            end if
          enddo
       enddo
+!      write(*,*) cnt, 'correct additions'
 
 ! write index of k+q into file
 !      open(11,file='HMLT.index.kpq',status='unknown')
@@ -84,6 +100,27 @@ subroutine index_kq(k_data, q_data, index)
 end subroutine index_kq 
 
 
+subroutine index_kq(index)
+  
+      use parameters_module
+      implicit none
+      integer ikp,jkp,i,n,icheck,cnt
+      integer :: index(nkp,nqp)
+      double precision kq(3),dum,dk
+
+      index = 0
+
+! New method
+
+      do ikp=1,nkp
+        do jkp=1,nqp
+          index(ikp,jkp)=k_minus_q(ikp,jkp)
+        end do
+      end do
+
+end subroutine index_kq 
+
+
 subroutine checkk(k,q,ic,dk)
       implicit none
       integer ic
@@ -92,9 +129,40 @@ subroutine checkk(k,q,ic,dk)
       op=real(dk,kind=8)
       ic=0
       p=k-q
-      if ( (abs(p(1)).lt.op).and.(abs(p(2)).lt.op).and.(abs(p(3)).lt.op) ) ic=1
-
+!      write(*,*) p
+      if ( (abs(p(1)).lt.op).and.(abs(p(2)).lt.op).and.(abs(p(3)).lt.op) ) then
+        ic =1
+!        write(*,*) p
+      end if
 return
 end subroutine checkk
 
 
+! The following function calculates the index of \vec{k} - \vec{q}.
+! It uses only integers
+! \vec{k} is associated to (ix,iy,iz)
+! \vec{q} is associated to (lx,ly,lz)
+! k-space is assumed to have nkpx*nkpy*nkpz points
+! q-space is assumed to have nqpx*nqpy*nqpz points,
+! where each element of the q-space has to be an element of the k-space.
+! subtractions are done in integers, 
+! fold-back to BZ is achieved by modulo division.
+function k_minus_q(ik,iq)
+  use parameters_module
+  implicit none
+  integer :: ik,iq,k_minus_q
+  integer :: ix,iy,iz,lx,ly,lz
+
+  ix=mod(ik-1,nkpx)
+  lx=mod(iq-1,nqpx)
+  iy=mod((ik-1)/nkpx,nkpy)
+  ly=mod((iq-1)/nqpx,nqpy)
+  iz=(ik-1)/(nkpx*nkpy)
+  lz=(iq-1)/(nqpx*nqpy)
+
+  k_minus_q=1+mod(nkpx+ix-lx*nkpx/nqpx,nkpx) + &
+              mod(nkpy+iy-ly*nkpy/nqpy,nkpy)*nkpz + &
+              mod(nkpz+iz-lz*nkpz/nqpz,nkpz)*nkpy*nkpz
+end function k_minus_q
+
+end module index_module
