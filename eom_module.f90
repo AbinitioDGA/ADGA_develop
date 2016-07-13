@@ -145,7 +145,7 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_loc)
   integer :: ik, iwf, i, j, iband
 
   open(34, file=trim(output_dir)//"siw_0_0_0.dat", status='unknown')
-  open(35, file=trim(output_dir)//"siw_0_0_0.25.dat", status='unknown')
+  open(35, file=trim(output_dir)//"siw_0_0_0.5.dat", status='unknown')
  
   open(44, file=trim(output_dir)//"siw_loc.dat", status='unknown')
   open(45, file=trim(output_dir)//"siw_all_k.dat",status='unknown')

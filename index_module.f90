@@ -153,16 +153,16 @@ function k_minus_q(ik,iq)
   integer :: ik,iq,k_minus_q
   integer :: ix,iy,iz,lx,ly,lz
 
-  ix=mod(ik-1,nkpx)
-  lx=mod(iq-1,nqpx)
-  iy=mod((ik-1)/nkpx,nkpy)
-  ly=mod((iq-1)/nqpx,nqpy)
-  iz=(ik-1)/(nkpx*nkpy)
-  lz=(iq-1)/(nqpx*nqpy)
+  iz=mod(ik-1,nkpz)
+  lz=mod(iq-1,nqpz)
+  iy=mod((ik-1)/nkpz,nkpy)
+  ly=mod((iq-1)/nqpz,nqpy)
+  ix=(ik-1)/(nkpz*nkpy)
+  lx=(iq-1)/(nqpz*nqpy)
 
-  k_minus_q=1+mod(nkpx+ix-lx*nkpx/nqpx,nkpx) + &
-              mod(nkpy+iy-ly*nkpy/nqpy,nkpy)*nkpz + &
-              mod(nkpz+iz-lz*nkpz/nqpz,nkpz)*nkpy*nkpz
+  k_minus_q=1+mod(nkpz+iz-lz*nkpz/nqpz,nkpz) + &
+              mod(nkpy+iy-ly*nkpy/nqpy,nkpy)*nkpx + &
+              mod(nkpx+iz-lz*nkpx/nqpx,nkpx)*nkpy*nkpx
 end function k_minus_q
 
 end module index_module
