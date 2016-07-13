@@ -162,7 +162,7 @@ function k_minus_q(ik,iq)
 
   k_minus_q=1+mod(nkpz+iz-lz*nkpz/nqpz,nkpz) + &
               mod(nkpy+iy-ly*nkpy/nqpy,nkpy)*nkpx + &
-              mod(nkpx+iz-lz*nkpx/nqpx,nkpx)*nkpy*nkpx
+              mod(nkpx+ix-lx*nkpx/nqpx,nkpx)*nkpy*nkpx
 end function k_minus_q
 
 end module index_module
