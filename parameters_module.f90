@@ -11,8 +11,8 @@ module parameters_module
   integer :: iwstart,iwstop
   double precision :: mu, beta
   double precision, allocatable :: k_data(:,:)
-  integer :: nqp
-  integer,allocatable :: q_data(:),q_data_eom(:)
+  integer :: nqp,nkp_eom
+  integer,allocatable :: q_data(:),k_data_eom(:)
   character(len=150) :: filename,filename_vertex,filename_umatrix,output_dir,filename_q_path
   logical :: orb_sym,small_freq_box,full_chi0
   logical :: do_eom,do_chi
@@ -87,7 +87,7 @@ subroutine read_config()
 
   read(1,*)
   read(1,*)
-  read(1,*) nkpx, nkpy, nkpz, nqpx, nqpy, nqpz, ndim
+  read(1,*) nk_frac
 
   read(1,*)
   read(1,*)
@@ -99,10 +99,6 @@ subroutine read_config()
   read(1,*) int_tmp_1,int_tmp_2
   do_chi=int_tmp_1
   do_eom=int_tmp_2
-
-  read(1,*)
-  read(1,*)
-  read(1,*) vertex_type
   close(1)
 end subroutine read_config
 
@@ -286,6 +282,7 @@ subroutine q_path_segment(start,istart,istop,qpoint_1,qpoint_2,segment)
   integer :: q_ind_1,q_ind_2,q_vec_1(3),q_vec_2(3),distance(3),step(3)
   integer :: start,istart,istop,j
   integer :: segment(istart:istop),i
+  integer :: vector(3)
 
   q_ind_1=q_index_from_code(qpoint_1)
   q_ind_2=q_index_from_code(qpoint_2)
@@ -303,7 +300,8 @@ subroutine q_path_segment(start,istart,istop,qpoint_1,qpoint_2,segment)
 
   do i=istart,istop
     j=(i-istart+start)*nkp1/nqp1
-    segment(i)=k_index(q_vec_1+j*step)
+    vector=q_vec_1+j*step
+    segment(i)=k_index(vector)
   end do
 end subroutine q_path_segment
 
@@ -319,13 +317,13 @@ subroutine init()
     iwstart=-iwfmax_small
     iwstop=iwfmax_small-1
   end if
-  nkp=nkpx*nkpy*nkpz
+!  nkp=nkpx*nkpy*nkpz
 
+  if (q_vol) then
+    nqp = nqpx*nqpy*nqpz
   if (mod(nkpx,nqpx).ne.0 .or. mod(nkpy,nqpy).ne.0 .or. mod(nkpz,nqpz).ne.0) then
      stop 'mismatch between k- and q-grid!'
    endif
-  if (q_vol) then
-    nqp = nqpx*nqpy*nqpz
   end if
   if (q_path) then
     nkp1=nkpx
@@ -496,7 +494,8 @@ end function k_minus_q
 
 function k_index_1(k)
   implicit none
-  integer :: k_index_1,k(3)
+  integer,intent(in) :: k(3)
+  integer :: k_index_1
 
   k_index_1 = 1 + k(3) + k(2)*nkpz + k(1)*nkpy*nkpz
 
@@ -512,7 +511,8 @@ end function k_index_3
 
 subroutine k_vector_1(ik,k)
   implicit none
-  integer :: ik,k(3)
+  integer,intent(in) :: ik
+  integer,intent(out) :: k(3)
 
   k(3)=mod(ik-1,nkpz)
   k(2)=mod((ik-1)/nkpz,nkpy)

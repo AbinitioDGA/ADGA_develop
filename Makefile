@@ -4,7 +4,7 @@
 # set flags
 F90 = mpiifort
 #F90 = mpif90
-FFLAGS += -O3 -g -fpp -DMPI# -traceback -check all
+FFLAGS += -O0 -g -fpp -DMPI -traceback -check all
 #FFLAGS += -O0 -g -fbacktrace -C -DMPI
 FINCLUDE += -I/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/include
 #FINCLUDE += -I/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.14/gnu-4.4.7/include

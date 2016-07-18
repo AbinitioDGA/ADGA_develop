@@ -288,6 +288,7 @@ program main
   call h5dread_f(k_id, h5t_native_double, k_data, k_dims, error)
   call h5dclose_f(k_id, error)
 
+write(*,*) nkp
 ! write k-points:
   open(37, file=trim(output_dir)//'k_points.dat', status='unknown')
   do ik=1,100
@@ -447,18 +448,27 @@ program main
     nqpy=nq
     nqpz=nq 
     nqp1=nq
-
+write(*,*) nkp1,nqp1,nkp,nqp
   if (q_vol) then
     nqp = nq**3  
     allocate(q_data(nqp))
+    allocate(k_data_eom(nqp))
     call generate_q_vol(q_data)
-  else if (.not. do_eom .and. q_path) then
+    call generate_q_vol(k_data_eom)
+  else if (.not. do_eom .and. do_chi .and. q_path) then
     nqp=n_segments()*nkp1/2+1
     allocate(q_data(nqp))
     call generate_q_path(q_data)
     write(*,*) 'q path'
     write(*,*)'nqp=', nqp !test
     write(*,*) q_data
+  else if (do_eom .and. q_path) then
+    nqp = nq**3
+    allocate(q_data(nqp))
+    call generate_q_vol(q_data)
+    nkp_eom=n_segments()*nkp1/2+1
+    allocate(k_data_eom(nkp_eom))
+    call generate_q_path(k_data_eom)
   else
     write(*,*) 'only (q_vol) and (.not. do_eom .and. q_path) are implemented yet.'
     stop
@@ -475,7 +485,7 @@ program main
 
   write(*,*)'nqp=', nqp !test
 
-!  stop
+  stop
 !define qw compound index for mpi:
   allocate(qw(2,nqp*(2*iwbmax+1)))
   i1=0
