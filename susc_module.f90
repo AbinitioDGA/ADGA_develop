@@ -1,5 +1,4 @@
 module susc_module
-  use parameters_module
   implicit none
 
   contains
@@ -26,23 +25,23 @@ module susc_module
     subroutine calc_bubble(bubble,chi0_sum)
       use parameters_module
       implicit none
-      complex(kind=8), intent(in) :: chi0_sum(ndim2,ndim2,-iwmax+iwbmax:iwmax-iwbmax-1)
+      complex(kind=8), intent(in) :: chi0_sum(ndim2,ndim2,iwstart:iwstop)
       complex(kind=8) :: bubble(ndim2,ndim2)
       integer :: iwf
       bubble=0.d0
-      do iwf=-iwmax+iwbmax,iwmax-iwbmax-1
+      do iwf=iwstart,iwstop
         bubble(:,:)=bubble(:,:)+chi0_sum(:,:,iwf)
       end do
       bubble=bubble/beta
     end subroutine calc_bubble
 
     ! subroutine to output susceptibility
-    subroutine output_chi_qw(chi_qw,iwb_data,q_data,qw,filename_output)
+    subroutine output_chi_qw(chi_qw,iwb_data,qw,filename_output)
       use parameters_module
       implicit none
       character(len=*) :: filename_output
       character(len=100) :: format_str
-      real*8 :: iwb_data(-iwbmax:iwbmax), q_data(3,nqp), chi_qw_1q(2*ndim2**2)
+      real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
       complex(kind=8) :: chi_qw(ndim2,ndim2,nqp*(2*iwbmax_small+1))
       integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i
 
@@ -65,7 +64,7 @@ module susc_module
             chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1),8)
             chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1))
          end do
-         write(10,format_str) iwb,iwb_data(iwb),iq,q_data(:,iq),chi_qw_1q
+         write(10,format_str) iwb,iwb_data(iwb),iq,k_data(:,q_data(iq)),chi_qw_1q
 
          ! insert an empty line after each omega block. could be useful for plotting.
          if (mod(i1,nqp).eq.0) then
@@ -78,12 +77,12 @@ module susc_module
     end subroutine output_chi_qw
 
     ! subroutine to output one line of susceptibility
-    subroutine output_chi_qw_1line(chi_qw,iwb_data,q_data,qw,iqw,rank,filename_output)
+    subroutine output_chi_qw_1line(chi_qw,iwb_data,qw,iqw,rank,filename_output)
       use parameters_module
       implicit none
       character(len=*) :: filename_output
       character(len=100) :: format_str
-      real*8 :: iwb_data(-iwbmax:iwbmax), q_data(3,nqp), chi_qw_1q(2*ndim2**2)
+      real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
       complex(kind=8) :: chi_qw(ndim2,ndim2)
       integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i,iqw,rank,un
 
@@ -99,7 +98,7 @@ module susc_module
             chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1),8)
             chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1))
          end do
-         write(un,format_str) iwb,iwb_data(iwb),iq,q_data(:,iq),chi_qw_1q
+         write(un,format_str) iwb,iwb_data(iwb),iq,k_data(:,q_data(iq)),chi_qw_1q
       close(un)
     end subroutine output_chi_qw_1line
 

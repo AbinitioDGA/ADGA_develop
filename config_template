@@ -1,0 +1,32 @@
+# Abinitio_DGA config file. 
+# Never change lines or order! Only change values!
+
+# file name for one-particle data
+/home/lv70808/jkaufmann/Data/SVO/3band/SVO-Vertex-2016-02-19-Fri-17-50-41.hdf5
+
+# file name for two-particle data
+/home/lv70808/jkaufmann/Data/SVO/3band/vertex_sym.hdf5
+
+# file name of umatrix
+/home/lv70808/jkaufmann/Data/SVO/3band/umatrix.dat
+
+# decide if you use orbital symmetrization (1) and/or small frequency box (2). (0==.false., 1==.true.)
+1 1 0
+
+# size of small fermionic (1) and bosonic (2) frequency box
+60 1
+
+# for q path choose 1, for q volume choose 2
+1
+
+# file name of q path file (ignored for a_vol)
+path.qp
+
+# fraction of k and q grid, must be integer number larger of equal to 1 with mod(nk,nk_frac)==0
+1
+
+# Output directory, has to end with '/'
+Output/test/
+
+# Decide, whether to calculate susceptibilities (1) and/or the equation of motion (2). (0==.false., 1==.true.)
+1 0

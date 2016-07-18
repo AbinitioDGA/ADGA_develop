@@ -10,11 +10,11 @@ program main
   use one_particle_quant_module
   use eom_module
   use susc_module
-  use index_module
 
   implicit none
 
-  integer(hid_t) :: file_id, file_vert_id, iw_id, iwb_id, iwf_id, siw_id, giw_id, plist_id, compound_id, r_id, k_id, hk_id, mu_id, dc_id, config_id, beta_id
+  integer(hid_t) :: file_id, file_vert_id, iw_id, iwb_id, iwf_id, siw_id, giw_id, plist_id, compound_id, r_id, k_id, hk_id, mu_id
+  integer :: dc_id, config_id, beta_id
   integer(hid_t) :: iw_space_id, iwb_space_id, iwf_space_id, siw_space_id, giw_space_id, k_space_id, hk_space_id, dc_space_id
 
   character(len=20) :: grpname_magn, grpname_dens, name_buffer
@@ -35,7 +35,6 @@ program main
   double precision, allocatable :: iw_data(:), iwb_data(:)
   double precision, allocatable :: siw_data(:,:,:,:), giw_data(:,:,:,:)  
   complex(kind=8), allocatable :: siw(:,:)
-  double precision, allocatable :: k_data(:,:), q_data(:,:) 
   double precision, allocatable :: hk_data(:,:,:,:)
   double precision, allocatable :: dc(:,:)
   complex(kind=8), allocatable :: hk(:,:,:)
@@ -45,7 +44,8 @@ program main
   complex(kind=8), allocatable :: giw(:,:)
   complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:) 
   double precision, allocatable :: tmp_r(:,:), tmp_i(:,:)
-  complex(kind=8), allocatable :: chi0_loc(:,:,:), chi0_loc_inv(:,:,:), chi0(:,:), chi0_sum(:,:,:), chi_loc_slice_dens(:,:), sum_chi0_loc(:,:)
+  complex(kind=8), allocatable :: chi0_loc(:,:,:), chi0_loc_inv(:,:,:), chi0(:,:), chi0_sum(:,:,:)
+  complex(kind=8), allocatable :: chi_loc_slice_dens(:,:), sum_chi0_loc(:,:)
   complex(kind=8), allocatable ::  chi_loc_slice_magn(:,:), chi_loc_dens_full(:,:), chi_loc_magn_full(:,:), chi_loc(:,:)
   complex(kind=8), allocatable ::  chi_loc_magn_sum_left(:,:), chi_loc_dens_sum_left(:,:), gamma_dmft_dens(:,:), gamma_dmft_magn(:,:)
   complex(kind=8), allocatable :: chi_qw_dens(:,:,:),chi_qw_magn(:,:,:),bubble(:,:,:),chi_qw_full(:,:,:)
@@ -56,7 +56,7 @@ program main
 
   real(kind=8 ):: start, finish, start1, finish1
   complex(kind=8) :: alpha, delta
-  integer :: iqw, qwstart, qwstop,iwstart,iwstop
+  integer :: iqw, qwstart, qwstop
   logical :: update_chi_loc_flag
   integer :: b1, b2, b3, b4
 
@@ -88,6 +88,7 @@ program main
 
   call read_config()
   
+
 #ifdef MPI
   call MPI_init(ierr)
   call MPI_comm_rank(MPI_COMM_WORLD,mpi_wrank,ierr)
@@ -96,7 +97,6 @@ program main
   allocate(rct(mpi_wsize),disp(mpi_wsize))
 #endif
 
- 
 
   !THE FOLLOWING PARAMETERS ARE READ FROM THE W2DYNAMICS OUTPUT-FILE:
   !iwmax or iw_dims(1)/2    number of fermionic Matsubara frequencies for single particle quantities 
@@ -148,6 +148,7 @@ program main
   call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, error)
   call h5fopen_f(filename_vertex, h5f_acc_rdonly_f, file_vert_id, error) 
 
+  write(*,*) 'ok' 
 ! create compound datatype for complex arrays:
   call h5tget_size_f(h5t_native_double, type_sized, error)
   compound_size = 2*type_sized
@@ -176,7 +177,7 @@ program main
   call h5sget_simple_extent_dims_f(iwf_space_id, iwf_dims, iwf_maxdims, error)
   iwfmax = iwf_dims(1)/2
 
-  if (small_freq_box == .false.) iwfmax_small = iwfmax
+  if (small_freq_box .eqv. .false.) iwfmax_small = iwfmax
   if (iwfmax_small .gt. iwfmax) then
      write(*,*) 'Error: Maximum number of fermionic frequencies =', iwfmax
   endif
@@ -194,7 +195,7 @@ program main
   ! "Find" the zero 
   iwb_zero = 0
 
-  if (small_freq_box == .false.) iwbmax_small = iwbmax
+  if (small_freq_box .eqv. .false.) iwbmax_small = iwbmax
   if (iwbmax_small .gt. iwbmax) then
      write(*,*) 'Error: Maximum number of bosonic frequencies =', iwbmax
   endif
@@ -317,8 +318,9 @@ program main
 !  enddo
 !  close(34)
 
-  maxdim = ndim*ndim*2*iwfmax_small
-  ndim2 = ndim*ndim
+  call init()
+!  maxdim = ndim*ndim*2*iwfmax_small
+!  ndim2 = ndim*ndim
 
 ! read chemical potential:
   call h5dopen_f(file_id, "stat-001/mu/value", mu_id, error)
@@ -405,8 +407,8 @@ program main
   close(35)
 
 
-  allocate(chi0_loc(ndim2,ndim2,-iwmax+iwbmax:iwmax-iwbmax-1)) 
-  allocate(chi0_sum(ndim2,ndim2,-iwmax+iwbmax:iwmax-iwbmax-1)) 
+  allocate(chi0_loc(ndim2,ndim2,iwstart:iwstop)) 
+  allocate(chi0_sum(ndim2,ndim2,iwstart:iwstop)) 
 !  allocate(chi0_sum(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)) 
 
   allocate(chi0_loc_inv(ndim2,ndim2,-iwfmax:iwfmax-1))
@@ -429,49 +431,51 @@ program main
   allocate(v(ndim2,ndim2))
 
 
-  !define q-grid:
+  !define k-grid:
   nk = nkp**(1./3.)  
   nkpx=nk
   nkpy=nk
   nkpz=nk
+  nkp1=nk
 
   if(mod(nk,nk_frac).ne.0)then
      stop 'mismatch between k- and q-grid!'
    endif
 
-  nq = nk/nk_frac
-  nqp = nq**3  
-  nqpx=nq
-  nqpy=nq
-  nqpz=nq 
-  allocate(q_data(3,nqp))
+    nq = nk/nk_frac
+    nqpx=nq
+    nqpy=nq
+    nqpz=nq 
+    nqp1=nq
 
-  i1=0
-  do i=0,nq-1
-     do j=0,nq-1
-        do k=0,nq-1
-           i1 = i1+1
-           q_data(1,i1) = i*1.d0/(dble(nq))
-           q_data(2,i1) = j*1.d0/(dble(nq)) 
-           q_data(3,i1) = k*1.d0/(dble(nq))
-        enddo
-     enddo
-  enddo
-
+  if (q_vol) then
+    nqp = nq**3  
+    allocate(q_data(nqp))
+    call generate_q_vol(q_data)
+  else if (.not. do_eom .and. q_path) then
+    nqp=n_segments()*nkp1/2+1
+    allocate(q_data(nqp))
+    call generate_q_path(q_data)
+    write(*,*) 'q path'
+    write(*,*)'nqp=', nqp !test
+    write(*,*) q_data
+  else
+    write(*,*) 'only (q_vol) and (.not. do_eom .and. q_path) are implemented yet.'
+    stop
+  end if
+  
   !search for k+q - index:
   call cpu_time(start)
   allocate(kq_ind(nkp,nqp))
-!  call index_kq_search(k_data, q_data, kq_ind) !assumes cubic case
+!  call index_kq_search(k_data, q_data, kq_ind) ! old method, assumes cubic case
   call index_kq(kq_ind) ! new method
   call cpu_time(finish)
   write(*,*)'finding k-q index:', finish-start
-
-
-
 !##################### parallel code ##################################################
 
   write(*,*)'nqp=', nqp !test
 
+!  stop
 !define qw compound index for mpi:
   allocate(qw(2,nqp*(2*iwbmax+1)))
   i1=0
@@ -556,7 +560,7 @@ end if
            call get_chi0_loc_inv(iwf, iwb, giw, chi0_loc_inv(:,:,iwf))
         enddo
         if (do_chi) then
-           do iwf=-iwmax+iwbmax,iwmax-iwbmax-1
+           do iwf=iwstart,iwstop
              call get_chi0_loc(  iwf, iwb, giw, chi0_loc(:,:,iwf))
            enddo
         end if
@@ -712,18 +716,6 @@ end if
      gamma_loc = 0.d0
      chi0_sum=0.d0
      
-!     call cpu_time(start)
-     if (do_eom) then 
-       iwstart=-iwfmax_small
-       iwstop=iwfmax_small-1
-     end if
- 
-     ! use with caution: calculation of chi0_sum in large frequency box takes a lot of time
-     ! not needed for EoM.
-     if (do_chi) then 
-       iwstart=-iwmax+iwbmax
-       iwstop=iwmax-iwbmax-1
-     end if
      do iwf=iwstart,iwstop
         ! compute k-summed (but still q-dependent) bubble chi0(i1,i2):
         do ik=1,nkp
@@ -940,19 +932,19 @@ end if
     call MPI_gatherv(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(chi_qw_dens)
     if (mpi_wrank .eq. master) then 
-      call output_chi_qw(chi_qw_full,iwb_data,q_data,qw,'chi_qw_dens.dat')
+      call output_chi_qw(chi_qw_full,iwb_data,qw,'chi_qw_dens.dat')
     end if
 
     call MPI_gatherv(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(chi_qw_magn)
     if (mpi_wrank .eq. master) then 
-      call output_chi_qw(chi_qw_full,iwb_data,q_data,qw,'chi_qw_magn.dat')
+      call output_chi_qw(chi_qw_full,iwb_data,qw,'chi_qw_magn.dat')
     end if
 
     call MPI_gatherv(bubble,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,     MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(bubble)
     if (mpi_wrank .eq. master) then 
-      call output_chi_qw(chi_qw_full,iwb_data,q_data,qw,'bubble.dat')
+      call output_chi_qw(chi_qw_full,iwb_data,qw,'bubble.dat')
     end if
 
     deallocate(chi_qw_full)
