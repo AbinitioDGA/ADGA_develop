@@ -200,14 +200,14 @@ subroutine generate_q_path(qdata)
   if (nsegments.gt.0) then
   do i=1,nsegments
     if (i.eq.1) then
-      seg_len=nkp1/2+1
+      seg_len=nqp1/2+1
       start=0
     else
-      seg_len=nkp1/2
+      seg_len=nqp1/2
       start=1
     end if
-    i1=(i-1)*nkp1/2+1+start
-    i2=i*nkp1/2+1
+    i1=(i-1)*nqp1/2+1+start
+    i2=i*nqp1/2+1
     write(*,*) i1,i2
     write(*,*)
     

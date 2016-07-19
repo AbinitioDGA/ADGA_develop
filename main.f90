@@ -456,7 +456,7 @@ write(*,*) nkp1,nqp1,nkp,nqp
     call generate_q_vol(q_data)
     call generate_q_vol(k_data_eom)
   else if (.not. do_eom .and. do_chi .and. q_path) then
-    nqp=n_segments()*nkp1/2+1
+    nqp=n_segments()*nqp1/2+1
     allocate(q_data(nqp))
     call generate_q_path(q_data)
     write(*,*) 'q path'
@@ -466,7 +466,7 @@ write(*,*) nkp1,nqp1,nkp,nqp
     nqp = nq**3
     allocate(q_data(nqp))
     call generate_q_vol(q_data)
-    nkp_eom=n_segments()*nkp1/2+1
+    nkp_eom=n_segments()*nqp1/2+1
     allocate(k_data_eom(nkp_eom))
     call generate_q_path(k_data_eom)
   else
