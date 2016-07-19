@@ -39,7 +39,7 @@ program main
   double precision, allocatable :: dc(:,:)
   complex(kind=8), allocatable :: hk(:,:,:)
   
-  integer :: iw, ik, iq, ikq, iwf, iwb, iv, i, j, k, l, n, dum, dum1, nk, nq, ind_iwb, ind_grp, iwf1, iwf2
+  integer :: iw, ik, iq, ikq, iwf, iwb, iv, i, j, k, l, n, dum, dum1, ind_iwb, ind_grp, iwf1, iwf2
   integer :: imembers
   complex(kind=8), allocatable :: giw(:,:)
   complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:) 
@@ -433,26 +433,26 @@ write(*,*) nkp
 
 
   !define k-grid:
-  nk = nkp**(1./3.)  
-  nkpx=nk
-  nkpy=nk
-  nkpz=nk
-  nkp1=nk
+  nkp1 = nkp**(1./3.)  
+  nkpx=nkp1
+  nkpy=nkp1
+  nkpz=nkp1
 
-  if(mod(nk,nk_frac).ne.0)then
-     stop 'mismatch between k- and q-grid!'
-   endif
+  if(mod(nkp1,nk_frac).ne.0)then
+    stop 'mismatch between k- and q-grid!'
+  endif
 
-    nq = nk/nk_frac
-    nqpx=nq
-    nqpy=nq
-    nqpz=nq 
-    nqp1=nq
+  nqp1 = nkp1/nk_frac
+  nqpx=nqp1
+  nqpy=nqp1
+  nqpz=nqp1 
+
 write(*,*) nkp1,nqp1,nkp,nqp
-  if (q_vol) then
-    nqp = nq**3  
+    if (q_vol) then
+    nqp = nqp1**3
+    nkp_eom=nkp
     allocate(q_data(nqp))
-    allocate(k_data_eom(nqp))
+    allocate(k_data_eom(nkp_eom))
     call generate_q_vol(q_data)
     call generate_q_vol(k_data_eom)
   else if (.not. do_eom .and. do_chi .and. q_path) then
@@ -463,7 +463,7 @@ write(*,*) nkp1,nqp1,nkp,nqp
     write(*,*)'nqp=', nqp !test
     write(*,*) q_data
   else if (do_eom .and. q_path) then
-    nqp = nq**3
+    nqp = nqp1**3
     allocate(q_data(nqp))
     call generate_q_vol(q_data)
     nkp_eom=n_segments()*nqp1/2+1
@@ -545,7 +545,7 @@ start = mpi_wtime()
 
 
 if (do_eom) then
-  allocate(sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
+  allocate(sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom))
   sigma = 0.d0
 end if
 
@@ -909,7 +909,7 @@ end if
 #ifdef MPI
   ! MPI reduction and output
   if (do_eom) then
-     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp))
+     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp_eom))
      allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1))
      call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      sigma_sum = -sigma_sum/(beta*nqp)

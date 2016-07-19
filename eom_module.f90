@@ -20,7 +20,7 @@ contains
   complex(kind=8),intent(in) :: gamma_dmft_dens(ndim2,maxdim), gamma_dmft_magn(ndim2,maxdim)
   complex(kind=8) :: interm3_dens(ndim2,maxdim),interm3_magn(ndim2,maxdim)
   complex(kind=8) :: gamma_loc_sum_left(ndim2,maxdim)
-  complex(kind=8),intent(inout) :: sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
+  complex(kind=8),intent(inout) :: sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom)
   complex(kind=8) :: m_tot_array(ndim,ndim,ndim,ndim,-iwfmax_small:iwfmax_small),m_tot(ndim2,maxdim)
   complex(kind=8) :: u_work(ndim2,ndim2), m_work(ndim2,maxdim)
   complex(kind=8) :: gkiw(ndim,ndim)
@@ -85,8 +85,8 @@ contains
 
   
   !compute k-dependent self energy (convolution with Greens function gkiw): 
-  do ik=1,nkp
-     ikq = kq_ind(ik,iq) 
+  do ik=1,nkp_eom
+     ikq = kq_ind(k_data_eom(ik),iq) 
      do iwf=-iwfmax_small,iwfmax_small-1
         call get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
         
@@ -111,12 +111,12 @@ end subroutine calc_eom
 subroutine add_siw_dmft(siw, sigma_sum, sigma_loc) 
   implicit none
   complex(kind=8), intent(in) :: siw(-iwmax:iwmax-1,ndims) 
-  complex(kind=8) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
+  complex(kind=8) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp_eom)
   complex(kind=8) :: sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1)
   integer :: ik, iwf, iband
 
  ! local contribution is replaced by the DMFT self energy for better asymptotics
-    do ik=1,nkp
+    do ik=1,nkp_eom
        do iwf=-iwfmax_small,iwfmax_small-1
           do iband=1,ndim
              sigma_sum(iband, iband, iwf, ik) = sigma_sum(iband, iband, iwf, ik) + siw(iwf, iband)
@@ -125,10 +125,10 @@ subroutine add_siw_dmft(siw, sigma_sum, sigma_loc)
     enddo
 
     sigma_loc = 0.d0
-    do ik=1,nkp
+    do ik=1,nkp_eom
       sigma_loc(:,:,:) = sigma_loc(:,:,:)+sigma_sum(:,:,:,ik)
     enddo
-    sigma_loc = sigma_loc/dble(nkp)
+    sigma_loc = sigma_loc/dble(nkp_eom)
 
 end subroutine add_siw_dmft
 !===============================================================================================
@@ -140,7 +140,7 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_loc)
 
   real*8, intent(in) :: iw_data(-iwmax:iwmax-1)
   real*8, intent(in) :: k_data(3,nkp)
-  complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
+  complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp_eom)
   complex(kind=8), intent(in) :: sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1)
   integer :: ik, iwf, i, j, iband
 
@@ -156,9 +156,10 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_loc)
      write(44,'(100F12.6)')iw_data(iwf), ((real(sigma_loc(i,j,iwf)), aimag(sigma_loc(i,j,iwf)), j=i,ndims), i=1,ndims)
   enddo
 
-    do ik=1,nkp
+    do ik=1,nkp_eom
        do iwf=0,4
-          write(45,'(100F12.6)') k_data(1,ik), k_data(2,ik), k_data(3,ik), iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndims), i=1,ndims)
+          write(45,'(100F12.6)') k_data(1,k_data_eom(ik)), k_data(2,k_data_eom(ik)), k_data(3,k_data_eom(ik)), iw_data(iwf), &
+              ((real(sigma_sum(i,j,iwf,k_data_eom(ik))), aimag(sigma_sum(i,j,iwf,k_data_eom(ik))), j=i,ndims), i=1,ndims)
        enddo
     enddo
 
