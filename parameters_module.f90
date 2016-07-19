@@ -102,6 +102,47 @@ subroutine read_config()
   close(1)
 end subroutine read_config
 
+
+subroutine init() 
+  implicit none
+  maxdim = ndim*ndim*2*iwfmax_small
+  ndim2 = ndim*ndim
+  if (full_chi0) then
+    iwstart=-iwmax+iwbmax
+    iwstop=iwmax-iwbmax-1
+  else
+    iwstart=-iwfmax_small
+    iwstop=iwfmax_small-1
+  end if
+!  nkp=nkpx*nkpy*nkpz
+
+  !define k-grid:
+  nkp1 = nkp**(1./3.)  
+  nkpx=nkp1
+  nkpy=nkp1
+  nkpz=nkp1
+
+  if(mod(nkp1,nk_frac).ne.0)then
+    stop 'mismatch between k- and q-grid!'
+  endif
+
+  nqp1 = nkp1/nk_frac
+  nqpx=nqp1
+  nqpy=nqp1
+  nqpz=nqp1 
+
+  if (q_vol) then
+    nqp = nqpx*nqpy*nqpz
+  if (mod(nkpx,nqpx).ne.0 .or. mod(nkpy,nqpy).ne.0 .or. mod(nkpz,nqpz).ne.0) then
+     stop 'mismatch between k- and q-grid!'
+   endif
+  end if
+  if (q_path) then
+    nkp1=nkpx
+    nqp1=nqpx
+  end if
+end subroutine init
+
 function n_segments()
   implicit none
   integer :: i,nsegments,n_segments,iostatus
@@ -154,16 +195,17 @@ subroutine init_hubbard_hamiltonian(hk)
   end do
 end subroutine init_hubbard_hamiltonian
 
-subroutine generate_q_vol(qdata)
+subroutine generate_q_vol(n1,qdata)
   implicit none
-  integer :: qdata(nqp),i,j,k,i1
+  integer :: n1
+  integer :: qdata(n1**3),i,j,k,i1
 
   i1=0
-  do i=0,nqp1-1
-    do j=0,nqp1-1
-      do k=0,nqp1-1
+  do i=0,n1-1
+    do j=0,n1-1
+      do k=0,n1-1
         i1 = i1+1
-        qdata(i1)=k_index(i*nkpx/nqpx,j*nkpy/nqpy,k*nkpz/nqpz)
+        qdata(i1)=k_index(i*nkp1/n1,j*nkp1/n1,k*nkp1/n1)
       enddo
     enddo
   enddo
@@ -245,37 +287,6 @@ function q_index_from_code(q_code)
   end if
 end function q_index_from_code
 
-subroutine q_path_segment_old(start,istart,istop,qpoint_1,qpoint_2,segment) 
-  implicit none
-  character :: qpoint_1,qpoint_2
-  integer :: start,istart,istop,j
-  integer :: segment(istart:istop),i
-
-  if (qpoint_1.eq.'G' .and. qpoint_2.eq.'X') then
-    do i=istart,istop
-      j=(i-istart+start)*nkp1/nqp1
-      segment(i)=k_index(0,0,j)
-    end do
-  else if (qpoint_1.eq.'X' .and. qpoint_2.eq.'M') then
-    do i=istart,istop
-      j=(i-istart+start)*nkp1/nqp1
-      segment(i)=k_index(0,j,nkp1/2)
-    end do
-  else if (qpoint_1.eq.'M' .and. qpoint_2.eq.'R') then
-    do i=istart,istop
-      j=(i-istart+start)*nkp1/nqp1
-      segment(i)=k_index(j,nkp1/2,nkp1/2)
-    end do
-  else if (qpoint_1.eq.'R' .and. qpoint_2.eq.'G') then
-    do i=istart,istop
-      j=(nkp1/2-i+istart-start)*nkp1/nqp1
-      segment(i)=k_index(j,j,j)
-    end do
-  else
-  write(*,*) qpoint_1,qpoint_2,'not yet implemented'
-  end if
-
-end subroutine q_path_segment_old
 subroutine q_path_segment(start,istart,istop,qpoint_1,qpoint_2,segment) 
   implicit none
   character :: qpoint_1,qpoint_2
@@ -306,30 +317,138 @@ subroutine q_path_segment(start,istart,istop,qpoint_1,qpoint_2,segment)
 end subroutine q_path_segment
 
 
-subroutine init() 
-  implicit none
-  maxdim = ndim*ndim*2*iwfmax_small
-  ndim2 = ndim*ndim
-  if (full_chi0) then
-    iwstart=-iwmax+iwbmax
-    iwstop=iwmax-iwbmax-1
-  else
-    iwstart=-iwfmax_small
-    iwstop=iwfmax_small-1
-  end if
-!  nkp=nkpx*nkpy*nkpz
+subroutine index_kq(ind)
+      implicit none
+      integer ikp,jkp
+      integer :: ind(nkp,nqp)
+      ind = 0
 
-  if (q_vol) then
-    nqp = nqpx*nqpy*nqpz
-  if (mod(nkpx,nqpx).ne.0 .or. mod(nkpy,nqpy).ne.0 .or. mod(nkpz,nqpz).ne.0) then
-     stop 'mismatch between k- and q-grid!'
-   endif
+! New method
+
+      do ikp=1,nkp
+        do jkp=1,nqp
+          ind(ikp,jkp)=k_minus_q(ikp,q_data(jkp))
+        end do
+      end do
+
+end subroutine index_kq 
+
+! The following function calculates the index of \vec{k} - \vec{q}.
+! It uses only integers
+! \vec{k} is associated to (ix,iy,iz)
+! \vec{q} is associated to (lx,ly,lz)
+! k-space is assumed to have nkpx*nkpy*nkpz points
+! q-space is assumed to have nqpx*nqpy*nqpz points,
+! where each element of the q-space has to be an element of the k-space.
+! subtractions are done in integers, 
+! fold-back to BZ is achieved by modulo division.
+function k_minus_q(ik,iq)
+  implicit none
+  integer :: ik,iq,k_minus_q
+  integer :: ix,iy,iz,lx,ly,lz
+
+  call k_vector(ik,ix,iy,iz)
+  call k_vector(iq,lx,ly,lz)
+
+!  iz=mod(ik-1,nkpz)
+!  lz=mod(iq-1,nqpz)
+!  iy=mod((ik-1)/nkpz,nkpy)
+!  ly=mod((iq-1)/nqpz,nqpy)
+!  ix=(ik-1)/(nkpz*nkpy)
+!  lx=(iq-1)/(nqpz*nqpy)
+
+  k_minus_q=1+mod(nkpz+iz-lz,nkpz) + &
+              mod(nkpy+iy-ly,nkpy)*nkpx + &
+              mod(nkpx+ix-lx,nkpx)*nkpy*nkpx
+!  k_minus_q=1+mod(nkpz+iz-lz*nkpz/nqpz,nkpz) + &
+!              mod(nkpy+iy-ly*nkpy/nqpy,nkpy)*nkpx + &
+!              mod(nkpx+ix-lx*nkpx/nqpx,nkpx)*nkpy*nkpx
+end function k_minus_q
+
+function k_index_1(k)
+  implicit none
+  integer,intent(in) :: k(3)
+  integer :: k_index_1
+
+  k_index_1 = 1 + k(3) + k(2)*nkpz + k(1)*nkpy*nkpz
+
+end function k_index_1
+
+function k_index_3(kx,ky,kz)
+  implicit none
+  integer :: k_index_3,kx,ky,kz
+
+  k_index_3 = 1 + kz + ky*nkpz + kx*nkpy*nkpz
+
+end function k_index_3
+
+subroutine k_vector_1(ik,k)
+  implicit none
+  integer,intent(in) :: ik
+  integer,intent(out) :: k(3)
+
+  k(3)=mod(ik-1,nkpz)
+  k(2)=mod((ik-1)/nkpz,nkpy)
+  k(1)=(ik-1)/(nkpy*nkpz)
+end subroutine k_vector_1
+
+subroutine k_vector_3(ik,kx,ky,kz)
+  implicit none
+  integer :: ik,kx,ky,kz
+
+  kz=mod(ik-1,nkpz)
+  ky=mod((ik-1)/nkpz,nkpy)
+  kx=(ik-1)/(nkpy*nkpz)
+end subroutine k_vector_3
+
+subroutine q_path_segment_old(start,istart,istop,qpoint_1,qpoint_2,segment) 
+  implicit none
+  character :: qpoint_1,qpoint_2
+  integer :: start,istart,istop,j
+  integer :: segment(istart:istop),i
+
+  if (qpoint_1.eq.'G' .and. qpoint_2.eq.'X') then
+    do i=istart,istop
+      j=(i-istart+start)*nkp1/nqp1
+      segment(i)=k_index(0,0,j)
+    end do
+  else if (qpoint_1.eq.'X' .and. qpoint_2.eq.'M') then
+    do i=istart,istop
+      j=(i-istart+start)*nkp1/nqp1
+      segment(i)=k_index(0,j,nkp1/2)
+    end do
+  else if (qpoint_1.eq.'M' .and. qpoint_2.eq.'R') then
+    do i=istart,istop
+      j=(i-istart+start)*nkp1/nqp1
+      segment(i)=k_index(j,nkp1/2,nkp1/2)
+    end do
+  else if (qpoint_1.eq.'R' .and. qpoint_2.eq.'G') then
+    do i=istart,istop
+      j=(nkp1/2-i+istart-start)*nkp1/nqp1
+      segment(i)=k_index(j,j,j)
+    end do
+  else
+  write(*,*) qpoint_1,qpoint_2,'not yet implemented'
   end if
-  if (q_path) then
-    nkp1=nkpx
-    nqp1=nqpx
-  end if
-end subroutine init
+end subroutine q_path_segment_old
+
+
+subroutine checkk(k,q,ic,dk)
+      implicit none
+      integer ic
+      double precision k(3),q(3),p(3),op,dk
+
+      op=real(dk,kind=8)
+      ic=0
+      p=k-q
+!      write(*,*) p
+      if ( (abs(p(1)).lt.op).and.(abs(p(2)).lt.op).and.(abs(p(3)).lt.op) ) then
+        ic =1
+!        write(*,*) p
+      end if
+return
+end subroutine checkk
+
 
 subroutine index_kq_search(k_data, q_data, index)
   
@@ -425,107 +544,5 @@ subroutine index_kq_search(k_data, q_data, index)
 
 end subroutine index_kq_search
 
-
-subroutine index_kq(ind)
-      implicit none
-      integer ikp,jkp
-      integer :: ind(nkp,nqp)
-      ind = 0
-
-! New method
-
-      do ikp=1,nkp
-        do jkp=1,nqp
-          ind(ikp,jkp)=k_minus_q(ikp,q_data(jkp))
-        end do
-      end do
-
-end subroutine index_kq 
-
-
-subroutine checkk(k,q,ic,dk)
-      implicit none
-      integer ic
-      double precision k(3),q(3),p(3),op,dk
-
-      op=real(dk,kind=8)
-      ic=0
-      p=k-q
-!      write(*,*) p
-      if ( (abs(p(1)).lt.op).and.(abs(p(2)).lt.op).and.(abs(p(3)).lt.op) ) then
-        ic =1
-!        write(*,*) p
-      end if
-return
-end subroutine checkk
-
-
-! The following function calculates the index of \vec{k} - \vec{q}.
-! It uses only integers
-! \vec{k} is associated to (ix,iy,iz)
-! \vec{q} is associated to (lx,ly,lz)
-! k-space is assumed to have nkpx*nkpy*nkpz points
-! q-space is assumed to have nqpx*nqpy*nqpz points,
-! where each element of the q-space has to be an element of the k-space.
-! subtractions are done in integers, 
-! fold-back to BZ is achieved by modulo division.
-function k_minus_q(ik,iq)
-  implicit none
-  integer :: ik,iq,k_minus_q
-  integer :: ix,iy,iz,lx,ly,lz
-
-  call k_vector(ik,ix,iy,iz)
-  call k_vector(iq,lx,ly,lz)
-
-!  iz=mod(ik-1,nkpz)
-!  lz=mod(iq-1,nqpz)
-!  iy=mod((ik-1)/nkpz,nkpy)
-!  ly=mod((iq-1)/nqpz,nqpy)
-!  ix=(ik-1)/(nkpz*nkpy)
-!  lx=(iq-1)/(nqpz*nqpy)
-
-  k_minus_q=1+mod(nkpz+iz-lz,nkpz) + &
-              mod(nkpy+iy-ly,nkpy)*nkpx + &
-              mod(nkpx+ix-lx,nkpx)*nkpy*nkpx
-!  k_minus_q=1+mod(nkpz+iz-lz*nkpz/nqpz,nkpz) + &
-!              mod(nkpy+iy-ly*nkpy/nqpy,nkpy)*nkpx + &
-!              mod(nkpx+ix-lx*nkpx/nqpx,nkpx)*nkpy*nkpx
-end function k_minus_q
-
-function k_index_1(k)
-  implicit none
-  integer,intent(in) :: k(3)
-  integer :: k_index_1
-
-  k_index_1 = 1 + k(3) + k(2)*nkpz + k(1)*nkpy*nkpz
-
-end function k_index_1
-
-function k_index_3(kx,ky,kz)
-  implicit none
-  integer :: k_index_3,kx,ky,kz
-
-  k_index_3 = 1 + kz + ky*nkpz + kx*nkpy*nkpz
-
-end function k_index_3
-
-subroutine k_vector_1(ik,k)
-  implicit none
-  integer,intent(in) :: ik
-  integer,intent(out) :: k(3)
-
-  k(3)=mod(ik-1,nkpz)
-  k(2)=mod((ik-1)/nkpz,nkpy)
-  k(1)=(ik-1)/(nkpy*nkpz)
-end subroutine k_vector_1
-
-subroutine k_vector_3(ik,kx,ky,kz)
-  implicit none
-  integer :: ik,kx,ky,kz
-
-  kz=mod(ik-1,nkpz)
-  ky=mod((ik-1)/nkpz,nkpy)
-  kx=(ik-1)/(nkpy*nkpz)
-end subroutine k_vector_3
 
 end module parameters_module

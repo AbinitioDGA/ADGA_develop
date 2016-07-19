@@ -432,29 +432,14 @@ write(*,*) nkp
   allocate(v(ndim2,ndim2))
 
 
-  !define k-grid:
-  nkp1 = nkp**(1./3.)  
-  nkpx=nkp1
-  nkpy=nkp1
-  nkpz=nkp1
-
-  if(mod(nkp1,nk_frac).ne.0)then
-    stop 'mismatch between k- and q-grid!'
-  endif
-
-  nqp1 = nkp1/nk_frac
-  nqpx=nqp1
-  nqpy=nqp1
-  nqpz=nqp1 
-
-write(*,*) nkp1,nqp1,nkp,nqp
-    if (q_vol) then
+  write(*,*) nkp1,nqp1,nkp,nqp
+  if (q_vol) then
     nqp = nqp1**3
     nkp_eom=nkp
     allocate(q_data(nqp))
     allocate(k_data_eom(nkp_eom))
-    call generate_q_vol(q_data)
-    call generate_q_vol(k_data_eom)
+    call generate_q_vol(nqp1,q_data)
+    call generate_q_vol(nkp1,k_data_eom)
   else if (.not. do_eom .and. do_chi .and. q_path) then
     nqp=n_segments()*nqp1/2+1
     allocate(q_data(nqp))
@@ -465,7 +450,7 @@ write(*,*) nkp1,nqp1,nkp,nqp
   else if (do_eom .and. q_path) then
     nqp = nqp1**3
     allocate(q_data(nqp))
-    call generate_q_vol(q_data)
+    call generate_q_vol(nqp1,q_data)
     nkp_eom=n_segments()*nqp1/2+1
     allocate(k_data_eom(nkp_eom))
     call generate_q_path(k_data_eom)
@@ -485,7 +470,7 @@ write(*,*) nkp1,nqp1,nkp,nqp
 
   write(*,*)'nqp=', nqp !test
 
-  stop
+  !stop
 !define qw compound index for mpi:
   allocate(qw(2,nqp*(2*iwbmax+1)))
   i1=0
