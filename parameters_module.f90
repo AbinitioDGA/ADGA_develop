@@ -16,7 +16,7 @@ module parameters_module
   character(len=150) :: filename,filename_vertex,filename_umatrix,output_dir,filename_q_path
   logical :: orb_sym,small_freq_box,full_chi0
   logical :: do_eom,do_chi
-  logical :: q_path,q_vol
+  logical :: q_path_susc,k_path_eom,q_vol
   integer :: vertex_type
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
   interface k_vector
@@ -71,14 +71,10 @@ subroutine read_config()
 
   read(1,*)
   read(1,*)
-  read(1,*) int_tmp_1
-  if (int_tmp_1.eq.1) then
-    q_path=.true.
-    q_vol=.false.
-  else if (int_tmp_1.eq.2) then 
-    q_path=.false.
-    q_vol=.true.
-  end if
+  read(1,*) int_tmp_1,int_tmp_2,int_tmp_3
+  q_vol=int_tmp_1
+  k_path_eom=int_tmp_2
+  q_path_susc=int_tmp_3
 
   read(1,*)
   read(1,*)
@@ -137,7 +133,7 @@ subroutine init()
      stop 'mismatch between k- and q-grid!'
    endif
   end if
-  if (q_path) then
+  if (q_path_susc .or. k_path_eom) then
     nkp1=nkpx
     nqp1=nqpx
   end if
@@ -212,12 +208,12 @@ subroutine generate_q_vol(n1,qdata)
 
 end subroutine generate_q_vol
 
-subroutine generate_q_path(qdata)
+subroutine generate_q_path(n1,qdata)
   implicit none
-  integer :: i,nsegments,iostatus,start,seg_len,i1,i2
+  integer :: i,nsegments,iostatus,start,seg_len,i1,i2,n1
   character(len=1) :: qpoint_name
   character,allocatable :: qpoints_str(:)
-  integer :: qdata(nqp)
+  integer :: qdata(n1**3)
 !  integer,allocatable :: qpoints(:)
 
   if (.not. (nkpx.eq.nkpy.and.nkpy.eq.nkpz)) then
@@ -242,19 +238,17 @@ subroutine generate_q_path(qdata)
   if (nsegments.gt.0) then
   do i=1,nsegments
     if (i.eq.1) then
-      seg_len=nqp1/2+1
       start=0
     else
-      seg_len=nqp1/2
       start=1
     end if
-    i1=(i-1)*nqp1/2+1+start
-    i2=i*nqp1/2+1
+    i1=(i-1)*n1/2+1+start
+    i2=i*n1/2+1
     write(*,*) i1,i2
     write(*,*)
     
 !    call q_path_segment_old(start,i1,i2,qpoints_str(i),qpoints_str(i+1),qdata(i1:i2))
-    call q_path_segment(start,i1,i2,qpoints_str(i),qpoints_str(i+1),qdata(i1:i2))
+    call q_path_segment(n1,start,i1,i2,qpoints_str(i),qpoints_str(i+1),qdata(i1:i2))
   end do
   else if (nsegments.eq.0) then
     qdata(1)=q_index_from_code(qpoints_str(1))
@@ -287,11 +281,11 @@ function q_index_from_code(q_code)
   end if
 end function q_index_from_code
 
-subroutine q_path_segment(start,istart,istop,qpoint_1,qpoint_2,segment) 
+subroutine q_path_segment(n1,start,istart,istop,qpoint_1,qpoint_2,segment) 
   implicit none
   character :: qpoint_1,qpoint_2
   integer :: q_ind_1,q_ind_2,q_vec_1(3),q_vec_2(3),distance(3),step(3)
-  integer :: start,istart,istop,j
+  integer :: start,istart,istop,j,n1
   integer :: segment(istart:istop),i
   integer :: vector(3)
 
@@ -310,7 +304,7 @@ subroutine q_path_segment(start,istart,istop,qpoint_1,qpoint_2,segment)
   end do
 
   do i=istart,istop
-    j=(i-istart+start)*nkp1/nqp1
+    j=(i-istart+start)*nkp1/n1
     vector=q_vec_1+j*step
     segment(i)=k_index(vector)
   end do

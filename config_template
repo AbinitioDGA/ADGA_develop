@@ -16,8 +16,8 @@
 # size of small fermionic (1) and bosonic (2) frequency box
 60 1
 
-# for q path choose 1, for q volume choose 2
-1
+# q_vol,k_path_eom,q_path_susc
+1 1 1
 
 # file name of q path file (ignored for a_vol)
 path.qp

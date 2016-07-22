@@ -108,28 +108,28 @@ program main
 
 
 ! read  external w2wannier Hamitonian:
-!  open(21, file="SVO_k20.hk", status='unknown')
-
+!  open(21, file="/home/lv70808/jkaufmann/Data/SVO/160720/SVO_k20.hk", status='unknown')
+!
 !  read(21,*) nkp,ndim
 !  allocate(hr(ndim,ndim),hi(ndim,ndim))
 !  allocate(hk(ndim,ndim,nkp))
 !  allocate(k_data(3,nkp))
-
+!
 !  do ik=1,nkp
-
+!
 !     read(21,*)kx,ky,kz
 !     k_data(1,ik) = kx
 !     k_data(2,ik) = ky
 !     k_data(3,ik) = kz
-
+!
 !     do i=1,ndim
 !        read(21,*) (hr(i,j),hi(i,j),j=1,ndim)
 !     enddo
-
+!
 !     hk(:,:,ik)=hr(:,:)+ci*hi(:,:)
-   
+!  
 !  enddo
-
+!
 !  close(21)
 
 
@@ -336,6 +336,9 @@ write(*,*) nkp
   call h5dread_f(dc_id, h5t_native_double, dc, dc_dims, error)
   call h5dclose_f(dc_id, error)
 
+!  allocate(dc(2,ndim))
+!  dc=0.d0
+
 ! read inverse temperature beta:
   call h5gopen_f(file_id, ".config", config_id, error)
   call h5aopen_f(config_id, "general.beta", beta_id, error)
@@ -349,6 +352,8 @@ write(*,*) nkp
   call h5close_f(error)
 
   write(*,*) 'beta=', beta
+  write(*,*) 'mu=', mu
+  write(*,*) 'dc=', dc
 
   ! read Umatrix from file:
   allocate(u_tmp(ndim, ndim, ndim, ndim))
@@ -433,31 +438,41 @@ write(*,*) nkp
 
 
   write(*,*) nkp1,nqp1,nkp,nqp
-  if (q_vol) then
-    nqp = nqp1**3
-    nkp_eom=nkp
-    allocate(q_data(nqp))
-    allocate(k_data_eom(nkp_eom))
-    call generate_q_vol(nqp1,q_data)
-    call generate_q_vol(nkp1,k_data_eom)
-  else if (.not. do_eom .and. do_chi .and. q_path) then
+
+  if (q_path_susc .and. do_chi .and. (.not. q_vol)) then
+    if (do_eom) then
+      write(*,*) 'Error: it is impossible to use do_eom and q_path_susc'
+      stop
+    end if
     nqp=n_segments()*nqp1/2+1
     allocate(q_data(nqp))
-    call generate_q_path(q_data)
-    write(*,*) 'q path'
-    write(*,*)'nqp=', nqp !test
-    write(*,*) q_data
-  else if (do_eom .and. q_path) then
-    nqp = nqp1**3
+    call generate_q_path(nqp1,q_data)
+  else 
+    if (q_path_susc .and. q_vol) then
+      write(*,*) 'Warning: q_path_susc .and. q_vol currently has the same effect as only q_vol.'
+    end if
+    nqp=nqp1**3
     allocate(q_data(nqp))
     call generate_q_vol(nqp1,q_data)
-    nkp_eom=n_segments()*nqp1/2+1
-    allocate(k_data_eom(nkp_eom))
-    call generate_q_path(k_data_eom)
-  else
-    write(*,*) 'only (q_vol) and (.not. do_eom .and. q_path) are implemented yet.'
-    stop
   end if
+!  else if (.not. do_eom .and. do_chi .and. q_path) then
+!    nqp=n_segments()*nqp1/2+1
+!    allocate(q_data(nqp))
+!    call generate_q_path(q_data)
+!    write(*,*) 'q path'
+!    write(*,*)'nqp=', nqp !test
+!    write(*,*) q_data
+!  else if (do_eom .and. q_path) then
+!    nqp = nqp1**3
+!    allocate(q_data(nqp))
+!    call generate_q_vol(nqp1,q_data)
+!    nkp_eom=n_segments()*nqp1/2+1
+!    allocate(k_data_eom(nkp_eom))
+!    call generate_q_path(k_data_eom)
+!  else
+!    write(*,*) 'only (q_vol) and (.not. do_eom .and. q_path) are implemented yet.'
+!    stop
+!  end if
   
   !search for k+q - index:
   call cpu_time(start)
@@ -530,7 +545,7 @@ start = mpi_wtime()
 
 
 if (do_eom) then
-  allocate(sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom))
+  allocate(sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
   sigma = 0.d0
 end if
 
@@ -637,6 +652,14 @@ end if
                           if((iwb .eq. iwb_zero) .and. i==j .and. k==l)then
                              chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l) 
                           endif
+
+                          !HACK: for reading vertex_sym.hdf5 from g4iw_conn.hdf5 instead of
+                          !vertex_full.hdf5
+                          !cross term is subtracted once for each channel
+                          !if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
+                          !   chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j) 
+                          !   chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j) 
+                          !endif
 
                        enddo
                     enddo
@@ -894,7 +917,7 @@ end if
 #ifdef MPI
   ! MPI reduction and output
   if (do_eom) then
-     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp_eom))
+     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp))
      allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1))
      call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      sigma_sum = -sigma_sum/(beta*nqp)
