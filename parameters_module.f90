@@ -4,7 +4,7 @@ module parameters_module
 
   complex(kind=8) ci
   parameter (ci=(0.d0,1.d0))
-  double precision,parameter :: pi=3.1415926535897932385d0,t=0.25d0
+  double precision,parameter :: pi=3.1415926535897932385d0
   integer :: nkp, ndim, ndims, ndim2, maxdim,i1,i2,i3,i4
   integer :: nkpx,nkpy,nkpz,nkp1,nqpx,nqpy,nqpz,nqp1
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,nk_frac

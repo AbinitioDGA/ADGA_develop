@@ -436,9 +436,6 @@ write(*,*) nkp
   allocate(gamma_loc_sum_left(ndim2,maxdim))
   allocate(v(ndim2,ndim2))
 
-
-  write(*,*) nkp1,nqp1,nkp,nqp
-
   if (q_path_susc .and. do_chi .and. (.not. q_vol)) then
     if (do_eom) then
       write(*,*) 'Error: it is impossible to use do_eom and q_path_susc'
@@ -447,6 +444,7 @@ write(*,*) nkp
     nqp=n_segments()*nqp1/2+1
     allocate(q_data(nqp))
     call generate_q_path(nqp1,q_data)
+    write(*,*) 'q path with',n_segments(),'segments and',nqp,'points.'
   else 
     if (q_path_susc .and. q_vol) then
       write(*,*) 'Warning: q_path_susc .and. q_vol currently has the same effect as only q_vol.'
@@ -455,6 +453,14 @@ write(*,*) nkp
     allocate(q_data(nqp))
     call generate_q_vol(nqp1,q_data)
   end if
+
+  if (mpi_wrank .eq. 1) then
+    write(*,*) nkp1,'k points in one direction'
+    write(*,*) nkp,'k points total'
+    write(*,*) nqp1,'k points in one direction'
+    write(*,*) nqp,'q points total'
+  end if
+
 !  else if (.not. do_eom .and. do_chi .and. q_path) then
 !    nqp=n_segments()*nqp1/2+1
 !    allocate(q_data(nqp))
