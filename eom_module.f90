@@ -2,6 +2,7 @@ module eom_module
 
   use parameters_module
   use one_particle_quant_module
+  use kq_tools
   implicit none
 
 contains
