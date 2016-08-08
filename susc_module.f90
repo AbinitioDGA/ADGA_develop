@@ -19,7 +19,7 @@ module susc_module
             end do
          end do
       end do
-      chi_qw=chi_qw/beta
+      chi_qw=chi_qw/(beta**2)
     end subroutine calc_chi_qw
 
     subroutine calc_bubble(bubble,chi0_sum)
@@ -32,7 +32,7 @@ module susc_module
       do iwf=iwstart,iwstop
         bubble(:,:)=bubble(:,:)+chi0_sum(:,:,iwf)
       end do
-      bubble=bubble/beta
+      bubble=bubble/(beta**2)
     end subroutine calc_bubble
 
     ! subroutine to output susceptibility
