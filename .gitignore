@@ -8,6 +8,7 @@
 *.conf
 *.btr
 *.out
+*.qp
 
 main
 vertex_chann_sym
