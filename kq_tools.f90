@@ -23,8 +23,8 @@ function n_segments()
     read(1,*,iostat=iostatus) qpoint_name
     nsegments=nsegments+1
   end do
-  write(*,*) nsegments, 'q segments'
   close(1)
+!  write(*,*) nsegments, 'q segments'
   n_segments=nsegments
 end function n_segments
 
