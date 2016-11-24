@@ -49,17 +49,17 @@ subroutine init_k_grid_cubic()
   close(35)
 end subroutine init_k_grid_cubic
 
-subroutine generate_q_vol(n1,qdata)
+subroutine generate_q_vol(nqpx,nqpy,nqpz,qdata)
   implicit none
-  integer :: n1
-  integer :: qdata(n1**3),i,j,k,i1
+  integer :: nqpx,nqpy,nqpz
+  integer :: qdata(nqpx*nqpy*nqpz),i,j,k,i1
 
   i1=0
-  do i=0,n1-1
-    do j=0,n1-1
-      do k=0,n1-1
+  do i=0,nqpx-1
+    do j=0,nqpy-1
+      do k=0,nqpz-1
         i1 = i1+1
-        qdata(i1)=k_index(i*nkp1/n1,j*nkp1/n1,k*nkp1/n1)
+        qdata(i1)=k_index(i*nkpx/nqpx,j*nkpy/nqpy,k*nkpz/nqpz)
       enddo
     enddo
   enddo
@@ -175,8 +175,6 @@ subroutine index_kq(ind)
       integer :: ind(nkp,nqp)
       ind = 0
 
-! New method
-
       do ikp=1,nkp
         do jkp=1,nqp
           ind(ikp,jkp)=k_minus_q(ikp,q_data(jkp))
@@ -202,19 +200,10 @@ function k_minus_q(ik,iq)
   call k_vector(ik,ix,iy,iz)
   call k_vector(iq,lx,ly,lz)
 
-!  iz=mod(ik-1,nkpz)
-!  lz=mod(iq-1,nqpz)
-!  iy=mod((ik-1)/nkpz,nkpy)
-!  ly=mod((iq-1)/nqpz,nqpy)
-!  ix=(ik-1)/(nkpz*nkpy)
-!  lx=(iq-1)/(nqpz*nqpy)
-
   k_minus_q=1+mod(nkpz+iz-lz,nkpz) + &
-              mod(nkpy+iy-ly,nkpy)*nkpx + &
-              mod(nkpx+ix-lx,nkpx)*nkpy*nkpx
-!  k_minus_q=1+mod(nkpz+iz-lz*nkpz/nqpz,nkpz) + &
-!              mod(nkpy+iy-ly*nkpy/nqpy,nkpy)*nkpx + &
-!              mod(nkpx+ix-lx*nkpx/nqpx,nkpx)*nkpy*nkpx
+              mod(nkpy+iy-ly,nkpy)*nkpz + &
+              mod(nkpx+ix-lx,nkpx)*nkpy*nkpz
+
 end function k_minus_q
 
 function k_index_1(k)

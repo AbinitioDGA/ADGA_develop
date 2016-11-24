@@ -109,53 +109,54 @@ program main
 
 
 ! read  external w2wannier Hamitonian:
-  open(21, file="/home/lv70808/jkaufmann/Data/Hubbard/1band_beta8/Hk.dat", status='unknown')
+  if(read_ext_hk) then
+    open(21, file=filename_hk, status='unknown')
 
-  read(21,*) nkp,ndim
-  allocate(hr(ndim,ndim),hi(ndim,ndim))
-  allocate(hk(ndim,ndim,nkp))
-  allocate(k_data(3,nkp))
+    read(21,*) nkp,ndim
+    allocate(hr(ndim,ndim),hi(ndim,ndim))
+    allocate(hk(ndim,ndim,nkp))
+    allocate(k_data(3,nkp))
 
-  do ik=1,nkp
+    do ik=1,nkp
 
-     read(21,*)kx,ky,kz
-     k_data(1,ik) = kx
-     k_data(2,ik) = ky
-     k_data(3,ik) = kz
+       read(21,*) kx,ky,kz
+       k_data(1,ik) = kx
+       k_data(2,ik) = ky
+       k_data(3,ik) = kz
 
-     do i=1,ndim
-        read(21,*) (hr(i,j),hi(i,j),j=1,ndim)
-     enddo
+       do i=1,ndim
+          read(21,*) (hr(i,j),hi(i,j),j=1,ndim)
+       enddo
 
-     hk(:,:,ik)=hr(:,:)+ci*hi(:,:)
-  
-  enddo
+       hk(:,:,ik)=hr(:,:)+ci*hi(:,:)
+    
+    enddo
 
-  close(21)
-
+    close(21)
+  end if
 
  
   
 !##################  READ W2DYNAMICS HDF5 OUTPUT FILE  #####################################
 
   call h5open_f(error)
-
-  inull = 0
-
+                      
+  inull = 0           
+                      
 ! Set dataset transfer property to preserve partially initialized fields during write/read to/from dataset with compound datatype (necessary?)
   call h5pcreate_f(h5p_dataset_xfer_f, plist_id, error)
   call h5pset_preserve_f(plist_id, .true., error)
-
+                      
   call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, error)
   call h5fopen_f(filename_vertex, h5f_acc_rdonly_f, file_vert_id, error) 
-
+                      
 ! create compound datatype for complex arrays:
   call h5tget_size_f(h5t_native_double, type_sized, error)
   compound_size = 2*type_sized
   call h5tcreate_f(h5t_compound_f, compound_size, compound_id, error)
   call h5tinsert_f(compound_id, "r", inull, h5t_native_double, error)
   call h5tinsert_f(compound_id, "i", type_sized, h5t_native_double, error)
-
+                      
   !complex type to write real and imaginary individually:
   call h5tcreate_f(h5t_compound_f, type_sized, type_r_id, error)
   call h5tinsert_f(type_r_id, "r", inull, h5t_native_double, error)
@@ -279,16 +280,17 @@ program main
   close(54)
 
   write(*,*) 'ok' 
- 
-! read k-points:
-!  call h5dopen_f(file_id, ".axes/k-points", k_id, error)
-!  call h5dget_space_f(k_id, k_space_id, error)
-!  call h5sget_simple_extent_dims_f(k_space_id, k_dims, k_maxdims, error)
-!  nkp = k_dims(2)
-!  allocate(k_data(k_dims(1),k_dims(2))) !indices: 3 ik
-!  call h5dread_f(k_id, h5t_native_double, k_data, k_dims, error)
-!  call h5dclose_f(k_id, error)
 
+  if(.not. read_ext_hk) then
+    ! read k-points:
+    call h5dopen_f(file_id, ".axes/k-points", k_id, error)
+    call h5dget_space_f(k_id, k_space_id, error)
+    call h5sget_simple_extent_dims_f(k_space_id, k_dims, k_maxdims, error)
+    nkp = k_dims(2)
+    allocate(k_data(k_dims(1),k_dims(2))) !indices: 3 ik
+    call h5dread_f(k_id, h5t_native_double, k_data, k_dims, error)
+    call h5dclose_f(k_id, error)
+  end if
 write(*,*) nkp,'k points'
 ! write k-points:
   open(37, file=trim(output_dir)//'k_points.dat', status='unknown')
@@ -297,32 +299,32 @@ write(*,*) nkp,'k points'
   enddo
   close(37)
 
-! read Hamiltonian H(k):
-!  call h5dopen_f(file_id, "start/hk/value", hk_id, error)
-!  call h5dget_space_f(hk_id, hk_space_id, error)
-!  call h5sget_simple_extent_dims_f(hk_space_id, hk_dims, hk_maxdims, error)
-!  ndim = hk_dims(1)
-!  allocate(hk_data(2,hk_dims(1),hk_dims(2),hk_dims(3)))
-!  call h5dread_f(hk_id, compound_id, hk_data, hk_dims, error)
-!  allocate(hk(hk_dims(1),hk_dims(2),hk_dims(3))) !indices: band band ik
-!  hk = 0.d0
-!  hk(:,:,:) = hk_data(1,:,:,:)+ci*hk_data(2,:,:,:)
-!  call h5dclose_f(hk_id, error)
-!  deallocate(hk_data)
+  if(.not. read_ext_hk) then
+  ! read Hamiltonian H(k):
+    call h5dopen_f(file_id, "start/hk/value", hk_id, error)
+    call h5dget_space_f(hk_id, hk_space_id, error)
+    call h5sget_simple_extent_dims_f(hk_space_id, hk_dims, hk_maxdims, error)
+    ndim = hk_dims(1)
+    allocate(hk_data(2,hk_dims(1),hk_dims(2),hk_dims(3)))
+    call h5dread_f(hk_id, compound_id, hk_data, hk_dims, error)
+    allocate(hk(hk_dims(1),hk_dims(2),hk_dims(3))) !indices: band band ik
+    hk = 0.d0
+    hk(:,:,:) = hk_data(1,:,:,:)+ci*hk_data(2,:,:,:)
+    call h5dclose_f(hk_id, error)
+    deallocate(hk_data)
 
-! test hk:
-!  open(34, file=trim(output_dir)//"hk.dat", status='unknown')
-!  do ik=1,hk_dims(3)
-!     write(34,*)k_data(:,ik)
-!     do i=1,hk_dims(2)
-!        write(34,'(100F12.6)')hk(:,i,ik)
-!     enddo
-!  enddo
-!  close(34)
+  ! test hk:
+    open(34, file=trim(output_dir)//"hk.dat", status='unknown')
+    do ik=1,hk_dims(3)
+       write(34,*)k_data(:,ik)
+       do i=1,hk_dims(2)
+          write(34,'(100F12.6)')hk(:,i,ik)
+       enddo
+    enddo
+    close(34)
+  end if
 
   call init()
-!  maxdim = ndim*ndim*2*iwfmax_small
-!  ndim2 = ndim*ndim
 
 ! read chemical potential:
   call h5dopen_f(file_id, "stat-001/mu/value", mu_id, error)
@@ -450,10 +452,11 @@ write(*,*) nkp,'k points'
     if (q_path_susc .and. q_vol) then
       write(*,*) 'Warning: q_path_susc .and. q_vol currently has the same effect as only q_vol.'
     end if
-    nqp=nqp1**3
+    nqp=nqpx*nqpy*nqpz
     allocate(q_data(nqp))
-    call generate_q_vol(nqp1,q_data)
+    call generate_q_vol(nqpx,nqpy,nqpz,q_data)
   end if
+
 
   if (mpi_wrank .eq. 1) then
     write(*,*) nkp1,'k points in one direction'
@@ -491,6 +494,7 @@ write(*,*) nkp,'k points'
 !##################### parallel code ##################################################
 
   write(*,*)'nqp=', nqp !test
+  write(*,*) maxval(kq_ind)
 
   !stop
 !define qw compound index for mpi:
@@ -655,18 +659,26 @@ end if
                           chi_loc_magn_full(i1,i2) = g4iw_magn(i,j,iwf1,k,l,iwf2)
                           chi_loc_dens_full(i1,i2) = g4iw_dens(i,j,iwf1,k,l,iwf2)
 
-                          !straight term is subtracted (twice) only in the dens channel and only for iw=0:
-                          if((iwb .eq. iwb_zero) .and. i==j .and. k==l)then
-                             chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l) 
-                          endif
+                          ! Depending on the type of vertex read, we have 3
+                          ! different choices. 
+                          ! If susceptibilities are read (cross-check with ed),
+                          ! nothing has to be done.
+                          if (vertex_type .eq. full_g4) then
+                            ! conventional mode: read full 2-particle GF
+                            !straight term is subtracted (twice) only in the dens channel and only for iw=0:
+                            if((iwb .eq. iwb_zero) .and. i==j .and. k==l)then
+                               chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l) 
+                            endif
 
-                          !HACK: for reading vertex_sym.hdf5 from g4iw_conn.hdf5 instead of
-                          !vertex_full.hdf5
-                          !cross term is subtracted once for each channel
-                          !if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
-                          !   chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j) 
-                          !   chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j) 
-                          !endif
+                          else if (vertex_type .eq. connected_g4) then
+                            !HACK: for reading vertex_sym.hdf5 from g4iw_conn.hdf5 instead of
+                            !vertex_full.hdf5
+                            !cross term is subtracted once for each channel
+                            if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
+                               chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j) 
+                               chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j) 
+                            endif
+                          end if
 
                        enddo
                     enddo

@@ -13,20 +13,21 @@ module parameters_module
   double precision, allocatable :: k_data(:,:)
   integer :: nqp,nkp_eom
   integer,allocatable :: q_data(:),k_data_eom(:)
-  character(len=150) :: filename,filename_vertex,filename_umatrix,output_dir,filename_q_path
+  character(len=150) :: filename,filename_vertex,filename_umatrix,filename_hk,output_dir,filename_q_path
   logical :: orb_sym,small_freq_box,full_chi0
   logical :: do_eom,do_chi
-  logical :: q_path_susc,k_path_eom,q_vol
+  logical :: q_path_susc,k_path_eom,q_vol,read_ext_hk
   integer :: vertex_type
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
 
 contains
+
 subroutine read_config()
   implicit none
   character(len=100) :: cmd_arg
   character(len=100) :: config_file
   character(len=150) :: str_tmp
-  integer :: int_tmp_1,int_tmp_2,int_tmp_3
+  integer :: int_tmp_1,int_tmp_2,int_tmp_3,int_tmp_4
 
   call getarg(1,cmd_arg)
   config_file=trim(cmd_arg)
@@ -65,19 +66,20 @@ subroutine read_config()
 
   read(1,*)
   read(1,*)
-  read(1,*) int_tmp_1,int_tmp_2,int_tmp_3
+  read(1,*) int_tmp_1,int_tmp_2,int_tmp_3,int_tmp_4
   q_vol=int_tmp_1
   k_path_eom=int_tmp_2
   q_path_susc=int_tmp_3
+  read_ext_hk=int_tmp_4
 
   read(1,*)
   read(1,*)
-  read(1,*) str_tmp
+  read(1,'(A)') str_tmp
   filename_q_path=trim(str_tmp)
 
   read(1,*)
   read(1,*)
-  read(1,*) nk_frac
+  read(1,*) nkpx, nkpy, nkpz, nqpx, nqpy, nqpz, ndim
 
   read(1,*)
   read(1,*)
@@ -89,7 +91,18 @@ subroutine read_config()
   read(1,*) int_tmp_1,int_tmp_2
   do_chi=int_tmp_1
   do_eom=int_tmp_2
+
+  read(1,*)
+  read(1,*)
+  read(1,*) vertex_type
+
+  read(1,*)
+  read(1,*)
+  read(1,'(A)') str_tmp
+  filename_hk=trim(str_tmp)
+
   close(1)
+
 end subroutine read_config
 
 
@@ -104,33 +117,28 @@ subroutine init()
     iwstart=-iwfmax_small
     iwstop=iwfmax_small-1
   end if
-!  nkp=nkpx*nkpy*nkpz
 
-  !define k-grid:
-  nkp1 = nkp**(1./3.)  
-  nkpx=nkp1
-  nkpy=nkp1
-  nkpz=nkp1
+  ! Since currently the BZ sum has to go over all points of the Hamiltonian, we
+  ! do a consistency check here.
+  if (nkpx*nkpy*nkpz .ne. nkp) then
+    stop 'Wrong number of k points in config file.'
+  end if
+  nkp=nkpx*nkpy*nkpz
 
-  if(mod(nkp1,nk_frac).ne.0)then
-    stop 'mismatch between k- and q-grid!'
-  endif
-
-  nqp1 = nkp1/nk_frac
-  nqpx=nqp1
-  nqpy=nqp1
-  nqpz=nqp1 
 
   if (q_vol) then
     nqp = nqpx*nqpy*nqpz
-  if (mod(nkpx,nqpx).ne.0 .or. mod(nkpy,nqpy).ne.0 .or. mod(nkpz,nqpz).ne.0) then
-     stop 'mismatch between k- and q-grid!'
-   endif
+    if (mod(nkpx,nqpx).ne.0 .or. mod(nkpy,nqpy).ne.0 .or. mod(nkpz,nqpz).ne.0) then
+      stop 'mismatch between k- and q-grid!'
+    endif
   end if
+
   if (q_path_susc .or. k_path_eom) then
+    stop 'q paths currently not stable'
     nkp1=nkpx
     nqp1=nqpx
   end if
+
 end subroutine init
 
 end module parameters_module
