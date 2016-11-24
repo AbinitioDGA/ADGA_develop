@@ -1,20 +1,12 @@
-
-#FFLAGS += -I/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/include
-
-# set flags
 F90 = mpiifort
-#F90 = mpif90
-FFLAGS += -O3 -g -fpp -DMPI# -traceback -check all
-#FFLAGS += -O0 -g -fbacktrace -C -DMPI
+FFLAGS += -O0 -g -fpp -DMPI -traceback -check all
 FINCLUDE += -I/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/include
-#FINCLUDE += -I/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.14/gnu-4.4.7/include
 LD = $(F90)
 LDFLAGS += -lhdf5_fortran -lhdf5hl_fortran -lmkl_rt  #-limf
 LDINCLUDE += -L/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/lib -L/cm/shared/apps/intel/composer_xe_2015.2.164/mkl/lib/intel64
-#LDINCLUDE += -L/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.14/gnu-4.4.7/lib -L/cm/shared/apps/intel/composer_xe_2015.2.164/mkl/lib/intel64
 
 # get source files
-F90_MAIN_SOURCES := main.f90 parameters_module.f90 index_module.f90 lapack_module.f90 one_particle_quant_module.f90 susc_module.f90 eom_module.f90
+F90_MAIN_SOURCES := main.f90 parameters_module.f90 kq_tools.f90 lapack_module.f90 one_particle_quant_module.f90 susc_module.f90 eom_module.f90
 F90_SOURCES := vertex_chann_sym.f90 hdf5_module.f90 
 MAIN_OBJECTS := $(patsubst %.f90,%.o,$(F90_MAIN_SOURCES))
 OBJECTS := $(patsubst %.f90,%.o,$(F90_SOURCES))
@@ -28,12 +20,12 @@ main: $(MAIN_OBJECTS)
 vertex_chann_sym: $(OBJECTS) 
 	$(LD) $(OBJECTS) -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
 
-main.o: parameters_module.o index_module.o lapack_module.o one_particle_quant_module.o susc_module.o eom_module.o
+main.o: parameters_module.o kq_tools.o lapack_module.o one_particle_quant_module.o susc_module.o eom_module.o
 vertex_chann_sym.o: hdf5_module.o
 eom_module.o: parameters_module.o one_particle_quant_module.o
 susc_module.o: parameters_module.o 
 one_particle_quant_module.o: lapack_module.o parameters_module.o
-index_module.o: parameters_module.o
+kq_tools.o: parameters_module.o
 
 %.o: %.f90
 	$(F90) $(FFLAGS) $(FINCLUDE) -c $< -o $@
