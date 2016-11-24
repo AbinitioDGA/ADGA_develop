@@ -10,6 +10,7 @@ program main
   use one_particle_quant_module
   use eom_module
   use susc_module
+  use kq_tools
 
   implicit none
 
@@ -108,29 +109,29 @@ program main
 
 
 ! read  external w2wannier Hamitonian:
-!  open(21, file="/home/lv70808/jkaufmann/Data/SVO/160720/SVO_k20.hk", status='unknown')
-!
-!  read(21,*) nkp,ndim
-!  allocate(hr(ndim,ndim),hi(ndim,ndim))
-!  allocate(hk(ndim,ndim,nkp))
-!  allocate(k_data(3,nkp))
-!
-!  do ik=1,nkp
-!
-!     read(21,*)kx,ky,kz
-!     k_data(1,ik) = kx
-!     k_data(2,ik) = ky
-!     k_data(3,ik) = kz
-!
-!     do i=1,ndim
-!        read(21,*) (hr(i,j),hi(i,j),j=1,ndim)
-!     enddo
-!
-!     hk(:,:,ik)=hr(:,:)+ci*hi(:,:)
-!  
-!  enddo
-!
-!  close(21)
+  open(21, file="/home/lv70808/jkaufmann/Data/Hubbard/1band_beta8/Hk.dat", status='unknown')
+
+  read(21,*) nkp,ndim
+  allocate(hr(ndim,ndim),hi(ndim,ndim))
+  allocate(hk(ndim,ndim,nkp))
+  allocate(k_data(3,nkp))
+
+  do ik=1,nkp
+
+     read(21,*)kx,ky,kz
+     k_data(1,ik) = kx
+     k_data(2,ik) = ky
+     k_data(3,ik) = kz
+
+     do i=1,ndim
+        read(21,*) (hr(i,j),hi(i,j),j=1,ndim)
+     enddo
+
+     hk(:,:,ik)=hr(:,:)+ci*hi(:,:)
+  
+  enddo
+
+  close(21)
 
 
  
@@ -148,7 +149,6 @@ program main
   call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, error)
   call h5fopen_f(filename_vertex, h5f_acc_rdonly_f, file_vert_id, error) 
 
-  write(*,*) 'ok' 
 ! create compound datatype for complex arrays:
   call h5tget_size_f(h5t_native_double, type_sized, error)
   compound_size = 2*type_sized
@@ -278,17 +278,18 @@ program main
   enddo
   close(54)
 
+  write(*,*) 'ok' 
  
 ! read k-points:
-  call h5dopen_f(file_id, ".axes/k-points", k_id, error)
-  call h5dget_space_f(k_id, k_space_id, error)
-  call h5sget_simple_extent_dims_f(k_space_id, k_dims, k_maxdims, error)
-  nkp = k_dims(2)
-  allocate(k_data(k_dims(1),k_dims(2))) !indices: 3 ik
-  call h5dread_f(k_id, h5t_native_double, k_data, k_dims, error)
-  call h5dclose_f(k_id, error)
+!  call h5dopen_f(file_id, ".axes/k-points", k_id, error)
+!  call h5dget_space_f(k_id, k_space_id, error)
+!  call h5sget_simple_extent_dims_f(k_space_id, k_dims, k_maxdims, error)
+!  nkp = k_dims(2)
+!  allocate(k_data(k_dims(1),k_dims(2))) !indices: 3 ik
+!  call h5dread_f(k_id, h5t_native_double, k_data, k_dims, error)
+!  call h5dclose_f(k_id, error)
 
-write(*,*) nkp
+write(*,*) nkp,'k points'
 ! write k-points:
   open(37, file=trim(output_dir)//'k_points.dat', status='unknown')
   do ik=1,100
@@ -297,17 +298,17 @@ write(*,*) nkp
   close(37)
 
 ! read Hamiltonian H(k):
-  call h5dopen_f(file_id, "start/hk/value", hk_id, error)
-  call h5dget_space_f(hk_id, hk_space_id, error)
-  call h5sget_simple_extent_dims_f(hk_space_id, hk_dims, hk_maxdims, error)
-  ndim = hk_dims(1)
-  allocate(hk_data(2,hk_dims(1),hk_dims(2),hk_dims(3)))
-  call h5dread_f(hk_id, compound_id, hk_data, hk_dims, error)
-  allocate(hk(hk_dims(1),hk_dims(2),hk_dims(3))) !indices: band band ik
-  hk = 0.d0
-  hk(:,:,:) = hk_data(1,:,:,:)+ci*hk_data(2,:,:,:)
-  call h5dclose_f(hk_id, error)
-  deallocate(hk_data)
+!  call h5dopen_f(file_id, "start/hk/value", hk_id, error)
+!  call h5dget_space_f(hk_id, hk_space_id, error)
+!  call h5sget_simple_extent_dims_f(hk_space_id, hk_dims, hk_maxdims, error)
+!  ndim = hk_dims(1)
+!  allocate(hk_data(2,hk_dims(1),hk_dims(2),hk_dims(3)))
+!  call h5dread_f(hk_id, compound_id, hk_data, hk_dims, error)
+!  allocate(hk(hk_dims(1),hk_dims(2),hk_dims(3))) !indices: band band ik
+!  hk = 0.d0
+!  hk(:,:,:) = hk_data(1,:,:,:)+ci*hk_data(2,:,:,:)
+!  call h5dclose_f(hk_id, error)
+!  deallocate(hk_data)
 
 ! test hk:
 !  open(34, file=trim(output_dir)//"hk.dat", status='unknown')
