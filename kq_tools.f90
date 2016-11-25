@@ -28,25 +28,31 @@ function n_segments()
   n_segments=nsegments
 end function n_segments
 
-subroutine init_k_grid_cubic()
+
+! initialize an orthogonal lattice with 
+!   * spacing a and nkpx points in x direction
+!   *         b     nkpy           y
+!   *         c     nkpz           z
+subroutine init_k_grid_cubic(k_data,nkpx,nkpy,nkpz,a,b,c)
   implicit none
-  integer :: ik,ikx,iky,ikz,iband
+  integer :: ik,ikx,iky,ikz,iband,nkpx,nkpy,nkpz
+  real*8  :: k_data(:,:),a,b,c
   ik=0
   do ikz=1,nkpz
     do iky=1,nkpy
       do ikx=1,nkpx
         ik=ik+1
-        k_data(1,ik)=dble(ikx-1)/dble(nkpx)
-        k_data(2,ik)=dble(iky-1)/dble(nkpy)
-        k_data(3,ik)=dble(ikz-1)/dble(nkpz)
+        k_data(1,ik)=dble(ikx-1)/dble(nkpx)/a
+        k_data(2,ik)=dble(iky-1)/dble(nkpy)/b
+        k_data(3,ik)=dble(ikz-1)/dble(nkpz)/c
       end do
     end do
   end do
-  open(35, file=trim(output_dir)//"k_data.dat", status='unknown')
-  do ik=1,nkp
-    write(35,*) k_data(:,ik)
-  end do
-  close(35)
+!  open(35, file=trim(output_dir)//"k_data.dat", status='unknown')
+!  do ik=1,nkp
+!    write(35,*) k_data(:,ik)
+!  end do
+!  close(35)
 end subroutine init_k_grid_cubic
 
 subroutine generate_q_vol(nqpx,nqpy,nqpz,qdata)

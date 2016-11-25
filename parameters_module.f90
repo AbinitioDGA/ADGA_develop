@@ -21,7 +21,8 @@ module parameters_module
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
   integer :: nr ! number of r-points in extrapolated V(r)
   character(len=150) filename_vr ! filename of extrapolated V(r)
-  complex(kind=8),allocatable :: v_r(:,:,:)
+  real(kind=8),allocatable :: v_r(:,:,:)
+  real(kind=8) :: a,b,c ! lattice spacing
 
 contains
 
@@ -169,12 +170,12 @@ end subroutine init
 
 subroutine read_v_r(v_r,r_data)
   implicit none
-  complex(kind=8) v_r(ndim2,ndim2,nr)
-  real(kind=8) r_data(3,nr),v_r_real(ndim2,ndim2),v_r_imag(ndim2,ndim2)
+  real(kind=8) v_r(ndim**2,ndim**2,nr)
+  real(kind=8) r_data(3,nr),v_r_real(ndim2,ndim2)
   integer :: nr_file,ir,i,j,nd
 
   open(unit=2,file=filename_vr)
-  read(2,*) nr_file,nd
+  read(2,*) nr_file,nd,a,b,c
   if (nr_file .ne. nr) then
     write(*,*) 'V(r) file says there are',nr_file,'r points. '
     write(*,*) 'Please adapt config file.'
@@ -190,9 +191,8 @@ subroutine read_v_r(v_r,r_data)
     read(2,*) (r_data(i,ir),i=1,3)
 
     do i=1,ndim
-       read(2,*) (v_r_real(i,j),v_r_imag(i,j),j=1,ndim)
+       read(2,*) (v_r(i,j,ir),j=1,ndim)
     enddo
-    v_r(:,:,ir)=v_r_real(:,:)+ci*v_r_imag(:,:)
   enddo
 
   close(2)
