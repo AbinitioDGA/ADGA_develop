@@ -11,6 +11,7 @@ program main
   use eom_module
   use susc_module
   use kq_tools
+  use vq_module
 
   implicit none
 
@@ -570,7 +571,7 @@ end if
      iwb = qw(1,iqw)
   
      !to be done here: read nonlocal interaction v and go into compound index
-     v = 0.d0
+     call get_vq(v,k_data(:,q_data(iq)))
 
      !update chi_loc only if iwb is different than the previous one:
      if(update_chi_loc_flag) then    
