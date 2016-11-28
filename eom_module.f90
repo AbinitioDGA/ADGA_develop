@@ -58,13 +58,22 @@ contains
   m_tot = m_tot + m_work
 
   !local part:
-  u_work = v + u
+  u_work = u
   m_work = 0.d0
   gamma_loc_sum_left = gamma_loc_sum_left - gamma_dmft_dens
   alpha = 1.d0
   delta = 0.d0
   call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, gamma_loc_sum_left, ndim2, delta, m_work, ndim2)
   m_tot = m_tot - m_work
+
+  !v(q) part
+  u_work = v
+  m_work = 0.d0
+  alpha = 1.d0
+  delta = 0.d0
+  call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, gamma_dmft_dens, ndim2, delta, m_work, ndim2)
+  m_tot = m_tot + m_work
+  
 
   !break up the compound index:
   m_tot_array = 0.d0
