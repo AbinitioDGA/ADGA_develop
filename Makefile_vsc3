@@ -1,12 +1,12 @@
 F90 = mpiifort
-FFLAGS += -O3 -g -fpp -DMPI -traceback -check all
+FFLAGS += -O0 -g -fpp -DMPI -traceback -check all
 FINCLUDE += -I/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/include
 LD = $(F90)
 LDFLAGS += -lhdf5_fortran -lhdf5hl_fortran -lmkl_rt  #-limf
 LDINCLUDE += -L/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/lib -L/cm/shared/apps/intel/composer_xe_2015.2.164/mkl/lib/intel64
 
 # get source files
-F90_MAIN_SOURCES := main.f90 parameters_module.f90 kq_tools.f90 lapack_module.f90 one_particle_quant_module.f90 susc_module.f90 eom_module.f90 vq_module.f90
+F90_MAIN_SOURCES := main.f90 parameters_module.f90 vq_module.f90 kq_tools.f90 lapack_module.f90 one_particle_quant_module.f90 susc_module.f90 eom_module.f90
 F90_SOURCES := vertex_chann_sym.f90 hdf5_module.f90 
 F90_VQ_SOURCES := vq_check.f90 vq_module.f90 parameters_module.f90 kq_tools.f90
 MAIN_OBJECTS := $(patsubst %.f90,%.o,$(F90_MAIN_SOURCES))

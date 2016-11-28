@@ -189,9 +189,9 @@ subroutine read_v_r(v_r,r_data)
 
   do ir=1,nr
     read(2,*) (r_data(i,ir),i=1,3)
-
-    do i=1,ndim
-       read(2,*) (v_r(i,j,ir),j=1,ndim)
+! TODO: correctly read multi-band components and go to compound index.
+    do i=1,ndim2
+       read(2,*) (v_r(i,j,ir),j=1,ndim2)
     enddo
   enddo
 

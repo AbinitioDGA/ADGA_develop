@@ -53,7 +53,7 @@ program main
   complex(kind=8), allocatable :: chi_qw_dens(:,:,:),chi_qw_magn(:,:,:),bubble(:,:,:),chi_qw_full(:,:,:)
   complex(kind=8), allocatable :: chi_loc_dens(:,:,:),chi_loc_magn(:,:,:),bubble_loc(:,:,:)
   integer, allocatable :: kq_ind(:,:), qw(:,:)
-  complex(kind=8), allocatable :: interm2_magn(:,:), interm3_dens(:,:), interm3_magn(:,:), c(:,:)
+  complex(kind=8), allocatable :: interm2_magn(:,:), interm3_dens(:,:), interm3_magn(:,:), c_interm(:,:)
   complex(kind=8), allocatable :: interm1(:,:), interm1_v(:,:), interm2_dens(:,:)
 
   real(kind=8 ):: start, finish, start1, finish1
@@ -435,7 +435,7 @@ write(*,*) nkp,'k points'
   allocate(chi_loc_slice_magn(ndim2,maxdim))
   allocate(interm3_dens(ndim2,maxdim))!allocate somewhere else?
   allocate(interm3_magn(ndim2,maxdim))
-  allocate(c(ndim2,maxdim))
+  allocate(c_interm(ndim2,maxdim))
 
   allocate(gamma_loc_sum_left(ndim2,maxdim))
   allocate(v(ndim2,ndim2))
@@ -794,26 +794,26 @@ end if
         
 
         ! compute intermediate quantity (chi0*chi0_loc_inv)*chi_loc:
-        c = 0.d0
+        c_interm = 0.d0
         alpha = 1.d0
         delta = 0.d0
-        call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, interm1, ndim2, chi_loc_slice_dens, ndim2, delta, c, ndim2)
+        call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, interm1, ndim2, chi_loc_slice_dens, ndim2, delta, c_interm, ndim2)
              
         do i=1,ndim2
            do j=1,maxdim
-              interm2_dens(i+(dum1*ndim2),j) = c(i,j)
+              interm2_dens(i+(dum1*ndim2),j) = c_interm(i,j)
            enddo
         enddo
         
         !same for the magn channel:
-        c = 0.d0
+        c_interm = 0.d0
         alpha = 1.d0
         delta = 0.d0
-        call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, interm1, ndim2, chi_loc_slice_magn, ndim2, delta, c, ndim2)
+        call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, interm1, ndim2, chi_loc_slice_magn, ndim2, delta, c_interm, ndim2)
              
         do i=1,ndim2
            do j=1,maxdim
-              interm2_magn(i+(dum1*ndim2),j) = c(i,j)
+              interm2_magn(i+(dum1*ndim2),j) = c_interm(i,j)
            enddo
         enddo
             
@@ -834,29 +834,30 @@ end if
         enddo
 
         ! compute the part of interm2 containing v: (chi0*v)*chi_loc_sum_left
-        c = 0.d0
+        ! only in density channel
+        c_interm = 0.d0
         alpha = 1.d0
         delta = 0.d0
-        call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, interm1_v, ndim2, chi_loc_dens_sum_left, ndim2, delta, c, ndim2)
+        call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, interm1_v, ndim2, chi_loc_dens_sum_left, ndim2, delta, c_interm, ndim2)
              
         ! add it to interm2:
         do i=1,ndim2
            do j=1,maxdim
-              interm2_dens(i+(dum1*ndim2),j) = interm2_dens(i+(dum1*ndim2),j)+c(i,j)
+              interm2_dens(i+(dum1*ndim2),j) = interm2_dens(i+(dum1*ndim2),j)+c_interm(i,j)
            enddo
         enddo
 
-        !same for the magnetic channel:
-        c = 0.d0
-        alpha = 1.d0
-        delta = 0.d0
-        call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, interm1_v, ndim2, chi_loc_magn_sum_left, ndim2, delta, c, ndim2)
-             
-        do i=1,ndim2
-           do j=1,maxdim
-              interm2_magn(i+(dum1*ndim2),j) = interm2_magn(i+(dum1*ndim2),j)+c(i,j)
-           enddo
-        enddo
+!        !same for the magnetic channel:
+!        c_interm = 0.d0
+!        alpha = 1.d0
+!        delta = 0.d0
+!        call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, interm1_v, ndim2, chi_loc_magn_sum_left, ndim2, delta, c_interm, ndim2)
+!             
+!        do i=1,ndim2
+!           do j=1,maxdim
+!              interm2_magn(i+(dum1*ndim2),j) = interm2_magn(i+(dum1*ndim2),j)+c_interm(i,j)
+!           enddo
+!        enddo
         
                     
         dum1 = dum1+1
@@ -931,7 +932,7 @@ end if
   deallocate(interm3_dens,interm3_magn) 
   deallocate(hk,giw,dc,u,u_tilde,chi0_loc,chi0_loc_inv,chi0_sum,interm1,interm1_v,gamma_dmft_dens,gamma_dmft_magn)
   deallocate(chi_loc_dens_sum_left,chi_loc_magn_sum_left)
-  deallocate(chi_loc_magn_full,chi_loc_dens_full,gamma_loc_sum_left,v,c)
+  deallocate(chi_loc_magn_full,chi_loc_dens_full,gamma_loc_sum_left,v,c_interm)
   deallocate(chi_loc_slice_dens,chi_loc_slice_magn)
   
 #ifdef MPI
