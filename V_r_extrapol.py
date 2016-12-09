@@ -49,28 +49,42 @@ f1=plt.figure(1)
 plt.plot(r_abs,U_r_in[:,0,0].real,marker='.',linestyle='None')
 f1.show()
 
-# take out the value at r=0, because we cannot fit it otherwise.
-ydata=np.zeros((n-1,nd**2,nd**2),dtype=np.float_)
-rdata=np.zeros((n-1),dtype=np.float_)
-j=0
-for i in xrange(n):
-  if r_abs[i] >= 0.001:
-    ydata[j]=U_r_in[i]
-    rdata[j]=r_abs[i]
-    j=j+1
-
 # do the fit
 def yukawa(r,a,b):
   return a*np.exp(-b*np.abs(r))/np.abs(r)
 
+def simple_exp(r,a,b):
+#  return a*np.exp(-b*np.abs(r))
+  return 1.95*np.exp(-b*np.abs(r))
 
-popt, pcov = curve_fit(yukawa,rdata,ydata[:,0,0])
+fitfun=simple_exp
+
+if fitfun==yukawa:
+# if we fit to yukawa, take out the value at r=0, because we cannot fit it otherwise.
+  ydata=np.zeros((n-1,nd**2,nd**2),dtype=np.float_)
+  rdata=np.zeros((n-1),dtype=np.float_)
+  j=0
+  for i in xrange(n):
+    if r_abs[i] >= 0.001:
+      ydata[j]=U_r_in[i]
+      rdata[j]=r_abs[i]
+      j=j+1
+else:
+  ydata=np.zeros((n,nd**2,nd**2),dtype=np.float_)
+  rdata=np.zeros((n),dtype=np.float_)
+  j=0
+  for i in xrange(n):
+    ydata[j]=U_r_in[i]
+    rdata[j]=r_abs[i]
+    j=j+1
+
+popt, pcov = curve_fit(fitfun,rdata,ydata[:,0,0])
 
 print popt
 print pcov
 
 f2=plt.figure(2)
-plt.plot(np.linspace(min(rdata),max(rdata)),yukawa(np.linspace(min(rdata),max(rdata)),popt[0],popt[1]))
+plt.plot(np.linspace(min(rdata),max(rdata)),fitfun(np.linspace(min(rdata),max(rdata)),popt[0],popt[1]))
 plt.plot(r_abs,U_r_in[:,0,0].real,marker='.',linestyle='None')
 f2.show()
 
@@ -97,7 +111,7 @@ for i in xrange(2*nx+1):
   for j in xrange(2*ny+1):
     for k in xrange(2*nz+1):
       r_ext[i,j,k,:]=[(i-nx)*a,(j-ny)*b,(k-nz)*c]
-      U_ext[i,j,k]=yukawa(np.linalg.norm(r_ext[i,j,k]),popt[0],popt[1])
+      U_ext[i,j,k]=fitfun(np.linalg.norm(r_ext[i,j,k]),popt[0],popt[1])
       if np.linalg.norm(r_ext[i,j,k,:]) < np.max(r_abs):
         for l in xrange(n):
           if np.allclose(r_vec[l],r_ext[i,j,k],atol=np.min([a,b,c])/10):
@@ -108,8 +122,11 @@ for i in xrange(2*nx+1):
 outfile.close()
 
 f3=plt.figure(3)
-plt.plot(r_ext[:,ny,nz,0],np.log10(U_ext[:,ny,nz,0,0]),marker='.',linestyle='None')
+plt.plot(r_ext[:,ny,nz,0],U_ext[:,ny,nz,0,0],marker='.',linestyle='None',label='U(x),U(y)')
+plt.plot(r_ext[nx,ny,:,2],U_ext[nx,ny,:,0,0],marker='*',linestyle='None',label='U(z)')
+plt.legend()
+plt.xlim(-10,10)
+plt.xlabel('x,z')
 f3.show()
 
 raw_input()
-
