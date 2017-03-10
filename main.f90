@@ -41,7 +41,7 @@ program main
   double precision, allocatable :: dc(:,:)
   complex(kind=8), allocatable :: hk(:,:,:)
   
-  integer :: iw, ik, iq, ikq, iwf, iwb, iv, i, j, k, l, n, dum, dum1, ind_iwb, ind_grp, iwf1, iwf2
+  integer :: iw, ik, iq, ikq, iwf, iwb, iv, dum, dum1, ind_iwb, ind_grp, iwf1, iwf2,i,j,k,l,n
   integer :: imembers
   complex(kind=8), allocatable :: giw(:,:)
   complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:) 
@@ -62,9 +62,8 @@ program main
   logical :: update_chi_loc_flag
   integer :: b1, b2, b3, b4
 
-  double precision :: u_value, kx, ky, kz
-  double precision, allocatable :: u_tmp(:,:,:,:), u_tilde_tmp(:,:,:,:), hr(:,:), hi(:,:)
-  complex(kind=8), allocatable :: u(:,:), u_tilde(:,:) 
+  double precision :: kx, ky, kz
+  double precision, allocatable :: hr(:,:), hi(:,:)
   complex(kind=8), allocatable :: gamma_loc(:,:), gamma_loc_sum_left(:,:), v(:,:)
 
   complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_sum(:,:,:,:), sigma_loc(:,:,:)
@@ -333,15 +332,15 @@ write(*,*) nkp,'k points'
   call h5dclose_f(mu_id, error)
 
 ! read double counting:
-  call h5dopen_f(file_id, "stat-001/ineq-001/dc/value", dc_id, error)
-  call h5dget_space_f(dc_id, dc_space_id, error)
-  call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
-  allocate(dc(dc_dims(1),dc_dims(2))) !indices: spin band
-  call h5dread_f(dc_id, h5t_native_double, dc, dc_dims, error)
-  call h5dclose_f(dc_id, error)
+!  call h5dopen_f(file_id, "stat-001/ineq-001/dc/value", dc_id, error)
+!  call h5dget_space_f(dc_id, dc_space_id, error)
+!  call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
+!  allocate(dc(dc_dims(1),dc_dims(2))) !indices: spin band
+!  call h5dread_f(dc_id, h5t_native_double, dc, dc_dims, error)
+!  call h5dclose_f(dc_id, error)
 
-!  allocate(dc(2,ndim))
-!  dc=0.d0
+  allocate(dc(2,ndim))
+  dc=0.d0
 
 ! read inverse temperature beta:
   call h5gopen_f(file_id, ".config", config_id, error)
@@ -359,49 +358,6 @@ write(*,*) nkp,'k points'
   write(*,*) 'mu=', mu
   write(*,*) 'dc=', dc
 
-  ! read Umatrix from file:
-  allocate(u_tmp(ndim, ndim, ndim, ndim))
-  allocate(u_tilde_tmp(ndim, ndim, ndim, ndim))
-
-  open(21,file=filename_umatrix,status='old')
-  read(21,*)
-
-  do n=1,ndim**4
-
-     read(21,*) i, j, k, l, u_value   
-     u_tmp(i,j,k,l) = u_value
-     u_tilde_tmp(i,j,l,k) = u_value
-
-  enddo
-
-  close(21)
-
-  
-  !go into compound index:
-  allocate(u(ndim**2, ndim**2))
-  allocate(u_tilde(ndim**2, ndim**2))
-  u = 0.d0
-  u_tilde = 0.d0
-
-  i2 = 0
-  do l=1,ndim
-     do j=1,ndim
-        i2 = i2+1
-        i1 = 0
-        do i=1,ndim
-           do k=1,ndim
-              i1 = i1+1
-              
-              u(i1,i2) = u_tmp(i,j,k,l)
-              u_tilde(i1,i2) = u_tilde_tmp(i,j,k,l)
-              
-           enddo
-        enddo
-     enddo
-  enddo
-
-  deallocate(u_tmp, u_tilde_tmp)
-  
   
 !################################################################################################
 
@@ -563,6 +519,22 @@ end if
 
 !  open(55, file=trim(output_dir)//"chi0_loc_sum.dat", status='unknown')
 
+if (mpi_wrank.eq.0) then 
+  open(unit=256,file=trim(output_dir)//'kdata',status='replace')
+  do ik=1,nkp
+    write(256,*) k_data(:,ik)
+  end do
+  close(256)
+  open(unit=266,file=trim(output_dir)//'qdata',status='replace')
+  do iq=1,nqp
+    write(266,*) k_data(:,q_data(iq))
+  end do
+  close(266)
+end if
+
+! open a file to log V(q)
+!open(unit=267,file=trim(output_dir)//'Vq_log.dat',status='replace')
+
   iwb = iwbmax_small+3
   do iqw=qwstart,qwstop
      call cpu_time(start)
@@ -571,7 +543,8 @@ end if
      iwb = qw(1,iqw)
   
      !to be done here: read nonlocal interaction v and go into compound index
-     call get_vq(v,k_data(:,q_data(iq)))
+     call get_vq(v,k_data(:,q_data(iq)),v_r,r_data)
+     v=v-u ! otherwise, U would be included twice.
 
      !update chi_loc only if iwb is different than the previous one:
      if(update_chi_loc_flag) then    
@@ -928,6 +901,9 @@ end if
        write(*,'((A),I5,2X,I6,2X,I6,2X,I6,2X,(A),F8.4)') 'iqw/qwstart/qwstop on rank',mpi_wrank,iqw,qwstart,qwstop,'time ',finish-start
 !     end if
   enddo !iqw
+
+
+!  close(267)
 
   deallocate(interm3_dens,interm3_magn) 
   deallocate(hk,giw,dc,u,u_tilde,chi0_loc,chi0_loc_inv,chi0_sum,interm1,interm1_v,gamma_dmft_dens,gamma_dmft_magn)

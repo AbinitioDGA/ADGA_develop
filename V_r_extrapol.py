@@ -82,7 +82,7 @@ for i in xrange(n):
 infile.close()
 
 # plot the input data vs abs(r)
-plotcomp=4 # component to plot
+plotcomp=0 # component to plot
 f1=plt.figure(1)
 plt.plot(r_abs,U_r_in[:,plotcomp].real,marker='.',linestyle='None')
 f1.show()

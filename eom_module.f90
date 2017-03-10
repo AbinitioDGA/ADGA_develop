@@ -171,7 +171,7 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_loc)
   enddo
 
   do ik=1,nkp
-     do iwf=0,4
+     do iwf=-iwfmax_small,iwfmax_small-1
         write(45,'(100F12.6)') k_data(1,ik), k_data(2,ik), k_data(3,ik), iw_data(iwf), &
             ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndims), i=1,ndims)
      enddo

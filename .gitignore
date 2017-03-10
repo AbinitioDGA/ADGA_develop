@@ -9,6 +9,8 @@
 *.btr
 *.out
 *.qp
+*.dat
+*.png
 
 main
 vertex_chann_sym

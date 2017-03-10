@@ -21,8 +21,10 @@ module parameters_module
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
   integer :: nr ! number of r-points in extrapolated V(r)
   character(len=150) filename_vr ! filename of extrapolated V(r)
-  real(kind=8),allocatable :: v_r(:,:,:)
+  real(kind=8),allocatable :: v_r(:,:,:), u_tmp(:,:,:,:), u_tilde_tmp(:,:,:,:)
   real(kind=8) :: a,b,c ! lattice spacing
+  real(kind=8) :: u_value
+  complex(kind=8),allocatable :: u(:,:), u_tilde(:,:)
 
 contains
 
@@ -123,6 +125,7 @@ end subroutine read_config
 
 subroutine init() 
   implicit none
+  integer :: i,j,k,l,n
   maxdim = ndim*ndim*2*iwfmax_small
   ndim2 = ndim*ndim
   if (full_chi0) then
@@ -149,7 +152,7 @@ subroutine init()
   end if
 
   if (q_path_susc .or. k_path_eom) then
-    stop 'q paths currently not stable'
+  !  stop 'q paths currently not stable'
     nkp1=nkpx
     nqp1=nqpx
   end if
@@ -165,12 +168,55 @@ subroutine init()
     call read_v_r(v_r,r_data)
   end if
 
+  ! read Umatrix from file:
+  allocate(u_tmp(ndim, ndim, ndim, ndim))
+  allocate(u_tilde_tmp(ndim, ndim, ndim, ndim))
+
+  open(21,file=filename_umatrix,status='old')
+  read(21,*)
+
+  do n=1,ndim**4
+
+     read(21,*) i, j, k, l, u_value   
+     u_tmp(i,j,k,l) = u_value
+     u_tilde_tmp(i,j,l,k) = u_value
+
+  enddo
+
+  close(21)
+
+  
+  !go into compound index:
+  allocate(u(ndim**2, ndim**2))
+  allocate(u_tilde(ndim**2, ndim**2))
+  u = 0.d0
+  u_tilde = 0.d0
+
+  i2 = 0
+  do l=1,ndim
+     do j=1,ndim
+        i2 = i2+1
+        i1 = 0
+        do i=1,ndim
+           do k=1,ndim
+              i1 = i1+1
+              
+              u(i1,i2) = u_tmp(i,j,k,l)
+              u_tilde(i1,i2) = u_tilde_tmp(i,j,k,l)
+              
+           enddo
+        enddo
+     enddo
+  enddo
+
+  deallocate(u_tmp, u_tilde_tmp)
+  
 
 end subroutine init
 
 subroutine read_v_r(v_r,r_data)
   implicit none
-  real(kind=8) v_r(ndim**2,ndim**2,nr)
+  real(kind=8) v_r(:,:,:)!(ndim**2,ndim**2,nr)
   real(kind=8) r_data(3,nr),v_r_real(ndim2,ndim2)
   integer :: nr_file,ir,i,j,nd
 
@@ -190,8 +236,8 @@ subroutine read_v_r(v_r,r_data)
   do ir=1,nr
     read(2,*) (r_data(i,ir),i=1,3)
 ! TODO: correctly read multi-band components and go to compound index.
-    do i=1,ndim2
-       read(2,*) (v_r(i,j,ir),j=1,ndim2)
+    do i=1,nd**2
+       read(2,*) (v_r(i,j,ir),j=1,nd**2)
     enddo
   enddo
 

@@ -45,6 +45,7 @@ module susc_module
       complex(kind=8) :: chi_qw(ndim2,ndim2,nqp*(2*iwbmax_small+1))
       integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i
 
+      write(*,*) 'Output chi_qw'
 
       ! create a format string that works for various orbital dimensions
       write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
@@ -110,6 +111,8 @@ module susc_module
       real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
       complex(kind=8) :: chi_qw(ndim2,ndim2,2*iwbmax_small+1)
       integer :: iwb,i
+
+      write(*,*) 'output chi_loc'
 
       ! create a format string that works for various orbital dimensions
       write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X',2*ndim2**2,'(E14.7E2,2X))'
