@@ -155,8 +155,7 @@ program symmetrize_vertex
   use hdf5_module
   implicit none
 
-  character(len=20), parameter :: filename = "vertex_full.hdf5"
-  character(len=15), parameter :: filename_new = "vertex_sym.hdf5"
+  character(len=150) :: cmd_arg, filename, filename_new
 
   character(len=20) :: grpname, name_buffer, name_buffer_value, name_buffer_error
   integer(hid_t) :: nmembers, imembers, itype, grp_id, g4iw_id, g4err_id
@@ -174,11 +173,26 @@ program symmetrize_vertex
   integer, allocatable :: ind_band_list(:)
 
   real(kind=8) :: start, finish
+!================================================================
+! read command line arguments -> input and output filename, number of bands.
+  if (.not. iargc().eq.3 ) then
+    write(*,*) 'The program has to be executed with exactly three arguments: Name of input and output file, number of bands'
+    stop
+  end if
+
+  call getarg(1,cmd_arg)
+  filename=trim(cmd_arg)
+  call getarg(2,cmd_arg)
+  filename_new = trim(cmd_arg)
+  call getarg(3,cmd_arg)
+  read(cmd_arg,'(I1)') Nbands
 
 !================================================================
-!Define number of orbitals and orbital symmetry here:
-  Nbands = 3
+!Define orbital symmetry here:
   su2_only = .false. 
+  write(*,*) 'Symmetrizing ',filename,'>>>>>',filename_new
+  write(*,*) 'Number of bands: ',Nbands
+  write(*,*) 'Using orbital and SU2 symmetry'
 !=================================================================
 
   call cpu_time(start)
