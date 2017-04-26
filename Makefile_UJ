@@ -1,0 +1,32 @@
+F90 = ifort
+FFLAGS += -O3 -g  -traceback -check all
+FINCLUDE += -I/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/include
+LD = $(F90)
+LDFLAGS += -lhdf5_fortran -lhdf5hl_fortran -lmkl_rt  #-limf
+LDINCLUDE += -L/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/lib -L/cm/shared/apps/intel/composer_xe_2015.2.164/mkl/lib/intel64
+
+# get source files
+F90_SOURCES := readV_UJ_nonloc.f hdf5_module.f90
+#OBJECTS := $(patsubst %.f90,%.o,$(F90_SOURCES))
+#OBJECTS2 := $(patsubst %.f,%.o,$(F90_SOURCES))
+
+#OBJECTS := $(patsubst %.o)
+OBJECTS = hdf5_module.o readV_UJ_nonloc.o
+
+PROG=readV
+
+all: readV
+
+readV: $(OBJECTS)
+	$(LD) $(OBJECTS) -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
+
+# readV.o: hdf5_module.o
+
+%.o: %.f90
+	$(F90) $(FFLAGS) $(FINCLUDE) -c $< -o $@
+
+%.o: %.f
+	$(F90) $(FFLAGS) $(FINCLUDE) -c $< -o $@
+
+clean:
+	rm -f *.o *.mod $(PROG)
