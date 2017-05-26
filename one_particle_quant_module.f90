@@ -74,6 +74,57 @@ subroutine get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
 end subroutine get_gkiw
 
 
+subroutine get_gloc(iw_data, hk, siw, sigma_sum, dc, gloc)
+  use lapack_module
+  use parameters_module
+  implicit none
+
+  double precision :: iw_data(-iwmax:iwmax-1)
+  complex(kind=8) :: hk(ndim,ndim,nkp)
+  complex(kind=8) :: siw(-iwmax:iwmax-1,ndims)
+  complex(kind=8) :: sigma_sum(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
+  double precision :: dc(2,ndim)
+  integer :: ik, iw, i
+  complex(kind=8) :: g(ndim,ndim), g2(ndim,ndim)
+  complex(kind=8), intent (out) :: gloc(-iwmax:iwmax-1,ndim,ndim)
+
+  gloc = 0.d0
+  do ik=1,nkp
+     g(:,:) = -hk(:,:,ik)
+     do iw=0,iwfmax_small-1
+        do i=1,ndim
+           g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)
+        enddo
+        do i=1,ndims
+           g(i,i) = g(i,i)-sigma_sum(i,i,iw,ik)
+        enddo
+        g2 = g(:,:)
+        call inverse_matrix(g2)
+        gloc(iw,:,:) = gloc(iw,:,:)+g2(:,:)
+     enddo
+
+     do iw=iwfmax_small,iwmax-1
+        do i=1,ndim
+           g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)
+        enddo
+        do i=1,ndims
+           g(i,i) = g(i,i)-siw(iw,i)
+        enddo
+        g2 = g(:,:)
+        call inverse_matrix(g2)
+        gloc(iw,:,:) = gloc(iw,:,:)+g2(:,:)
+     enddo
+
+  enddo
+
+  do iw=0,iwmax-1
+     gloc(-iw-1,:,:) = real(gloc(iw,:,:),kind=8)-ci*aimag(gloc(iw,:,:))
+  enddo
+
+  gloc = gloc/dble(nkp)
+end subroutine get_gloc
+
+
 
 subroutine get_chi0_loc(iwf, iwb, giw, chi0_loc)
   use parameters_module

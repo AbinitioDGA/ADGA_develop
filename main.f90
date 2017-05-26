@@ -43,7 +43,7 @@ program main
   
   integer :: iw, ik, iq, ikq, iwf, iwb, iv, dum, dum1, ind_iwb, ind_grp, iwf1, iwf2,i,j,k,l,n
   integer :: imembers
-  complex(kind=8), allocatable :: giw(:,:)
+  complex(kind=8), allocatable :: giw(:,:), gloc(:,:,:)
   complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:) 
   double precision, allocatable :: tmp_r(:,:), tmp_i(:,:)
   complex(kind=8), allocatable :: chi0_loc(:,:,:), chi0_loc_inv(:,:,:), chi0(:,:), chi0_sum(:,:,:)
@@ -67,6 +67,7 @@ program main
   complex(kind=8), allocatable :: gamma_loc(:,:), gamma_loc_sum_left(:,:), v(:,:)
 
   complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_sum(:,:,:,:), sigma_loc(:,:,:)
+  double precision, allocatable :: giw_sum(:), n_sum(:)
   integer(hsize_t) ::  inull
   integer :: iwb_zero, iband, ispin
 
@@ -280,6 +281,7 @@ program main
   close(54)
 
   write(*,*) 'ok' 
+  
 
   if(.not. read_ext_hk) then
     ! read k-points:
@@ -358,6 +360,7 @@ write(*,*) nkp,'k points'
   write(*,*) 'mu=', mu
   write(*,*) 'dc=', dc
 
+
   
 !################################################################################################
 
@@ -371,6 +374,21 @@ write(*,*) nkp,'k points'
      write(35,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,1)
   enddo
   close(35)
+
+  allocate(gloc(-iwmax:iwmax-1,ndim,ndim))
+  allocate(giw_sum(ndims), n_sum(ndims))
+  giw_sum = 0.d0
+  do iw=-iwmax,iwmax-1
+    do i=1,ndims
+      giw_sum(i) = giw_sum(i)+giw(iw,i)-1.d0/iw_data(iw)
+    enddo
+  enddo
+
+  write(*,*) beta
+  giw_sum(:) = giw_sum(:)/beta+0.5d0
+  open(56, file=trim(output_dir)//"n_dmft.dat", status='unknown')
+  write(56,'(100F12.6)') (giw_sum(i),i=1,ndims)
+
 
 
   allocate(chi0_loc(ndim2,ndim2,iwstart:iwstop)) 
@@ -545,7 +563,7 @@ end if
      !to be done here: read nonlocal interaction v and go into compound index
      call get_vq(v,k_data(:,q_data(iq)),v_r,r_data)
      v=v-u ! otherwise, U would be included twice.
-
+    
      !update chi_loc only if iwb is different than the previous one:
      if(update_chi_loc_flag) then    
         
@@ -906,25 +924,29 @@ end if
 !  close(267)
 
   deallocate(interm3_dens,interm3_magn) 
-  deallocate(hk,giw,dc,u,u_tilde,chi0_loc,chi0_loc_inv,chi0_sum,interm1,interm1_v,gamma_dmft_dens,gamma_dmft_magn)
+  deallocate(giw,u,u_tilde,chi0_loc,chi0_loc_inv,chi0_sum,interm1,interm1_v,gamma_dmft_dens,gamma_dmft_magn)
   deallocate(chi_loc_dens_sum_left,chi_loc_magn_sum_left)
   deallocate(chi_loc_magn_full,chi_loc_dens_full,gamma_loc_sum_left,v,c_interm)
   deallocate(chi_loc_slice_dens,chi_loc_slice_magn)
   
 #ifdef MPI
   ! MPI reduction and output
+  write(*,*)'nkp=', nkp
   if (do_eom) then
      allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp))
      allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1))
      call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      sigma_sum = -sigma_sum/(beta*nqp)
-     call add_siw_dmft(siw, sigma_sum, sigma_loc)
+     call add_siw_dmft(siw, sigma_sum)
 
+     call get_sigma_g_loc(beta, iw_data, hk, dc, siw, sigma_sum, sigma_loc, gloc, n_sum) 
+      
      if (mpi_wrank .eq. master) then
-       call output_eom(iw_data, k_data, sigma_sum, sigma_loc)
+       call output_eom(iw_data, k_data, sigma_sum, sigma_loc, gloc, n_sum)
      end if
      deallocate(sigma,sigma_sum,sigma_loc)
   end if
+
 
   if (do_chi) then
     if (mpi_wrank.eq.master) then
