@@ -9,7 +9,7 @@ module susc_module
       complex(kind=8), intent(out) :: chi_qw(ndim2,ndim2)
       complex(kind=8), intent(in) :: interm3(ndim2,maxdim)
       complex(kind=8), intent(in) :: chi0_sum(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)
-      integer :: iwf,iband
+      integer :: iwf,iband,i1,i2
       do i1=1,ndim2
          do i2=1,ndim2
             do iwf=1,2*iwfmax_small
@@ -44,6 +44,7 @@ module susc_module
       real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
       complex(kind=8) :: chi_qw(ndim2,ndim2,nqp*(2*iwbmax_small+1))
       integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i
+      integer :: i1
 
       write(*,*) 'Output chi_qw'
 
@@ -110,7 +111,7 @@ module susc_module
       character(len=100) :: format_str
       real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
       complex(kind=8) :: chi_qw(ndim2,ndim2,2*iwbmax_small+1)
-      integer :: iwb,i
+      integer :: iwb,i,i1
 
       write(*,*) 'output chi_loc'
 
@@ -171,6 +172,7 @@ module susc_module
       complex(kind=8),intent(in) :: siw(-iwmax:iwmax-1,ndims), hk(ndim,ndim,nkp)
       complex(kind=8) :: bubble(ndim2,ndim2),g1(ndim,ndim),g2(ndim,ndim)
       integer :: ik,iwf,ikq1,ikq2
+      integer :: i1,i2,i3,i4
       bubble=0.d0
       do ik=1,nkp
         do iwf=-iwfmax_small,iwfmax_small-1

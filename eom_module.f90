@@ -8,10 +8,11 @@ module eom_module
 contains
 
 !================================================================================================
-  subroutine calc_eom(interm3_dens, interm3_magn, gamma_dmft_dens, gamma_dmft_magn, gamma_loc_sum_left, sigma, kq_ind, iwb, iq, iw_data, u, v, u_tilde, hk, dc, siw)
+  subroutine calc_eom(interm3_dens, interm3_magn, gamma_dmft_dens, gamma_dmft_magn, gamma_loc_sum_left, sigma, kq_ind, iwb, iq, iw_data, u, v, u_tilde, hk, dc, siw, n_dmft, n_fock)
   implicit none
 
-  integer :: dum,i,j,iwf,iwf2,l,k,ik,ikq
+  integer :: dum,i,j,iw,iwf,iwf2,l,k,ik,ikq
+  integer :: i1,i2,i3,i4
   integer,intent(in) :: kq_ind(nkp,nqp),iwb,iq
   real*8,intent(in) :: iw_data(-iwmax:iwmax-1)
   complex(kind=8),intent(in) :: siw(-iwmax:iwmax-1,ndims)
@@ -26,6 +27,8 @@ contains
   complex(kind=8) :: u_work(ndim2,ndim2), m_work(ndim2,maxdim)
   complex(kind=8) :: gkiw(ndim,ndim)
   complex(kind=8) :: alpha, delta
+  complex(kind=8) :: n_fock(nkp,ndim,ndim), n_dmft(ndim), sigma_fock(ndim,ndim)
+  complex(kind=8) :: vq(ndim,ndim,ndim,ndim)
 
   !subtract -1 in the diagonal of the orbital blocks:
   do i1=1,ndim2
@@ -67,12 +70,14 @@ contains
   m_tot = m_tot - m_work
 
   !v(q) part
-  u_work = v
-  m_work = 0.d0
-  alpha = 1.d0
-  delta = 0.d0
-  call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, gamma_dmft_dens, ndim2, delta, m_work, ndim2)
-  m_tot = m_tot + m_work
+  if(do_vq) then
+     u_work = v
+     m_work = 0.d0
+     alpha = 1.d0
+     delta = 0.d0
+     call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, gamma_dmft_dens, ndim2, delta, m_work, ndim2)
+     m_tot = m_tot + m_work
+  endif
   
 
   !break up the compound index:
@@ -94,10 +99,12 @@ contains
   enddo
 
   
-  !compute k-dependent self energy (convolution with Greens function gkiw): 
+  !compute k-dependent self energy (convolution with Greens function gkiw):
+  gkiw = 0.d0 
   do ik=1,nkp
-     ikq = kq_ind(ik,iq) 
-     do iwf=-iwfmax_small,iwfmax_small-1
+     ikq = kq_ind(ik,iq)
+     sigma_fock = 0.d0
+     do iwf=0,iwfmax_small-1
         call get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
         
         do i=1,ndim
@@ -109,9 +116,60 @@ contains
               enddo
            enddo
         enddo
+   
+     enddo !iwf
 
+     
+     !compute non-local Fock contribution:
+     if(do_vq) then
+        !break up compound index of umatrix: 
+        i2=0
+        do l=1,ndim
+           do j=1,ndim
+              i2=i2+1
+              i1 = 0
+              do i=1,ndim
+                 do k=1,ndim
+                    i1 = i1+1
+                    vq(i,j,k,l) = v(i1,i2)
+                 enddo
+              enddo
+           enddo
+        enddo
+
+        !compute non-local static Fock contribution v(q)*n_fock(k-q)
+        do i=1,ndim
+           do l=1,ndim
+              do j=1,ndim
+                 do k=1,ndim
+                    sigma_fock(i,l) = sigma_fock(i,l)+vq(i,j,k,l)*n_fock(ikq,j,k)
+                 enddo
+              enddo
+           enddo
+        enddo
+    
+        do iwf=0,iwfmax_small-1
+           sigma(:,:,iwf,ik) = sigma(:,:,iwf,ik)+sigma_fock(:,:)
+        enddo
+
+     endif !do_vq
+
+     do iwf=0,iwfmax_small-1
+        sigma(:,:,-iwf-1,ik) = real(sigma(:,:,iwf,ik),kind=8)-ci*aimag(sigma(:,:,iwf,ik))
      enddo
-  enddo
+
+  enddo !ik
+
+  !compute non-local Hartree-contribution 2*v(q=0)*n_DMFT
+  if(do_vq .and. iq==1) then
+     do i=1,ndim
+        do j=1,ndim
+           sigma(i,i,:,:) = sigma(i,i,:,:)-2.d0*dble(nqp)*vq(i,j,i,j)*n_dmft(j)
+        enddo
+     enddo
+  endif
+     
+
              
 end subroutine calc_eom
 !=============================================================================================
@@ -138,11 +196,11 @@ subroutine add_siw_dmft(siw, sigma_sum)
 
 
 
-subroutine get_sigma_g_loc(beta, iw_data, hk, dc, siw, sigma_sum, sigma_loc, gloc, n_sum)
+subroutine get_sigma_g_loc(beta, iw_data, hk, dc, siw, sigma_sum, sigma_loc, gloc, n_dga)
   implicit none
   complex(kind=8), intent(out) :: sigma_loc(ndim, ndim,-iwfmax_small:iwfmax_small-1)
   complex(kind=8), intent(out) :: gloc(-iwmax:iwmax-1,ndim,ndim)
-  double precision, intent(out) :: n_sum(ndim)
+  complex(kind=8), intent(out) :: n_dga(ndim)
   complex(kind=8), intent(in) :: siw(-iwmax:iwmax-1,ndims)
   complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
   double precision, intent(in) :: iw_data(-iwmax:iwmax-1)
@@ -158,14 +216,14 @@ subroutine get_sigma_g_loc(beta, iw_data, hk, dc, siw, sigma_sum, sigma_loc, glo
 
   call get_gloc(iw_data, hk, siw, sigma_sum, dc, gloc)
 
-  n_sum = 0.d0
-  do iw=-iwmax,iwmax-1
+  n_dga = 0.d0
+  do iw=0,iwmax-1
      do iband=1,ndim
-        n_sum(iband) = n_sum(iband)+gloc(iw,iband,iband)-1.d0/iw_data(iw)
+        n_dga(iband) = n_dga(iband)+gloc(iw,iband,iband)
      enddo
   enddo
 
-  n_sum = n_sum/beta+0.5d0
+  n_dga = 2.d0*n_dga/beta+0.5d0
 
 end subroutine get_sigma_g_loc
 
@@ -182,9 +240,9 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_loc, gloc, n_sum)
   complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
   complex(kind=8), intent(in) :: sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1)
   complex(kind=8) :: sigma_tmp(ndim*(ndim+1)/2)
-  double precision, intent(in) :: n_sum(ndim)
+  complex(kind=8), intent(in) :: n_sum(ndim)
   complex(kind=8), intent(in) :: gloc(-iwmax:iwmax-1,ndim,ndim)
-  integer :: ik, iwf, i, j, iband,nkp_eom,ii
+  integer :: ik, iwf, i, j, iband,nkp_eom,ii, i1, i2, i3, i4
   character(len=50) :: eom_format
 
   !TODO generate the filenames automatically

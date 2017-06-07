@@ -5,7 +5,7 @@ module parameters_module
   complex(kind=8) ci
   parameter (ci=(0.d0,1.d0))
   double precision,parameter :: pi=3.1415926535897932385d0
-  integer :: nkp, ndim, ndims, ndim2, maxdim,i1,i2,i3,i4
+  integer :: nkp, ndim, ndims, ndim2, maxdim
   integer :: nkpx,nkpy,nkpz,nkp1,nqpx,nqpy,nqpz,nqp1
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,nk_frac
   integer :: iwstart,iwstop
@@ -13,18 +13,17 @@ module parameters_module
   double precision, allocatable :: k_data(:,:), r_data(:,:)
   integer :: nqp,nkp_eom
   integer,allocatable :: q_data(:),k_data_eom(:)
-  character(len=150) :: filename,filename_vertex,filename_umatrix,filename_hk,output_dir,filename_q_path
+  character(len=150) :: filename, filename_umatrix, filename_vq, filename_hk, output_dir, filename_q_path
   logical :: orb_sym,small_freq_box,full_chi0
-  logical :: do_eom,do_chi
+  logical :: do_eom,do_chi,do_vq
   logical :: q_path_susc,k_path_eom,q_vol,read_ext_hk
   integer :: vertex_type
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
   integer :: nr ! number of r-points in extrapolated V(r)
   character(len=150) filename_vr ! filename of extrapolated V(r)
-  real(kind=8),allocatable :: v_r(:,:,:), u_tmp(:,:,:,:), u_tilde_tmp(:,:,:,:)
   real(kind=8) :: a,b,c ! lattice spacing
-  real(kind=8) :: u_value
-  complex(kind=8),allocatable :: u(:,:), u_tilde(:,:)
+  character(len=150) ::  filename_vertex, filename_vertex_sym
+ 
 
 contains
 
@@ -50,7 +49,7 @@ subroutine read_config()
   read(1,*)
   read(1,*)
   read(1,'(A)') str_tmp
-  filename_vertex=trim(str_tmp)
+  filename_vertex_sym=trim(str_tmp)
 
   read(1,*)
   read(1,*)
@@ -109,6 +108,16 @@ subroutine read_config()
 
   read(1,*)
   read(1,*)
+  read(1,*) int_tmp_1
+  do_vq = int_tmp_1
+
+  read(1,*)
+  read(1,*)
+  read(1,'(A)') str_tmp
+  filename_vq = trim(str_tmp)
+
+  read(1,*)
+  read(1,*)
   read(1,*) nr
 
   if (nr .gt. 0) then
@@ -160,89 +169,14 @@ subroutine init()
   if (nr .eq. 0) then
     write(*,*) 'Run without V(q)'
   else
-    allocate(r_data(3,nr))
-    allocate(v_r(ndim2,ndim2,nr))
+  !  allocate(r_data(3,nr))
+  !  allocate(v_r(ndim2,ndim2,nr))
 
-    write(*,*) 'Read V(r)'
+  !  write(*,*) 'Read V(r)'
 
-    call read_v_r(v_r,r_data)
+  !  call read_v_r(v_r,r_data)
   end if
-
-  ! read Umatrix from file:
-  allocate(u_tmp(ndim, ndim, ndim, ndim))
-  allocate(u_tilde_tmp(ndim, ndim, ndim, ndim))
-
-  open(21,file=filename_umatrix,status='old')
-  read(21,*)
-
-  do n=1,ndim**4
-
-     read(21,*) i, j, k, l, u_value   
-     u_tmp(i,j,k,l) = u_value
-     u_tilde_tmp(i,j,l,k) = u_value
-
-  enddo
-
-  close(21)
-
-  
-  !go into compound index:
-  allocate(u(ndim**2, ndim**2))
-  allocate(u_tilde(ndim**2, ndim**2))
-  u = 0.d0
-  u_tilde = 0.d0
-
-  i2 = 0
-  do l=1,ndim
-     do j=1,ndim
-        i2 = i2+1
-        i1 = 0
-        do i=1,ndim
-           do k=1,ndim
-              i1 = i1+1
-              
-              u(i1,i2) = u_tmp(i,j,k,l)
-              u_tilde(i1,i2) = u_tilde_tmp(i,j,k,l)
-              
-           enddo
-        enddo
-     enddo
-  enddo
-
-  deallocate(u_tmp, u_tilde_tmp)
-  
 
 end subroutine init
-
-subroutine read_v_r(v_r,r_data)
-  implicit none
-  real(kind=8) v_r(:,:,:)!(ndim**2,ndim**2,nr)
-  real(kind=8) r_data(3,nr),v_r_real(ndim2,ndim2)
-  integer :: nr_file,ir,i,j,nd
-
-  open(unit=2,file=filename_vr)
-  read(2,*) nr_file,nd,a,b,c
-  if (nr_file .ne. nr) then
-    write(*,*) 'V(r) file says there are',nr_file,'r points. '
-    write(*,*) 'Please adapt config file.'
-    stop
-  end if
-  if (nd .ne. ndim) then
-    write(*,*) 'V(r) file says there are',nd,'orbitals. '
-    write(*,*) 'Please adapt config file.'
-    stop
-  end if
-
-  do ir=1,nr
-    read(2,*) (r_data(i,ir),i=1,3)
-! TODO: correctly read multi-band components and go to compound index.
-    do i=1,nd**2
-       read(2,*) (v_r(i,j,ir),j=1,nd**2)
-    enddo
-  enddo
-
-  close(2)
-
-end subroutine read_v_r
 
 end module parameters_module

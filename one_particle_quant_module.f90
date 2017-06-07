@@ -129,7 +129,7 @@ end subroutine get_gloc
 subroutine get_chi0_loc(iwf, iwb, giw, chi0_loc)
   use parameters_module
   implicit none
-  integer :: i, j, k, l
+  integer :: i, j, k, l, i1, i2
   integer :: iwf, iwb
   complex(kind=8) :: giw(-iwmax:iwmax-1,ndim)
   complex(kind=8), intent(out) :: chi0_loc(ndim*ndim,ndim*ndim)
@@ -157,7 +157,7 @@ end subroutine get_chi0_loc
 subroutine get_chi0_loc_inv(iwf, iwb, giw, chi0_loc)
   use parameters_module
   implicit none
-  integer :: i, j, k, l
+  integer :: i, j, k, l, i1, i2
   integer :: iwf, iwb
   complex(kind=8) :: giw(-iwmax:iwmax-1,ndim)
   complex(kind=8), intent(out) :: chi0_loc(ndim*ndim,ndim*ndim)
@@ -186,7 +186,7 @@ subroutine get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
   use lapack_module
   use parameters_module
   implicit none
-  integer :: i, j, k, l
+  integer :: i, j, k, l, i1, i2
   integer :: iwf, iwb, ik, ikq
   complex(kind=8) :: g1(ndim,ndim), g2(ndim,ndim)
   double precision :: iw_data(-iwmax:iwmax-1)

@@ -153,13 +153,16 @@ program symmetrize_vertex
   use indexutils
   use hdf5
   use hdf5_module
+  use parameters_module
   implicit none
 
-  character(len=150) :: cmd_arg, filename, filename_new
-
+  character(len=150) :: cmd_arg
+  integer(hid_t) :: file_id, new_file_id
   character(len=20) :: grpname, name_buffer, name_buffer_value, name_buffer_error
   integer(hid_t) :: nmembers, imembers, itype, grp_id, g4iw_id, g4err_id
   integer(hid_t) :: dset_dens_id, dset_magn_id, dset_err_id
+  integer(hid_t) :: dspace_iwb_id, dspace_iwf_id
+  integer(hsize_t), dimension(1) :: dim_iwb, dim_iwf
   integer(hsize_t), dimension(3) :: g4iw_dims, g4iw_maxdims, g4err_dims
   integer, parameter :: rank = 2, rank_iw = 1
   
@@ -181,16 +184,16 @@ program symmetrize_vertex
   end if
 
   call getarg(1,cmd_arg)
-  filename=trim(cmd_arg)
+  filename_vertex=trim(cmd_arg)
   call getarg(2,cmd_arg)
-  filename_new = trim(cmd_arg)
+  filename_vertex_sym = trim(cmd_arg)
   call getarg(3,cmd_arg)
   read(cmd_arg,'(I1)') Nbands
 
 !================================================================
 !Define orbital symmetry here:
   su2_only = .false. 
-  write(*,*) 'Symmetrizing ',filename,'>>>>>',filename_new
+  write(*,*) 'Symmetrizing ',filename,'>>>>>',filename_vertex_sym
   write(*,*) 'Number of bands: ',Nbands
   write(*,*) 'Using orbital and SU2 symmetry'
 !=================================================================
@@ -202,16 +205,17 @@ program symmetrize_vertex
   call create_complex_datatype
  
 ! open vertex file 'vertex_full.hdf5':
-  call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
+  call h5fopen_f(filename_vertex, h5f_acc_rdonly_f, file_id, err)
 
 ! create new file for the symmetrised vertex:
-  call h5fcreate_f(filename_new, h5f_acc_trunc_f, new_file_id, err)
+  call h5fcreate_f(filename_vertex_sym, h5f_acc_trunc_f, new_file_id, err)
 
 ! get fermionic and bosonic Matsubara axes: 
-  call get_axes()
+  call read_axes(file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
+  call write_axes(new_file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
 
 ! write magn/iwb and dens/iwb in the output file vertex_sym.hdf5: 
-  call create_channels()
+  call create_channels(new_file_id)
 !=========================================================================
 
 ! allocate quantities that are needed in the loop afterwards: 
@@ -221,7 +225,7 @@ program symmetrize_vertex
   allocate(g4iw_i(2*iwfmax,2*iwfmax,2*iwbmax+1))
   allocate(g4err(2*iwfmax, 2*iwfmax, 2*iwbmax+1))
 
-  allocate(tmp_r(g4iw_dims(1), g4iw_dims(2)), tmp_i(g4iw_dims(1), g4iw_dims(2)), tmp_err(g4iw_dims(1),g4iw_dims(2)))
+  allocate(tmp_r_1(g4iw_dims(1), g4iw_dims(2)), tmp_i_1(g4iw_dims(1), g4iw_dims(2)), tmp_err_1(g4iw_dims(1),g4iw_dims(2)))
   allocate( diff_r(g4iw_dims(1), g4iw_dims(2)), diff_i(g4iw_dims(1), g4iw_dims(2)))
 
   allocate(create_comp(2,Nbands**4))
@@ -298,7 +302,7 @@ program symmetrize_vertex
     
            ! creates new groups and datasets if they are not there yet:
            do iwb = 0, 2*iwbmax
-              call create_component(ichannel, iwb, ind_band_list(icount))
+              call create_component(new_file_id, ichannel, iwb, ind_band_list(icount))
            enddo
            
            create_comp(ichannel, ind_band_list(icount)) = .false.
@@ -308,7 +312,7 @@ program symmetrize_vertex
         !adds the data:
         do iwb = 0, 2*iwbmax
 
-           call add_to_component(ichannel, iwb, ind_band_list(icount), g4iw_r, g4iw_i, g4err)
+           call add_to_component(new_file_id, ichannel, iwb, ind_band_list(icount), g4iw_r, g4iw_i, g4err)
 
         enddo
        
@@ -320,7 +324,7 @@ program symmetrize_vertex
   call h5sclose_f(dspace_id, err)
 
   deallocate(g4iw_r, g4iw_i, g4err)
-  deallocate(tmp_r, tmp_i, tmp_err, diff_r, diff_i) 
+  deallocate(tmp_r_1, tmp_i_1, tmp_err_1, diff_r, diff_i) 
   deallocate(ind_band_list)
 
   call h5fclose_f(file_id, err)
