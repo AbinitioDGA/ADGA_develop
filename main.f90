@@ -173,6 +173,7 @@ program main
   write(*,*)'iwbmax=',iwbmax, 'iwbmax_small=', iwbmax_small
  
 
+! read in all inequivalent atoms here -- 
 ! read siw:
   call h5dopen_f(file_id, "stat-001/ineq-001/siw/value", siw_id, error)
   call h5dget_space_f(siw_id, siw_space_id, error)
@@ -210,6 +211,7 @@ program main
   close(34)
 
 
+  ! read in all inequivalent atoms here -- 
   ! read giw:
   call h5dopen_f(file_id, "stat-001/ineq-001/giw/value", giw_id, error)
   call h5dget_space_f(giw_id, giw_space_id, error)

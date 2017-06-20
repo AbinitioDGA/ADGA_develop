@@ -168,32 +168,40 @@ program symmetrize_vertex
   
   double precision, allocatable :: g4iw_r(:,:,:), g4iw_i(:,:,:), g4err(:,:,:), diff_r(:,:), diff_i(:,:)
   integer :: ind, Nbands, b1, s1, b2, s2, b3, s3, b4, s4
-  integer :: iwb, iwf, iwf1, iwf2
+  integer :: iwb, iwf, iwf1, iwf2, ineq
   logical :: su2_only
   logical, allocatable :: create_comp(:,:)
   double precision, allocatable :: iwb_array(:), iwf_array(:)
   integer :: ichannel, ntot, ind_band, icount
   integer, allocatable :: ind_band_list(:)
+  character(len=150), allocatable :: filename_vertex_ineq(:)
 
   real(kind=8) :: start, finish
 !================================================================
-! read command line arguments -> input and output filename, number of bands.
-  if (.not. iargc().eq.3 ) then
-    write(*,*) 'The program has to be executed with exactly three arguments: Name of input and output file, number of bands'
-    stop
-  end if
-
+! read command line arguments -> number ineq atoms, input filenames and output filename, number of bands.
   call getarg(1,cmd_arg)
-  filename_vertex=trim(cmd_arg)
-  call getarg(2,cmd_arg)
+  read(cmd_arg,'(I1)') nineq
+
+  if (.not. iargc() .eq. nineq+3 ) then
+    write(*,*) 'The program has to be executed with the following arguments: number of inequivalent atoms, names of input files, output file and number of bands'
+    stop
+  endif
+
+  allocate(filename_vertex_ineq(nineq))
+  
+  do ineq=1,nineq
+    call getarg(1+ineq,cmd_arg)
+    filename_vertex_ineq(ineq)=trim(cmd_arg)
+  enddo
+  call getarg(2+nineq,cmd_arg)
   filename_vertex_sym = trim(cmd_arg)
-  call getarg(3,cmd_arg)
+  call getarg(3+nineq,cmd_arg)
   read(cmd_arg,'(I1)') Nbands
 
 !================================================================
 !Define orbital symmetry here:
   su2_only = .true. 
-  write(*,*) 'Symmetrizing ',filename,'>>>>>',filename_vertex_sym
+  write(*,*) 'Symmetrizing ',(filename_vertex_ineq(ineq),ineq=1,nineq),'>>>>>',filename_vertex_sym
   write(*,*) 'Number of bands: ',Nbands
   write(*,*) 'Using orbital and SU2 symmetry'
 !=================================================================
@@ -204,130 +212,138 @@ program symmetrize_vertex
  
   call create_complex_datatype
  
-! open vertex file 'vertex_full.hdf5':
-  call h5fopen_f(filename_vertex, h5f_acc_rdonly_f, file_id, err)
-
 ! create new file for the symmetrised vertex:
   call h5fcreate_f(filename_vertex_sym, h5f_acc_trunc_f, new_file_id, err)
 
-! get fermionic and bosonic Matsubara axes: 
-  call read_axes(file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
-  call write_axes(new_file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
+
+! loop over number of inequivalent atoms
+  do ineq=1,nineq
 
 ! write magn/iwb and dens/iwb in the output file vertex_sym.hdf5: 
-  call create_channels(new_file_id)
+    call create_channels(new_file_id, ineq)
+
+! open vertex file 'vertex_full.hdf5':
+    call h5fopen_f(filename_vertex_ineq(ineq), h5f_acc_rdonly_f, file_id, err)
+
+! get fermionic and bosonic Matsubara axes: 
+    call read_axes(file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
+    call write_axes(new_file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
+
 !=========================================================================
 
 ! allocate quantities that are needed in the loop afterwards: 
-  g4iw_dims = (/2*iwfmax,2*iwfmax,2*iwbmax+1/)
+    g4iw_dims = (/2*iwfmax,2*iwfmax,2*iwbmax+1/)
 
-  allocate(g4iw_r(2*iwfmax,2*iwfmax,2*iwbmax+1)) 
-  allocate(g4iw_i(2*iwfmax,2*iwfmax,2*iwbmax+1))
-  allocate(g4err(2*iwfmax, 2*iwfmax, 2*iwbmax+1))
+    allocate(g4iw_r(2*iwfmax,2*iwfmax,2*iwbmax+1)) 
+    allocate(g4iw_i(2*iwfmax,2*iwfmax,2*iwbmax+1))
+    allocate(g4err(2*iwfmax, 2*iwfmax, 2*iwbmax+1))
 
-  allocate(tmp_r_1(g4iw_dims(1), g4iw_dims(2)), tmp_i_1(g4iw_dims(1), g4iw_dims(2)), tmp_err_1(g4iw_dims(1),g4iw_dims(2)))
-  allocate( diff_r(g4iw_dims(1), g4iw_dims(2)), diff_i(g4iw_dims(1), g4iw_dims(2)))
+    allocate(tmp_r_1(g4iw_dims(1), g4iw_dims(2)), tmp_i_1(g4iw_dims(1), g4iw_dims(2)), tmp_err_1(g4iw_dims(1),g4iw_dims(2)))
+    allocate( diff_r(g4iw_dims(1), g4iw_dims(2)), diff_i(g4iw_dims(1), g4iw_dims(2)))
 
-  allocate(create_comp(2,Nbands**4))
-  create_comp = .true.
+    allocate(create_comp(2,Nbands**4))
+    create_comp = .true.
 
-  allocate(ind_band_list(Nbands**2))
+    allocate(ind_band_list(Nbands**2))
 
 ! create dataspace:
-  dims = (/g4iw_dims(1), g4iw_dims(2)/)
-  call h5screate_simple_f(rank, dims, dspace_id, err)
+    dims = (/g4iw_dims(1), g4iw_dims(2)/)
+    call h5screate_simple_f(rank, dims, dspace_id, err)
  
 !============================================================================
 ! iterate over all groups(band-spin combinations) in the old vertex file:
-  call h5gn_members_f(file_id, "/", nmembers, err)
+    call h5gn_members_f(file_id, "/", nmembers, err)
 
-  do imembers = 1,nmembers - 1 
-     write(*,*) imembers
-     call h5gget_obj_info_idx_f(file_id, "/", imembers, name_buffer, itype, err)
-     read(name_buffer,'(I5.5)') ind
+    do imembers = 1,nmembers - 1 
+       write(*,*) imembers
+       call h5gget_obj_info_idx_f(file_id, "/", imembers, name_buffer, itype, err)
+       read(name_buffer,'(I5.5)') ind
+     
+       ! read the current group in the old vertex file:
+       call h5gopen_f(file_id,name_buffer,grp_id,err)
+
+       write(name_buffer_value, '((I5.5),A6)'), ind, "/value"
+       call h5dopen_f(file_id, name_buffer_value, g4iw_id, err)
+
+       write(name_buffer_error, '((I5.5),A6)'), ind, "/error"
+       call h5dopen_f(file_id, name_buffer_error, g4err_id, err)
+
+       call h5dread_f(g4iw_id, type_r_id, g4iw_r, g4iw_dims, err)
+       call h5dread_f(g4iw_id, type_i_id, g4iw_i, g4iw_dims, err)
+       call h5dread_f(g4err_id, h5t_native_double, g4err, g4err_dims, err)
+
+       call h5dclose_f(g4iw_id, err)
+       call h5dclose_f(g4err_id, err)
+       call h5gclose_f(grp_id, err)
+      
+  ! get band and spin indices:
+       call index2component(Nbands, ind, b1, s1, b2, s2, b3, s3, b4, s4)
+      
+  ! get the channel (magnetic: ichannel=1, density: ichannel=2)
+       call get_channel(s1, s2, s3, s4, ichannel)
+      
+       ! get list of ind_band (components to be written in vertex_sym.hdf5)
+       if (su2_only) then
+
+          ! without orbital symmetry (only su2):
+          call component2index_band(Nbands, ind_band, b1, b2, b3, b4)
+          ntot = 1 
+          ind_band_list(1) = ind_band
+
+       else
+
+          !with orbital symmetry: 
+          call get_orb_sym(b1, b2, b3, b4, Nbands, ntot, ind_band_list)
+
+       endif     
+
+       !divisions needed for the channels:
+       g4iw_r = g4iw_r/(2.d0*ntot)
+       g4iw_i = g4iw_i/(2.d0*ntot)
+
+       if (ichannel == 1) then  !is this correct??? 
+          g4err = g4err/(2.d0*ntot)
+       else
+          g4err = g4err/(4.d0*ntot)
+       endif
+      
+       ! iterates over all components that need to be written: 
+       do icount = 1, ntot
+
+         
+          if (create_comp(ichannel, ind_band_list(icount))) then
+      
+             ! creates new groups and datasets if they are not there yet:
+             do iwb = 0, 2*iwbmax
+                call create_component(new_file_id, ichannel, iwb, ind_band_list(icount), ineq)
+             enddo
+             
+             create_comp(ichannel, ind_band_list(icount)) = .false.
+
+          endif
+          
+          !adds the data:
+          do iwb = 0, 2*iwbmax
+
+             call add_to_component(new_file_id, ichannel, iwb, ind_band_list(icount), g4iw_r, g4iw_i, g4err, ineq)
+
+          enddo
+         
+       enddo !icount
    
-     ! read the current group in the old vertex file:
-     call h5gopen_f(file_id,name_buffer,grp_id,err)
-
-     write(name_buffer_value, '((I5.5),A6)'), ind, "/value"
-     call h5dopen_f(file_id, name_buffer_value, g4iw_id, err)
-
-     write(name_buffer_error, '((I5.5),A6)'), ind, "/error"
-     call h5dopen_f(file_id, name_buffer_error, g4err_id, err)
-
-     call h5dread_f(g4iw_id, type_r_id, g4iw_r, g4iw_dims, err)
-     call h5dread_f(g4iw_id, type_i_id, g4iw_i, g4iw_dims, err)
-     call h5dread_f(g4err_id, h5t_native_double, g4err, g4err_dims, err)
-
-     call h5dclose_f(g4iw_id, err)
-     call h5dclose_f(g4err_id, err)
-     call h5gclose_f(grp_id, err)
-    
-! get band and spin indices:
-     call index2component(Nbands, ind, b1, s1, b2, s2, b3, s3, b4, s4)
-    
-! get the channel (magnetic: ichannel=1, density: ichannel=2)
-     call get_channel(s1, s2, s3, s4, ichannel)
-    
-     ! get list of ind_band (components to be written in vertex_sym.hdf5)
-     if (su2_only) then
-
-        ! without orbital symmetry (only su2):
-        call component2index_band(Nbands, ind_band, b1, b2, b3, b4)
-        ntot = 1 
-        ind_band_list(1) = ind_band
-
-     else
-
-        !with orbital symmetry: 
-        call get_orb_sym(b1, b2, b3, b4, Nbands, ntot, ind_band_list)
-
-     endif     
-
-     !divisions needed for the channels:
-     g4iw_r = g4iw_r/(2.d0*ntot)
-     g4iw_i = g4iw_i/(2.d0*ntot)
-
-     if (ichannel == 1) then  !is this correct??? 
-        g4err = g4err/(2.d0*ntot)
-     else
-        g4err = g4err/(4.d0*ntot)
-     endif
-    
-     ! iterates over all components that need to be written: 
-     do icount = 1, ntot
-
-       
-        if (create_comp(ichannel, ind_band_list(icount))) then
-    
-           ! creates new groups and datasets if they are not there yet:
-           do iwb = 0, 2*iwbmax
-              call create_component(new_file_id, ichannel, iwb, ind_band_list(icount))
-           enddo
-           
-           create_comp(ichannel, ind_band_list(icount)) = .false.
-
-        endif
-        
-        !adds the data:
-        do iwb = 0, 2*iwbmax
-
-           call add_to_component(new_file_id, ichannel, iwb, ind_band_list(icount), g4iw_r, g4iw_i, g4err)
-
-        enddo
-       
-     enddo !icount
- 
-  enddo ! nmembers
+    enddo ! nmembers
   
  
-  call h5sclose_f(dspace_id, err)
+    call h5sclose_f(dspace_id, err)
 
-  deallocate(g4iw_r, g4iw_i, g4err)
-  deallocate(tmp_r_1, tmp_i_1, tmp_err_1, diff_r, diff_i) 
-  deallocate(ind_band_list)
+    deallocate(g4iw_r, g4iw_i, g4err)
+    deallocate(tmp_r_1, tmp_i_1, tmp_err_1, diff_r, diff_i) 
+    deallocate(ind_band_list)
 
-  call h5fclose_f(file_id, err)
+    call h5fclose_f(file_id, err)
+
+  enddo
+
   call h5fclose_f(new_file_id, err)
 
   call cpu_time(finish)

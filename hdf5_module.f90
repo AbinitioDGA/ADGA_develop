@@ -94,17 +94,20 @@ module hdf5_module
 !============================================================================================
 
 !===========================================================================================
-   subroutine create_channels(file_id)
+   subroutine create_channels(file_id, ineq)
      implicit none
 
-     integer :: iwb,err
+     integer :: iwb,err,ineq
      integer(hid_t) :: grp_dens_id,grp_magn_id,iw_magn_id,iw_dens_id
      character(len=20) :: name_buffer
+     character(len=20) :: grp_name
      integer(hid_t) :: file_id
      
      !create dens and magn groups:
-     call h5gcreate_f(file_id, "dens", grp_dens_id, err)
-     call h5gcreate_f(file_id, "magn", grp_magn_id, err)
+     write(grp_name,'("ineq-",I3.3,"/dens")') ineq
+     call h5gcreate_f(file_id, trim(grp_name), grp_dens_id, err)
+     write(grp_name,'("ineq-",I3.3,"/magn")') ineq
+     call h5gcreate_f(file_id, trim(grp_name), grp_magn_id, err)
 
      do iwb=0,2*iwbmax
 
@@ -124,9 +127,10 @@ module hdf5_module
 !=====================================================================================
 
 !=====================================================================================
-    subroutine create_component(file_id, ichannel, iwb, ind_orb)
+    subroutine create_component(file_id, ichannel, iwb, ind_orb, ineq)
       implicit none
 
+      integer, intent(in) :: ineq ! inequivalent atom
       integer, intent(in) :: ichannel !1=magn, 2=dens
       integer, intent(in) :: iwb, ind_orb
       character(len=20) :: grpname
@@ -134,9 +138,9 @@ module hdf5_module
       integer(hid_t) :: file_id
 
       if (ichannel==1) then
-         write(grpname, '("magn/",I5.5,"/",i5.5)') iwb, ind_orb
+         write(grpname, '("ineq-",I3.3,"/magn/",I5.5,"/",i5.5)') ineq, iwb, ind_orb
       else
-         write(grpname, '("dens/",I5.5,"/",i5.5)') iwb, ind_orb
+         write(grpname, '("ineq-",I3.3,"/dens/",I5.5,"/",i5.5)') ineq, iwb, ind_orb
       endif
 
       call h5gcreate_f(file_id, grpname, grp_id, err)
@@ -159,9 +163,9 @@ module hdf5_module
 !====================================================================================
 
 !====================================================================================
-   subroutine add_to_component(file_id, ichannel, iwb, ind_orb, g4iw_r, g4iw_i, g4err)
+   subroutine add_to_component(file_id, ichannel, iwb, ind_orb, g4iw_r, g4iw_i, g4err, ineq)
      implicit none
-     integer, intent(in) :: ichannel, iwb, ind_orb
+     integer, intent(in) :: ichannel, iwb, ind_orb, ineq
      double precision,intent(in) :: g4iw_r(2*iwfmax, 2*iwfmax, 2*iwbmax+1)
      double precision,intent(in) :: g4iw_i(2*iwfmax, 2*iwfmax, 2*iwbmax+1)
      double precision,intent(in) :: g4err(2*iwfmax, 2*iwfmax, 2*iwbmax+1)
@@ -170,9 +174,9 @@ module hdf5_module
      integer(hid_t) :: file_id
 
      if (ichannel==1) then
-        write(grpname, '(A5,(I5.5),A1,(I5.5))'), "magn/", iwb, "/", ind_orb
+        write(grpname, '("ineq-",I3.3,"/magn/",(I5.5),"/",(I5.5))') ineq, iwb ,ind_orb
      else
-        write(grpname, '(A5,(I5.5),A1,(I5.5))'), "dens/", iwb, "/", ind_orb
+        write(grpname, '("ineq-",I3.3,"/dens/",(I5.5),"/",(I5.5))') ineq, iwb, ind_orb
      endif
         
      call h5gopen_f(file_id, grpname, grp_id, err)
