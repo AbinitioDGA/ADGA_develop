@@ -11,6 +11,7 @@
 *.qp
 *.dat
 *.png
+*.hdf5
 
 main
 vertex_chann_sym

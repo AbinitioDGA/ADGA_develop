@@ -192,7 +192,7 @@ program symmetrize_vertex
 
 !================================================================
 !Define orbital symmetry here:
-  su2_only = .false. 
+  su2_only = .true. 
   write(*,*) 'Symmetrizing ',filename,'>>>>>',filename_vertex_sym
   write(*,*) 'Number of bands: ',Nbands
   write(*,*) 'Using orbital and SU2 symmetry'

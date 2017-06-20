@@ -5,7 +5,7 @@ module parameters_module
   complex(kind=8) ci
   parameter (ci=(0.d0,1.d0))
   double precision,parameter :: pi=3.1415926535897932385d0
-  integer :: nkp, ndim, ndims, ndim2, maxdim
+  integer :: nkp, ndim, ndims, ndim2, maxdim, nineq
   integer :: nkpx,nkpy,nkpz,nkp1,nqpx,nqpy,nqpz,nqp1
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,nk_frac
   integer :: iwstart,iwstop
@@ -41,6 +41,12 @@ subroutine read_config()
   open(unit=1,file=config_file)
   read(1,*)
   read(1,*)
+  read(1,*)
+  read(1,*)
+  read(1,*) int_tmp_1
+  nineq=int_tmp_1
+
+
   read(1,*)
   read(1,*)
   read(1,'(A)') str_tmp
