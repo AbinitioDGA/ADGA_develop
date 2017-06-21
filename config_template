@@ -23,10 +23,10 @@
 path.qp
 
 # nkpx, nkpy, nkpz, nqpx, nqpy, nqpz, nd
-20 20 20            10 10 10          3
+20 20 20            1 1 1          3
 
 # Output directory, has to end with '/'
-./output3/
+./Output/
 
 # Decide, whether to calculate susceptibilities (1) and/or the equation of motion (2). (0==.false., 1==.true.)
 0 1
@@ -38,7 +38,7 @@ path.qp
 /home/lv70693/gallerTEST/abinitioDGA/SVO/beta10/vertex_asymptotics/reproduce_dmft/SVO_k20.hk
 
 # computation with V^q (0==.false., 1==.true.)
-1
+0
 
 # file name of V^q
 Vq.hdf5 

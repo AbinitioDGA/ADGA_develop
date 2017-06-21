@@ -8,27 +8,29 @@ module eom_module
 contains
 
 !================================================================================================
-  subroutine calc_eom(interm3_dens, interm3_magn, gamma_dmft_dens, gamma_dmft_magn, gamma_loc_sum_left, sigma, kq_ind, iwb, iq, iw_data, u, v, u_tilde, hk, dc, siw, n_dmft, n_fock)
+  subroutine calc_eom(interm3_dens, interm3_magn, gamma_dmft_dens, gamma_dmft_magn, gamma_loc_sum_left, sigma, sigma_dmft, kq_ind, iwb, iq, iw_data, u, v, u_tilde, hk, dc, siw, giw, n_dmft, n_fock)
   implicit none
 
   integer :: dum,i,j,iw,iwf,iwf2,l,k,ik,ikq
   integer :: i1,i2,i3,i4
   integer,intent(in) :: kq_ind(nkp,nqp),iwb,iq
   real*8,intent(in) :: iw_data(-iwmax:iwmax-1)
-  complex(kind=8),intent(in) :: siw(-iwmax:iwmax-1,ndims)
+  complex(kind=8),intent(in) :: siw(-iwmax:iwmax-1,ndims), giw(-iwmax:iwmax-1,ndims)
   complex(kind=8),intent(in) :: hk(ndim,ndim,nkp)
   double precision,intent(in) :: dc(2,ndim)
   complex(kind=8),intent(in) :: u(ndim2,ndim2),u_tilde(ndim2,ndim2),v(ndim2,ndim2)
   complex(kind=8),intent(in) :: gamma_dmft_dens(ndim2,maxdim), gamma_dmft_magn(ndim2,maxdim)
+  complex(kind=8) :: gamma_dmft(ndim2,maxdim)
   complex(kind=8) :: interm3_dens(ndim2,maxdim),interm3_magn(ndim2,maxdim)
   complex(kind=8) :: gamma_loc_sum_left(ndim2,maxdim)
-  complex(kind=8),intent(inout) :: sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
-  complex(kind=8) :: m_tot_array(ndim,ndim,ndim,ndim,-iwfmax_small:iwfmax_small),m_tot(ndim2,maxdim)
+  complex(kind=8),intent(inout) :: sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp), sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1)
+  complex(kind=8) :: m_tot_array(ndim,ndim,ndim,ndim,-iwfmax_small:iwfmax_small), m_dmft_array(ndim,ndim,ndim,ndim,-iwfmax_small:iwfmax_small) 
+  complex(kind=8) :: m_tot(ndim2,maxdim)
   complex(kind=8) :: u_work(ndim2,ndim2), m_work(ndim2,maxdim)
   complex(kind=8) :: gkiw(ndim,ndim)
   complex(kind=8) :: alpha, delta
   complex(kind=8) :: n_fock(nkp,ndim,ndim), n_dmft(ndim), sigma_fock(ndim,ndim)
-  complex(kind=8) :: vq(ndim,ndim,ndim,ndim)
+  complex(kind=8) :: vq(ndim,ndim,ndim,ndim), u_arr(ndim,ndim,ndim,ndim), test(ndim)
 
   !subtract -1 in the diagonal of the orbital blocks:
   do i1=1,ndim2
@@ -78,10 +80,21 @@ contains
      call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, gamma_dmft_dens, ndim2, delta, m_work, ndim2)
      m_tot = m_tot + m_work
   endif
+
+  !DMFT part (for the computation of the DMFT self energy through the local EOM,
+  !for comparison)
+  u_work = -u_tilde
+  m_work = 0.d0
+  gamma_dmft = 0.d0
+  gamma_dmft = 0.5d0*gamma_dmft_dens + 1.5d0*gamma_dmft_magn
+  alpha = 1.d0
+  delta = 0.d0
+  call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, gamma_dmft, ndim2, delta, m_work, ndim2)
   
 
   !break up the compound index:
   m_tot_array = 0.d0
+  m_dmft_array = 0.d0
   i1 = 0
   do i=1,ndim
      do j=1,ndim
@@ -92,10 +105,27 @@ contains
               do k=1,ndim
                  i2 = i2+1
                  m_tot_array(i,j,k,l,iwf2) = m_tot(i1,i2)
+                 m_dmft_array(i,j,k,l,iwf2) = m_work(i1,i2)
               enddo
            enddo
         enddo
      enddo
+  enddo
+
+  
+  !compute DMFT self energy through local EOM (for comparison):
+  do iwf=0,iwfmax_small-1
+     do i=1,ndim
+        do l=1,ndim
+           do j=1,ndim
+              sigma_dmft(i,l,iwf) = sigma_dmft(i,l,iwf)+m_dmft_array(i,j,j,l,iwf)*giw(iwf-iwb,j)
+           enddo
+        enddo
+     enddo
+  enddo 
+  
+  do iwf=0,iwfmax_small-1
+     sigma_dmft(:,:,-iwf-1) = real(sigma_dmft(:,:,iwf),kind=8)-ci*aimag(sigma_dmft(:,:,iwf))
   enddo
 
   
@@ -106,7 +136,6 @@ contains
      sigma_fock = 0.d0
      do iwf=0,iwfmax_small-1
         call get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
-        
         do i=1,ndim
            do l=1,ndim
               do j=1,ndim
@@ -116,13 +145,11 @@ contains
               enddo
            enddo
         enddo
-   
      enddo !iwf
 
      
-     !compute non-local Fock contribution:
      if(do_vq) then
-        !break up compound index of umatrix: 
+        !break up compound index of non-local Coulomb interaction: 
         i2=0
         do l=1,ndim
            do j=1,ndim
@@ -151,7 +178,6 @@ contains
         do iwf=0,iwfmax_small-1
            sigma(:,:,iwf,ik) = sigma(:,:,iwf,ik)+sigma_fock(:,:)
         enddo
-
      endif !do_vq
 
      do iwf=0,iwfmax_small-1
@@ -159,6 +185,41 @@ contains
      enddo
 
   enddo !ik
+
+  
+
+  !compute local Hartree-contribution:
+  u_arr = 0.d0
+  i2=0
+  do l=1,ndim
+     do j=1,ndim
+        i2=i2+1
+        i1 = 0
+        do i=1,ndim
+           do k=1,ndim
+              i1 = i1+1
+              u_arr(i,j,k,l) = u(i1,i2)
+           enddo
+        enddo
+     enddo
+  enddo
+
+ 
+
+  if(iq==1 .and. iwb==0) then
+     test = 0.d0
+     do i=1,ndim
+        do j=1,ndim
+           sigma_dmft(i,i,:) = sigma_dmft(i,i,:)-2.d0*dble(nqp)*beta*u_arr(i,j,i,j)*n_dmft(j)
+           test(i) = test(i)+u_arr(i,j,i,j)*n_dmft(j)+u_arr(i,j,j,i)*n_dmft(j)
+           !write(*,*) u_arr(i,j,i,j),n_dmft(j)
+           !stop
+        enddo
+     enddo
+     write(*,*) 'hartree_test=',test(1)
+     stop
+  endif
+
 
   !compute non-local Hartree-contribution 2*v(q=0)*n_DMFT
   if(do_vq .and. iq==1) then
@@ -232,12 +293,12 @@ end subroutine get_sigma_g_loc
 
 
 !==============================================================================================
-subroutine output_eom(iw_data, k_data, sigma_sum, sigma_loc, gloc, n_sum)
+subroutine output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_loc, gloc, n_sum)
   implicit none
 
   real*8, intent(in) :: iw_data(-iwmax:iwmax-1)
   real*8, intent(in) :: k_data(3,nkp)
-  complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
+  complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp), sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1)
   complex(kind=8), intent(in) :: sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1)
   complex(kind=8) :: sigma_tmp(ndim*(ndim+1)/2)
   complex(kind=8), intent(in) :: n_sum(ndim)
@@ -249,6 +310,7 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_loc, gloc, n_sum)
   open(34, file=trim(output_dir)//"siw_0_0_0.dat", status='unknown')
   open(47, file=trim(output_dir)//"siw_0_0.5_0.dat", status='unknown')
   open(48, file=trim(output_dir)//"siw_0.25_0.25_0.dat", status='unknown')
+  open(50, file=trim(output_dir)//"siw_dmft_rep.dat", status='unknown')  
 
   open(35, file=trim(output_dir)//"siw_0_0_0.25.dat", status='unknown')
   open(36, file=trim(output_dir)//"siw_0_0_0.5.dat", status='unknown')
@@ -281,6 +343,7 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_loc, gloc, n_sum)
      write(47,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,201)),aimag(sigma_sum(i,j,iwf,201)), j=i,ndims), i=1,ndims)
      write(48,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,2101)),aimag(sigma_sum(i,j,iwf,2101)), j=i,ndims), i=1,ndims)
 
+     write(50,'(100F12.6)')iw_data(iwf), ((real(sigma_sum_dmft(i,j,iwf)),aimag(sigma_sum_dmft(i,j,iwf)), j=i,ndims), i=1,ndims)
      write(44,'(100F12.6)')iw_data(iwf), ((real(sigma_loc(i,j,iwf)), aimag(sigma_loc(i,j,iwf)), j=i,ndims), i=1,ndims)
   enddo
 
@@ -315,6 +378,7 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_loc, gloc, n_sum)
   close(47)
   close(48)
   close(49)
+  close(50)
 
 
 

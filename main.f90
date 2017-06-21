@@ -67,7 +67,7 @@ program main
   double precision, allocatable :: hr(:,:), hi(:,:)
   complex(kind=8), allocatable :: gamma_loc(:,:), gamma_loc_sum_left(:,:), v(:,:)
 
-  complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_sum(:,:,:,:), sigma_loc(:,:,:)
+  complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_dmft(:,:,:), sigma_sum(:,:,:,:), sigma_sum_dmft(:,:,:), sigma_loc(:,:,:)
   complex(kind=8), allocatable :: giw_sum(:), n_dga(:), n_dmft(:), n_fock(:,:,:)
   integer(hsize_t) ::  inull
   integer :: iwb_zero, iband, ispin
@@ -353,7 +353,8 @@ program main
   enddo
 
   write(*,*) beta
-  n_dmft(:) = 2.d0*giw_sum(:)/beta+0.5d0
+  n_dmft = 0.d0
+  n_dmft(:) = 2.d0*real(giw_sum(:))/beta+0.5d0
   open(56, file=trim(output_dir)//"n_dmft.dat", status='unknown')
   write(56,'(100F12.6)') (real(n_dmft(i)),i=1,ndims)
 
@@ -363,7 +364,7 @@ program main
   do ik=1,nkp
      do iw=0,iwmax-1
         call get_gkiw(ik, iw, 0, iw_data, siw, hk, dc, gkiw)
-        n_fock(ik,:,:) = n_fock(ik,:,:)+gkiw(:,:)
+        n_fock(ik,:,:) = n_fock(ik,:,:)+real(gkiw(:,:))
      enddo
      n_fock = 2.d0*n_fock/beta
      do i=1,ndims
@@ -512,7 +513,9 @@ start = mpi_wtime()
 
 if (do_eom) then
   allocate(sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
+  allocate(sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1))
   sigma = 0.d0
+  sigma_dmft = 0.d0
 end if
 
 
@@ -536,6 +539,7 @@ end if
      update_chi_loc_flag = qw(1,iqw) .ne. iwb
      iq = qw(2,iqw)
      iwb = qw(1,iqw)
+     write(*,*) iq, iwb !TEST
   
      !read nonlocal interaction v and go into compound index:
      if(do_vq) then
@@ -641,10 +645,10 @@ end if
                                chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l) 
                             endif
 
-                            else if (vertex_type .eq. connected_g4) then
+                          else if (vertex_type .eq. connected_g4) then
                             !G_conn: 
                             !bubble term -G(\nu)G(\nu-\omega) is added in both channels
-                               if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
+                            if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
                                chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j) 
                                chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j) 
                             endif
@@ -888,7 +892,7 @@ end if
      end if
      if (do_eom) then
         !equation of motion     
-        call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,kq_ind,iwb,iq,iw_data,u,v,u_tilde,hk,dc,siw,n_dmft,n_fock)
+        call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,sigma_dmft,kq_ind,iwb,iq,iw_data,u,v,u_tilde,hk,dc,siw,giw,n_dmft,n_fock)
      end if
      call cpu_time(finish)
 
@@ -911,18 +915,18 @@ end if
   ! MPI reduction and output
   write(*,*)'nkp=', nkp
   if (do_eom) then
-     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp))
+     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp), sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1))
      allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1))
      call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+     call MPI_reduce(sigma_dmft, sigma_sum_dmft, ndim*ndim*2*iwfmax_small, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      sigma_sum = -sigma_sum/(beta*nqp)
+     sigma_sum_dmft = -sigma_sum_dmft/(beta*nqp)
      call add_siw_dmft(siw, sigma_sum)
-
      call get_sigma_g_loc(beta, iw_data, hk, dc, siw, sigma_sum, sigma_loc, gloc, n_dga) 
-      
      if (mpi_wrank .eq. master) then
-       call output_eom(iw_data, k_data, sigma_sum, sigma_loc, gloc, n_dga)
+       call output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_loc, gloc, n_dga)
      end if
-     deallocate(sigma,sigma_sum,sigma_loc)
+     deallocate(sigma, sigma_sum, sigma_sum_dmft, sigma_loc)
   end if
 
 
