@@ -30,7 +30,7 @@ contains
   complex(kind=8) :: gkiw(ndim,ndim)
   complex(kind=8) :: alpha, delta
   complex(kind=8) :: n_fock(nkp,ndim,ndim), n_dmft(ndim), sigma_fock(ndim,ndim)
-  complex(kind=8) :: vq(ndim,ndim,ndim,ndim), u_arr(ndim,ndim,ndim,ndim), test(ndim)
+  complex(kind=8) :: vq(ndim,ndim,ndim,ndim), u_arr(ndim,ndim,ndim,ndim)
 
   !subtract -1 in the diagonal of the orbital blocks:
   do i1=1,ndim2
@@ -148,7 +148,7 @@ contains
      enddo !iwf
 
      
-     if(do_vq) then
+     if(do_vq .and. iwb==0) then
         !break up compound index of non-local Coulomb interaction: 
         i2=0
         do l=1,ndim
@@ -169,7 +169,7 @@ contains
            do l=1,ndim
               do j=1,ndim
                  do k=1,ndim
-                    sigma_fock(i,l) = sigma_fock(i,l)+vq(i,j,k,l)*n_fock(ikq,j,k)
+                    sigma_fock(i,l) = sigma_fock(i,l)+beta*vq(i,j,k,l)*n_fock(ikq,j,k)
                  enddo
               enddo
            enddo
@@ -204,34 +204,26 @@ contains
      enddo
   enddo
 
- 
-
   if(iq==1 .and. iwb==0) then
-     test = 0.d0
      do i=1,ndim
         do j=1,ndim
-           sigma_dmft(i,i,:) = sigma_dmft(i,i,:)-2.d0*dble(nqp)*beta*u_arr(i,j,i,j)*n_dmft(j)
-           test(i) = test(i)+u_arr(i,j,i,j)*n_dmft(j)+u_arr(i,j,j,i)*n_dmft(j)
-           !write(*,*) u_arr(i,j,i,j),n_dmft(j)
-           !stop
+           !computation of local Hartree-term requires crossing-symmetric U:
+           sigma_dmft(i,i,:) = sigma_dmft(i,i,:)-2.d0*dble(nqp)*beta*u_arr(i,j,i,j)*n_dmft(j)+dble(nqp)*beta*u_arr(i,j,j,i)*n_dmft(j)
         enddo
      enddo
-     write(*,*) 'hartree_test=',test(1)
-     stop
   endif
 
 
   !compute non-local Hartree-contribution 2*v(q=0)*n_DMFT
-  if(do_vq .and. iq==1) then
+  if(do_vq .and. iq==1 .and. iwb==0) then
      do i=1,ndim
         do j=1,ndim
-           sigma(i,i,:,:) = sigma(i,i,:,:)-2.d0*dble(nqp)*vq(i,j,i,j)*n_dmft(j)
+           sigma(i,i,:,:) = sigma(i,i,:,:)-2.d0*dble(nqp)*beta*vq(i,j,i,j)*n_dmft(j)
         enddo
      enddo
   endif
      
 
-             
 end subroutine calc_eom
 !=============================================================================================
 
