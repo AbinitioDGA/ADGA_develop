@@ -4,6 +4,9 @@
 # number of inequivalent atoms
 1
 
+# number of d / p bands per inequivalent site -- always has to be a tupel of 2 -- (3 0) == 3d bands
+3 0
+
 # file name for one-particle data
 /home/lv70693/gallerTEST/abinitioDGA/SVO/beta10/vertex_asymptotics/reproduce_dmft/SVO-VERTEX-2016-07-14-Thu-07-24-43.hdf5
 

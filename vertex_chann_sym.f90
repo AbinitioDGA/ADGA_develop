@@ -183,7 +183,8 @@ program symmetrize_vertex
   read(cmd_arg,'(I1)') nineq
 
   if (.not. iargc() .eq. nineq+3 ) then
-    write(*,*) 'The program has to be executed with the following arguments: number of inequivalent atoms, names of input files, output file and number of bands'
+    write(*,*) 'The program has to be executed with the following arguments'
+    write(*,*) 'number of inequivalent atoms, names of input files (as many as inequivalent atoms), name of output file, number of bands'
     stop
   endif
 

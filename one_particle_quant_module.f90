@@ -56,7 +56,7 @@ subroutine get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
   integer :: iwf, iwb, ikq
   double precision :: iw_data(-iwmax:iwmax-1)
   complex(kind=8) :: hk(ndim,ndim,nkp)
-  complex(kind=8) :: siw(-iwmax:iwmax-1,ndims)
+  complex(kind=8) :: siw(-iwmax:iwmax-1,ndim)
   double precision :: dc(2,ndim)
   complex(kind=8), intent(out) :: gkiw(ndim,ndim)
 

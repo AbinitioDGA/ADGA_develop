@@ -5,13 +5,14 @@ module parameters_module
   complex(kind=8) ci
   parameter (ci=(0.d0,1.d0))
   double precision,parameter :: pi=3.1415926535897932385d0
-  integer :: nkp, ndim, ndims, ndim2, maxdim, nineq
+  integer :: nkp, ndim, ndim2, maxdim, nineq
+  integer, allocatable :: ndims(:,:)
   integer :: nkpx,nkpy,nkpz,nkp1,nqpx,nqpy,nqpz,nqp1
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,nk_frac
   integer :: iwstart,iwstop
   double precision :: mu, beta
   double precision, allocatable :: k_data(:,:), r_data(:,:)
-  integer :: nqp,nkp_eom
+  integer :: nqp,nkp_eom, idp
   integer,allocatable :: q_data(:),k_data_eom(:)
   character(len=150) :: filename, filename_umatrix, filename_vq, filename_hk, output_dir, filename_q_path
   logical :: orb_sym,small_freq_box,full_chi0
@@ -45,7 +46,11 @@ subroutine read_config()
   read(1,*)
   read(1,*) int_tmp_1
   nineq=int_tmp_1
+  allocate(ndims(nineq,2))
 
+  read(1,*)
+  read(1,*)
+  read(1,*) ((ndims(ineq, idp), idp=1,2), ineq=1,nineq)
 
   read(1,*)
   read(1,*)

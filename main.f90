@@ -43,6 +43,7 @@ program main
   
   integer :: iw, ik, iq, ikq, iwf, iwb, iv, dum, dum1, ind_iwb, ind_grp, iwf1, iwf2
   integer :: i, j, k, l, n, i1, i2, i3, i4
+  integer :: dimstart, dimend
   integer :: imembers
   complex(kind=8), allocatable :: giw(:,:), gloc(:,:,:), gkiw(:,:)
   complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:) 
@@ -90,7 +91,7 @@ program main
   end if
 
   call read_config()
-  
+
 
 #ifdef MPI
   call MPI_init(ierr)
@@ -133,6 +134,10 @@ program main
   end if
 
  
+  if (ndim .ne. sum(ndims)) then
+    write(*,*) 'Sum over bands of inequivalent atoms does not match Hamiltonian'
+    stop
+  endif
   
 !##################  READ W2DYNAMICS HDF5 OUTPUT FILE  #####################################
 
@@ -173,82 +178,100 @@ program main
   write(*,*)'iwbmax=',iwbmax, 'iwbmax_small=', iwbmax_small
  
 
-! read in all inequivalent atoms here -- 
-! read siw:
-  call h5dopen_f(file_id, "stat-001/ineq-001/siw/value", siw_id, error)
-  call h5dget_space_f(siw_id, siw_space_id, error)
-  call h5sget_simple_extent_dims_f(siw_space_id, siw_dims, siw_maxdims, error)
-  ndims = siw_dims(3)
-  allocate(siw_data(2,-iwmax:iwmax-1,siw_dims(2),siw_dims(3))) !indices: real/imag iw spin band
-  call h5dread_f(siw_id, compound_id, siw_data, siw_dims, error)
-  allocate(siw(-iwmax:iwmax-1,siw_dims(3)))
+! read in all inequivalent atoms
+  ! siw from DMFT contains all possible bands
+  ! siw at p (non-interacting bands) is set to 0
+  allocate(siw(-iwmax:iwmax-1,ndim))
+  siw=0.d0
 
-  !paramagnetic:
-  siw = 0.d0
-  siw(:,:) = siw_data(1,:,1,:)+siw_data(1,:,2,:)+ci*siw_data(2,:,1,:)+ci*siw_data(2,:,2,:)
-  siw = siw/2.d0
+  do ineq=1,nineq
+    dimstart=0
+    do i=2,ineq
+      dimstart=dimstart+ndim(i-1,1)+ndim(i-1,2)
+    enddo
+    dimend=dimstart+ndim(ineq,1)
 
-  call h5dclose_f(siw_id, error)
-  deallocate(siw_data)
+    write(name_buffer,'("ineq-",I3.3)') ineq
+    ! read siw:
+    ! local self energy - only for interacting orbitals == d
+    call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/siw/value", siw_id, error)
+    call h5dget_space_f(siw_id, siw_space_id, error)
+    call h5sget_simple_extent_dims_f(siw_space_id, siw_dims, siw_maxdims, error)
+    ! ndims = siw_dims(3)
+    allocate(siw_data(2,-iwmax:iwmax-1,siw_dims(2),siw_dims(3))) !indices: real/imag iw spin band
+    call h5dread_f(siw_id, compound_id, siw_data, siw_dims, error)
 
-  if (orb_sym) then
-     ! enforce orbital symmetry:
-     do iband=2,ndims
-        siw(:,1) = siw(:,1)+siw(:,iband)
-     enddo
+    !paramagnetic (spin average): 
+    do i=dimstart,dimend
+      siw(:,i) = siw_data(1,:,1,i-dimstart+1)+siw_data(1,:,2,i-dimstart+1)+ci*siw_data(2,:,1,i-dimstart+1)+ci*siw_data(2,:,2,i-dimstart+1)
+      siw(:,i) = siw(:,i)/2.d0
+    enddo
 
-     do iband=1,ndims
-        siw(:,iband) = siw(:,1)
-     enddo
-     siw = siw/dble(ndims)
-  endif
+    call h5dclose_f(siw_id, error)
+    deallocate(siw_data)
 
-  ! test siw:
-  open(34, file=trim(output_dir)//"siw.dat", status='unknown')
-  do iw=-iwmax,iwmax-1   
-     write(34,'(100F12.6)')iw_data(iw), (real(siw(iw,i)),aimag(siw(iw,i)), i=1,ndims)
-  enddo
-  close(34)
+    if (orb_sym) then
+       ! enforce orbital symmetry:
+       do iband=dimstart+1,dimend
+          siw(:,dimstart) = siw(:,dimstart)+siw(:,iband)
+       enddo
+
+       do iband=dimstart,dimend
+          siw(:,iband) = siw(:,dimstart)
+       enddo
+       siw = siw/dble(dimend-dimstart+1)
+    endif
+  enddo ! loop over inequivalent atoms
+
+    ! test siw:
+    ! open(34, file=trim(output_dir)//"siw.dat", status='unknown')
+    ! do iw=-iwmax,iwmax-1   
+    !    write(34,'(100F12.6)')iw_data(iw), (real(siw(iw,i)),aimag(siw(iw,i)), i=1,ndims)
+    ! enddo
+    ! close(34)
 
 
-  ! read in all inequivalent atoms here -- 
-  ! read giw:
-  call h5dopen_f(file_id, "stat-001/ineq-001/giw/value", giw_id, error)
-  call h5dget_space_f(giw_id, giw_space_id, error)
-  call h5sget_simple_extent_dims_f(giw_space_id, giw_dims, giw_maxdims, error)
-  allocate(giw_data(2,-iwmax:iwmax-1,giw_dims(2),giw_dims(3))) !indices: real/imag iw spin band
-  call h5dread_f(giw_id, compound_id, giw_data, giw_dims, error)
-  allocate(giw(-iwmax:iwmax-1,giw_dims(3)))
+! read in all inequivalent atoms
+  ! do ineq=1,nineq
 
-  !paramagnetic:
-  giw = 0.d0
-  giw(:,:) = giw_data(1,:,1,:)+giw_data(1,:,2,:)+ci*giw_data(2,:,1,:)+ci*giw_data(2,:,2,:)
-  giw = giw/2.d0
+  !   write(name_buffer,'("ineq-",I3.3)') ineq
 
-  call h5dclose_f(giw_id, error)
-  deallocate(giw_data)
-  
-  if (orb_sym) then
-  ! enforce orbital symmetry:
-     do iband=2,ndims
-        giw(:,1) = giw(:,1)+giw(:,iband)
-     enddo
+  !   call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/giw/value", giw_id, error)
+  !   call h5dget_space_f(giw_id, giw_space_id, error)
+  !   call h5sget_simple_extent_dims_f(giw_space_id, giw_dims, giw_maxdims, error)
+  !   allocate(giw_data(2,-iwmax:iwmax-1,giw_dims(2),giw_dims(3))) !indices: real/imag iw spin band
+  !   call h5dread_f(giw_id, compound_id, giw_data, giw_dims, error)
+  !   allocate(giw(-iwmax:iwmax-1,giw_dims(3),nineq))
 
-     do iband=1,ndims
-        giw(:,iband) = giw(:,1)
-     enddo
-     giw = giw/dble(ndims)
-  endif 
+  !   !paramagnetic:
+  !   giw(:,:,ineq) = giw_data(1,:,1,:)+giw_data(1,:,2,:)+ci*giw_data(2,:,1,:)+ci*giw_data(2,:,2,:)
+  !   giw = giw/2.d0
 
-! test giw:
-  open(54, file=trim(output_dir)//"giw.dat", status='unknown')
-  do iw=-iwmax,iwmax-1
-     write(54,'(100F12.6)')iw_data(iw), (real(giw(iw,1)),aimag(giw(iw,1)),i=1,ndims)
-  enddo
-  close(54)
+  !   call h5dclose_f(giw_id, error)
+  !   deallocate(giw_data)
+ 
+  !   if (orb_sym) then
+  !   ! enforce orbital symmetry:
+  !      do iband=2,ndims
+  !         giw(:,1,ineq) = giw(:,1,ineq)+giw(:,iband,ineq)
+  !      enddo
+
+  !      do iband=1,ndims
+  !         giw(:,iband,ineq) = giw(:,1)
+  !      enddo
+  !      giw = giw/dble(ndims)
+  !   endif 
+
+  ! ! test giw:
+  !   open(54, file=trim(output_dir)//"giw.dat", status='unknown')
+  !   do iw=-iwmax,iwmax-1
+  !      write(54,'(100F12.6)')iw_data(iw), (real(giw(iw,1)),aimag(giw(iw,1)),i=1,ndims)
+  !   enddo
+  !   close(54)
+
+  ! enddo ! inequivalent atom loop
 
   write(*,*) 'ok' 
-  
 
   if(.not. read_ext_hk) then
     ! read k-points:
@@ -346,7 +369,7 @@ program main
 !  close(35)
 
   !compute DMFT filling n_dmft
-  allocate(gloc(-iwmax:iwmax-1,ndim,ndim), gkiw(ndims,ndims))
+  allocate(gloc(-iwmax:iwmax-1,ndim,ndim), gkiw(ndim,ndim))
   allocate(giw_sum(ndims), n_dmft(ndims), n_fock(nkp,ndims,ndims), n_dga(ndims))
   giw_sum = 0.d0
   n_dmft = 0.d0
