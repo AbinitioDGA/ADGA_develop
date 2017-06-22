@@ -169,7 +169,7 @@ module susc_module
       implicit none
       integer,intent(in) :: iwb,iq,kq_ind(nkp,nqp)
       double precision,intent(in) :: iw_data(-iwmax:iwmax-1),dc(2,ndim)
-      complex(kind=8),intent(in) :: siw(-iwmax:iwmax-1,ndims), hk(ndim,ndim,nkp)
+      complex(kind=8),intent(in) :: siw(-iwmax:iwmax-1,ndim), hk(ndim,ndim,nkp)
       complex(kind=8) :: bubble(ndim2,ndim2),g1(ndim,ndim),g2(ndim,ndim)
       integer :: ik,iwf,ikq1,ikq2
       integer :: i1,i2,i3,i4

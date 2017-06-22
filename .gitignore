@@ -12,6 +12,7 @@
 *.dat
 *.png
 *.hdf5
+*.hk
 
 main
 vertex_chann_sym

@@ -15,7 +15,7 @@ contains
   integer :: i1,i2,i3,i4
   integer,intent(in) :: kq_ind(nkp,nqp),iwb,iq
   real*8,intent(in) :: iw_data(-iwmax:iwmax-1)
-  complex(kind=8),intent(in) :: siw(-iwmax:iwmax-1,ndims), giw(-iwmax:iwmax-1,ndims)
+  complex(kind=8),intent(in) :: siw(-iwmax:iwmax-1,ndim), giw(-iwmax:iwmax-1,ndim)
   complex(kind=8),intent(in) :: hk(ndim,ndim,nkp)
   double precision,intent(in) :: dc(2,ndim)
   complex(kind=8),intent(in) :: u(ndim2,ndim2),u_tilde(ndim2,ndim2),v(ndim2,ndim2)
@@ -238,7 +238,7 @@ end subroutine calc_eom
 !=============================================================================================
 subroutine add_siw_dmft(siw, sigma_sum) 
   implicit none
-  complex(kind=8), intent(in) :: siw(-iwmax:iwmax-1,ndims) 
+  complex(kind=8), intent(in) :: siw(-iwmax:iwmax-1,ndim) 
   complex(kind=8) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
   integer :: ik, iwf, iband
 
@@ -261,7 +261,7 @@ subroutine get_sigma_g_loc(beta, iw_data, hk, dc, siw, sigma_sum, sigma_loc, glo
   complex(kind=8), intent(out) :: sigma_loc(ndim, ndim,-iwfmax_small:iwfmax_small-1)
   complex(kind=8), intent(out) :: gloc(-iwmax:iwmax-1,ndim,ndim)
   complex(kind=8), intent(out) :: n_dga(ndim)
-  complex(kind=8), intent(in) :: siw(-iwmax:iwmax-1,ndims)
+  complex(kind=8), intent(in) :: siw(-iwmax:iwmax-1,ndim)
   complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
   double precision, intent(in) :: iw_data(-iwmax:iwmax-1)
   complex(kind=8), intent(in) :: hk(ndim,ndim,nkp)
@@ -342,33 +342,33 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_loc, glo
 
   !TODO read symmetry points from file
   do iwf=-iwfmax_small,iwfmax_small-1
-     write(34,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,1)), aimag(sigma_sum(i,j,iwf,1)), j=i,ndims), i=1,ndims)
-     write(35,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,6)), aimag(sigma_sum(i,j,iwf,6)), j=i,ndims), i=1,ndims)
-     write(36,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,11)), aimag(sigma_sum(i,j,iwf,11)), j=i,ndims), i=1,ndims)
-     write(37,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,106)), aimag(sigma_sum(i,j,iwf,106)), j=i,ndims), i=1,ndims)
-     write(38,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,84)), aimag(sigma_sum(i,j,iwf,84)), j=i,ndims), i=1,ndims)
-     write(39,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,85)), aimag(sigma_sum(i,j,iwf,85)), j=i,ndims), i=1,ndims)
-     write(40,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,111)), aimag(sigma_sum(i,j,iwf,111)), j=i,ndims), i=1,ndims)
-     write(41,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,211)), aimag(sigma_sum(i,j,iwf,211)), j=i,ndims), i=1,ndims)
-     write(42,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,4211)), aimag(sigma_sum(i,j,iwf,4211)), j=i,ndims), i=1,ndims)
-     write(43,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,2106)), aimag(sigma_sum(i,j,iwf,2106)), j=i,ndims), i=1,ndims)
-     write(47,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,201)),aimag(sigma_sum(i,j,iwf,201)), j=i,ndims), i=1,ndims)
-     write(48,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,2101)),aimag(sigma_sum(i,j,iwf,2101)), j=i,ndims), i=1,ndims)
+     write(34,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,1)), aimag(sigma_sum(i,j,iwf,1)), j=i,ndim), i=1,ndim)
+     write(35,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,6)), aimag(sigma_sum(i,j,iwf,6)), j=i,ndim), i=1,ndim)
+     write(36,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,11)), aimag(sigma_sum(i,j,iwf,11)), j=i,ndim), i=1,ndim)
+     write(37,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,106)), aimag(sigma_sum(i,j,iwf,106)), j=i,ndim), i=1,ndim)
+     write(38,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,84)), aimag(sigma_sum(i,j,iwf,84)), j=i,ndim), i=1,ndim)
+     write(39,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,85)), aimag(sigma_sum(i,j,iwf,85)), j=i,ndim), i=1,ndim)
+     write(40,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,111)), aimag(sigma_sum(i,j,iwf,111)), j=i,ndim), i=1,ndim)
+     write(41,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,211)), aimag(sigma_sum(i,j,iwf,211)), j=i,ndim), i=1,ndim)
+     write(42,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,4211)), aimag(sigma_sum(i,j,iwf,4211)), j=i,ndim), i=1,ndim)
+     write(43,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,2106)), aimag(sigma_sum(i,j,iwf,2106)), j=i,ndim), i=1,ndim)
+     write(47,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,201)),aimag(sigma_sum(i,j,iwf,201)), j=i,ndim), i=1,ndim)
+     write(48,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,2101)),aimag(sigma_sum(i,j,iwf,2101)), j=i,ndim), i=1,ndim)
 
-     write(50,'(100F12.6)')iw_data(iwf), ((real(sigma_sum_dmft(i,j,iwf)),aimag(sigma_sum_dmft(i,j,iwf)), j=i,ndims), i=1,ndims)
-     write(44,'(100F12.6)')iw_data(iwf), ((real(sigma_loc(i,j,iwf)), aimag(sigma_loc(i,j,iwf)), j=i,ndims), i=1,ndims)
+     write(50,'(100F12.6)')iw_data(iwf), ((real(sigma_sum_dmft(i,j,iwf)),aimag(sigma_sum_dmft(i,j,iwf)), j=i,ndim), i=1,ndim)
+     write(44,'(100F12.6)')iw_data(iwf), ((real(sigma_loc(i,j,iwf)), aimag(sigma_loc(i,j,iwf)), j=i,ndim), i=1,ndim)
   enddo
 
 
   
   do iwf=-iwmax,iwmax-1
-     write(46,'(100F12.6)')iw_data(iwf), ((real(gloc(iwf,i,j)), aimag(gloc(iwf,i,j)), j=i,ndims), i=1,ndims)
+     write(46,'(100F12.6)')iw_data(iwf), ((real(gloc(iwf,i,j)), aimag(gloc(iwf,i,j)), j=i,ndim), i=1,ndim)
   enddo
 
 
     do ik=1,nkp
        do iwf=0,5
-          write(45,'(100F12.6)') k_data(1,ik), k_data(2,ik), k_data(3,ik), iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndims), i=1,ndims)
+          write(45,'(100F12.6)') k_data(1,ik), k_data(2,ik), k_data(3,ik), iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndim), i=1,ndim)
        enddo
     enddo
 

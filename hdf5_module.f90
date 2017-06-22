@@ -133,7 +133,7 @@ module hdf5_module
       integer, intent(in) :: ineq ! inequivalent atom
       integer, intent(in) :: ichannel !1=magn, 2=dens
       integer, intent(in) :: iwb, ind_orb
-      character(len=20) :: grpname
+      character(len=30) :: grpname
       integer(hid_t) :: grp_id, dset_id, dset_err_id
       integer(hid_t) :: file_id
 
@@ -143,7 +143,7 @@ module hdf5_module
          write(grpname, '("ineq-",I3.3,"/dens/",I5.5,"/",i5.5)') ineq, iwb, ind_orb
       endif
 
-      call h5gcreate_f(file_id, grpname, grp_id, err)
+      call h5gcreate_f(file_id, trim(grpname), grp_id, err)
       call h5dcreate_f(grp_id, "value", compound_id, dspace_id, dset_id, err)
       call h5dcreate_f(grp_id, "error", h5t_native_double, dspace_id, dset_err_id, err)
 
@@ -169,7 +169,7 @@ module hdf5_module
      double precision,intent(in) :: g4iw_r(2*iwfmax, 2*iwfmax, 2*iwbmax+1)
      double precision,intent(in) :: g4iw_i(2*iwfmax, 2*iwfmax, 2*iwbmax+1)
      double precision,intent(in) :: g4err(2*iwfmax, 2*iwfmax, 2*iwbmax+1)
-     character(len=20) :: grpname
+     character(len=30) :: grpname
      integer(hid_t) :: grp_id, dset_id, dset_err_id
      integer(hid_t) :: file_id
 
@@ -179,7 +179,7 @@ module hdf5_module
         write(grpname, '("ineq-",I3.3,"/dens/",(I5.5),"/",(I5.5))') ineq, iwb, ind_orb
      endif
         
-     call h5gopen_f(file_id, grpname, grp_id, err)
+     call h5gopen_f(file_id, trim(grpname), grp_id, err)
      call h5dopen_f(grp_id, "value", dset_id, err)
      call h5dopen_f(grp_id, "error", dset_err_id, err)
      

@@ -167,8 +167,9 @@ program symmetrize_vertex
   integer, parameter :: rank = 2, rank_iw = 1
   
   double precision, allocatable :: g4iw_r(:,:,:), g4iw_i(:,:,:), g4err(:,:,:), diff_r(:,:), diff_i(:,:)
-  integer :: ind, Nbands, b1, s1, b2, s2, b3, s3, b4, s4
-  integer :: iwb, iwf, iwf1, iwf2, ineq
+  integer :: ind, b1, s1, b2, s2, b3, s3, b4, s4
+  integer, allocatable :: Nbands(:)
+  integer :: iwb, iwf, iwf1, iwf2 
   logical :: su2_only
   logical, allocatable :: create_comp(:,:)
   double precision, allocatable :: iwb_array(:), iwf_array(:)
@@ -182,13 +183,15 @@ program symmetrize_vertex
   call getarg(1,cmd_arg)
   read(cmd_arg,'(I1)') nineq
 
-  if (.not. iargc() .eq. nineq+3 ) then
+  if (.not. iargc() .eq. 2*nineq+2 ) then
     write(*,*) 'The program has to be executed with the following arguments'
-    write(*,*) 'number of inequivalent atoms, names of input files (as many as inequivalent atoms), name of output file, number of bands'
+    write(*,*) 'number of inequivalent atoms, names of input files (as many as inequivalent atoms)'
+    write(*,*) 'name of output file, number of bands for each input file'
     stop
   endif
 
   allocate(filename_vertex_ineq(nineq))
+  allocate(Nbands(nineq))
   
   do ineq=1,nineq
     call getarg(1+ineq,cmd_arg)
@@ -196,14 +199,16 @@ program symmetrize_vertex
   enddo
   call getarg(2+nineq,cmd_arg)
   filename_vertex_sym = trim(cmd_arg)
-  call getarg(3+nineq,cmd_arg)
-  read(cmd_arg,'(I1)') Nbands
+  do ineq=1,nineq
+    call getarg(3+nineq+ineq,cmd_arg)
+    read(cmd_arg,'(I1)') Nbands(ineq)
+  enddo
 
 !================================================================
 !Define orbital symmetry here:
   su2_only = .true. 
   write(*,*) 'Symmetrizing ',(filename_vertex_ineq(ineq),ineq=1,nineq),'>>>>>',filename_vertex_sym
-  write(*,*) 'Number of bands: ',Nbands
+  write(*,*) 'Number of bands: ',sum(Nbands)
   write(*,*) 'Using orbital and SU2 symmetry'
 !=================================================================
 
@@ -242,10 +247,10 @@ program symmetrize_vertex
     allocate(tmp_r_1(g4iw_dims(1), g4iw_dims(2)), tmp_i_1(g4iw_dims(1), g4iw_dims(2)), tmp_err_1(g4iw_dims(1),g4iw_dims(2)))
     allocate( diff_r(g4iw_dims(1), g4iw_dims(2)), diff_i(g4iw_dims(1), g4iw_dims(2)))
 
-    allocate(create_comp(2,Nbands**4))
+    allocate(create_comp(2,Nbands(ineq)**4))
     create_comp = .true.
 
-    allocate(ind_band_list(Nbands**2))
+    allocate(ind_band_list(Nbands(ineq)**2))
 
 ! create dataspace:
     dims = (/g4iw_dims(1), g4iw_dims(2)/)
@@ -278,7 +283,7 @@ program symmetrize_vertex
        call h5gclose_f(grp_id, err)
       
   ! get band and spin indices:
-       call index2component(Nbands, ind, b1, s1, b2, s2, b3, s3, b4, s4)
+       call index2component(Nbands(ineq), ind, b1, s1, b2, s2, b3, s3, b4, s4)
       
   ! get the channel (magnetic: ichannel=1, density: ichannel=2)
        call get_channel(s1, s2, s3, s4, ichannel)
@@ -287,14 +292,14 @@ program symmetrize_vertex
        if (su2_only) then
 
           ! without orbital symmetry (only su2):
-          call component2index_band(Nbands, ind_band, b1, b2, b3, b4)
+          call component2index_band(Nbands(ineq), ind_band, b1, b2, b3, b4)
           ntot = 1 
           ind_band_list(1) = ind_band
 
        else
 
           !with orbital symmetry: 
-          call get_orb_sym(b1, b2, b3, b4, Nbands, ntot, ind_band_list)
+          call get_orb_sym(b1, b2, b3, b4, Nbands(ineq), ntot, ind_band_list)
 
        endif     
 

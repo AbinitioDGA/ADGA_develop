@@ -10,6 +10,7 @@ module parameters_module
   integer :: nkpx,nkpy,nkpz,nkp1,nqpx,nqpy,nqpz,nqp1
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,nk_frac
   integer :: iwstart,iwstop
+  integer :: ineq
   double precision :: mu, beta
   double precision, allocatable :: k_data(:,:), r_data(:,:)
   integer :: nqp,nkp_eom, idp
