@@ -32,6 +32,8 @@ contains
   complex(kind=8) :: n_fock(nkp,ndim,ndim), n_dmft(ndim), sigma_fock(ndim,ndim)
   complex(kind=8) :: vq(ndim,ndim,ndim,ndim), u_arr(ndim,ndim,ndim,ndim)
 
+  complex(kind=8) :: delta_sigma_nonloc(ndim,ndim)
+
   !subtract -1 in the diagonal of the orbital blocks:
   do i1=1,ndim2
      do dum=0,2*iwfmax_small-1
@@ -216,11 +218,16 @@ contains
 
   !compute non-local Hartree-contribution 2*v(q=0)*n_DMFT
   if(do_vq .and. iq==1 .and. iwb==0) then
+     delta_sigma_nonloc=0
      do i=1,ndim
         do j=1,ndim
            sigma(i,i,:,:) = sigma(i,i,:,:)-2.d0*dble(nqp)*beta*vq(i,j,i,j)*n_dmft(j)
+           delta_sigma_nonloc(i,i) = delta_sigma_nonloc(i,i)-2.d0*dble(nqp)*beta*vq(i,j,i,j)*n_dmft(j)+dble(nqp)*beta*vq(i,j,j,i)*n_dmft(j)
         enddo
      enddo
+     open(unit=7774,file=trim(output_dir)//'hartree_nonloc.dat')
+     write(7774,*) ( delta_sigma_nonloc(i,i),i=1,ndim)
+     close(7774)
   endif
      
 
@@ -297,6 +304,19 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_loc, glo
   complex(kind=8), intent(in) :: gloc(-iwmax:iwmax-1,ndim,ndim)
   integer :: ik, iwf, i, j, iband,nkp_eom,ii, i1, i2, i3, i4
   character(len=50) :: eom_format
+  character(len=200) :: filename_siwk
+
+  do ik=1,nkp
+    write(filename_siwk,'(A,F5.3,A,F5.3,A,F5.3,A)') 'siwk_',k_data(1,ik),'_',k_data(2,ik),'_',k_data(3,ik),'.dat'
+    open(34, file=trim(output_dir)//filename_siwk)
+    do iwf=-iwfmax_small,iwfmax_small
+      write(34,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndims), i=1,ndims)
+    end do
+    close(34)
+  end do
+
+
+
 
   !TODO generate the filenames automatically
   open(34, file=trim(output_dir)//"siw_0_0_0.dat", status='unknown')
