@@ -544,7 +544,7 @@ end if
      !read nonlocal interaction v and go into compound index:
      if(do_vq) then
         call read_vq(iq,v)
-        v = v-u  !otherwise, local U would be included twice
+       ! v = v-u  !otherwise, local U would be included twice
      else
         v = 0.d0
      endif
