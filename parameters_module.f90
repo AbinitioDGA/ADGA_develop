@@ -166,7 +166,7 @@ subroutine init()
     nqp1=nqpx
   end if
 
-  if (nr .eq. 0) then
+  if (.not. do_vq) then
     write(*,*) 'Run without V(q)'
   else
   !  allocate(r_data(3,nr))
