@@ -5,22 +5,22 @@
 1
 
 # number of d / p bands per inequivalent site -- always has to be a tupel of 2 -- (3 0) == 3d bands
-3 0
+1 1
 
 # file name for one-particle data
-./SVO-VERTEX-2016-07-14-Thu-07-24-43.hdf5
+PAM-2PG-2017-07-04-Tue-01-46-38.hdf5
 
 # file name for two-particle data
-./g4iw_asymp_60.hdf5
+vertex_out_PAM.hdf5
 
 # file name of umatrix
-./umatrix.dat
+umatrix.dat
 
 # decide if you use orbital symmetrization (1) and/or small frequency box (2). (0==.false., 1==.true.)
 1 1 0
 
 # size of small fermionic (1) and bosonic (2) frequency box
-20 2
+5 2
 
 # q_vol,k_path_eom,q_path_susc, read ext hamiltonian
 1 0 0 1
@@ -29,7 +29,7 @@
 path.qp
 
 # nkpx, nkpy, nkpz, nqpx, nqpy, nqpz, nd
-20 20 20            1 1 1          3
+80 80 80            1 1 1          2
 
 # Output directory, has to end with '/'
 ./Output/
@@ -41,7 +41,7 @@ path.qp
 0
 
 # hamiltonian file
-./SVO_k20.hk
+ham
 
 # computation with V^q (0==.false., 1==.true.)
 0

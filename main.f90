@@ -182,6 +182,7 @@ program main
   ! siw from DMFT contains all possible bands
   ! siw at p (non-interacting bands) is set to 0
   allocate(siw(-iwmax:iwmax-1,ndim))
+  allocate(giw(-iwmax:iwmax-1,ndim))
   siw=0.d0
 
   do ineq=1,nineq
@@ -232,44 +233,57 @@ program main
 
 
 ! read in all inequivalent atoms
-  ! do ineq=1,nineq
+  do ineq=1,nineq
 
-  !   write(name_buffer,'("ineq-",I3.3)') ineq
+    write(name_buffer,'("ineq-",I3.3)') ineq
 
-  !   call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/giw/value", giw_id, error)
-  !   call h5dget_space_f(giw_id, giw_space_id, error)
-  !   call h5sget_simple_extent_dims_f(giw_space_id, giw_dims, giw_maxdims, error)
-  !   allocate(giw_data(2,-iwmax:iwmax-1,giw_dims(2),giw_dims(3))) !indices: real/imag iw spin band
-  !   call h5dread_f(giw_id, compound_id, giw_data, giw_dims, error)
-  !   allocate(giw(-iwmax:iwmax-1,giw_dims(3)))
+    call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/giw/value", giw_id, error)
+    call h5dget_space_f(giw_id, giw_space_id, error)
+    call h5sget_simple_extent_dims_f(giw_space_id, giw_dims, giw_maxdims, error)
+    allocate(giw_data(2,-iwmax:iwmax-1,giw_dims(2),giw_dims(3))) !indices: real/imag iw spin band
+    call h5dread_f(giw_id, compound_id, giw_data, giw_dims, error)
 
-  !   !paramagnetic:
-  !   giw(:,:) = giw_data(1,:,1,:)+giw_data(1,:,2,:)+ci*giw_data(2,:,1,:)+ci*giw_data(2,:,2,:)
-  !   giw = giw/2.d0
+    !paramagnetic:
+    giw(:,:) = giw_data(1,:,1,:)+giw_data(1,:,2,:)+ci*giw_data(2,:,1,:)+ci*giw_data(2,:,2,:)
+    giw = giw/2.d0
 
-  !   call h5dclose_f(giw_id, error)
-  !   deallocate(giw_data)
+    call h5dclose_f(giw_id, error)
+    deallocate(giw_data)
  
-  !   if (orb_sym) then
-  !   ! enforce orbital symmetry:
-  !      do iband=2,ndims
-  !         giw(:,1) = giw(:,1)+giw(:,iband)
-  !      enddo
 
-  !      do iband=1,ndims
-  !         giw(:,iband) = giw(:,1)
-  !      enddo
-  !      giw = giw/dble(ndims)
-  !   endif 
+    if (orb_sym) then
+    ! enforce orbital symmetry:
+        dimstart=1
+        do i=2,ineq
+          dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+        enddo
 
-  ! ! test giw:
-  !   open(54, file=trim(output_dir)//"giw.dat", status='unknown')
-  !   do iw=-iwmax,iwmax-1
-  !      write(54,'(100F12.6)')iw_data(iw), (real(giw(iw,1)),aimag(giw(iw,1)),i=1,ndims)
-  !   enddo
-  !   close(54)
+        do i=1,2 ! d and p bands
+          dimend=dimstart+ndims(ineq,1)-1 
+          if (i .eq. 2) then
+            dimstart = dimend + 1
+            dimend = dimend + ndims(ineq,2)
+          endif
+        
+          do iband=dimstart+1,dimend
+            giw(:,dimstart) = giw(:,dimstart)+giw(:,iband)
+          enddo
 
-  ! enddo ! inequivalent atom loop
+          do iband=dimstart,dimend
+            giw(:,iband) = giw(:,dimstart)
+            giw(:,iband) = giw(:,iband)/dble(dimend-dimstart+1)
+          enddo
+        enddo
+    endif 
+
+  ! test giw:
+    open(54, file=trim(output_dir)//"giw.dat", status='unknown')
+    do iw=-iwmax,iwmax-1
+       write(54,'(100F12.6)')iw_data(iw), (real(giw(iw,1)),aimag(giw(iw,1)),i=1,ndim)
+    enddo
+    close(54)
+
+  enddo ! inequivalent atom loop
 
   write(*,*) 'ok' 
 
@@ -354,14 +368,14 @@ program main
   write(*,*) 'dc=', dc
 
   !read umatrix from separate file:
-  allocate(u(ndim**2,ndim**2), u_tilde(ndim**2,ndim**2))
-  call read_u(u,u_tilde)
+  ! allocate(u(ndim**2,ndim**2), u_tilde(ndim**2,ndim**2))
+  ! call read_u(u,u_tilde)
 
 
 !################################################################################################
 
 ! compute local single-particle Greens function:
-  allocate(giw(-iwmax:iwmax-1,ndim))
+! allocate(giw(-iwmax:iwmax-1,ndim))
   call get_giw(iw_data, hk, siw, dc, giw)
  
 ! test giw:
@@ -370,6 +384,8 @@ program main
       write(35,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
    enddo
    close(35)
+
+  call MPI_finalize(ierr)
 
   !compute DMFT filling n_dmft
   allocate(gloc(-iwmax:iwmax-1,ndim,ndim), gkiw(ndim,ndim))
@@ -399,7 +415,6 @@ program main
         n_fock(ik,i,i) = n_fock(ik,i,i)+0.5d0
      enddo
   enddo  
-
 
   allocate(chi0_loc(ndim2,ndim2,iwstart:iwstop)) 
   allocate(chi0_sum(ndim2,ndim2,iwstart:iwstop)) 
@@ -613,7 +628,7 @@ end if
           do i=2,ineq
             dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
           enddo
-          dimend=dimstart+ndims(ineq,1)-1
+          dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1
 
           call h5fopen_f(filename_vertex_sym, h5f_acc_rdonly_f, file_vert_id, error)
           call h5gopen_f(file_vert_id, grpname_magn, grp_magn_id, error) 
