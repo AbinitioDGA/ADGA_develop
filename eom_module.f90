@@ -310,7 +310,7 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_loc, glo
     write(filename_siwk,'(A,F5.3,A,F5.3,A,F5.3,A)') 'siwk_',k_data(1,ik),'_',k_data(2,ik),'_',k_data(3,ik),'.dat'
     open(34, file=trim(output_dir)//filename_siwk)
     do iwf=-iwfmax_small,iwfmax_small
-      write(34,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndims), i=1,ndims)
+      write(34,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndim), i=1,ndim)
     end do
     close(34)
   end do

@@ -98,16 +98,16 @@ module hdf5_module
      implicit none
 
      integer :: iwb,err,ineq
-     integer(hid_t) :: grp_dens_id,grp_magn_id,iw_magn_id,iw_dens_id
+     integer(hid_t) :: grp_dens_id,grp_magn_id,iw_magn_id,iw_dens_id,ineq_id
      character(len=20) :: name_buffer
      character(len=20) :: grp_name
      integer(hid_t) :: file_id
      
      !create dens and magn groups:
-     write(grp_name,'("ineq-",I3.3,"/dens")') ineq
-     call h5gcreate_f(file_id, trim(grp_name), grp_dens_id, err)
-     write(grp_name,'("ineq-",I3.3,"/magn")') ineq
-     call h5gcreate_f(file_id, trim(grp_name), grp_magn_id, err)
+     write(grp_name,'("ineq-",I3.3)') ineq
+     call h5gcreate_f(file_id, grp_name, ineq_id, err)
+     call h5gcreate_f(ineq_id, 'dens', grp_dens_id, err)
+     call h5gcreate_f(ineq_id, 'magn', grp_magn_id, err)
 
      do iwb=0,2*iwbmax
 

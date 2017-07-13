@@ -158,7 +158,7 @@ program symmetrize_vertex
 
   character(len=150) :: cmd_arg
   integer(hid_t) :: file_id, new_file_id
-  character(len=20) :: grpname, name_buffer, name_buffer_value, name_buffer_error
+  character(len=40) :: grpname, name_buffer, name_buffer_value, name_buffer_error
   integer(hid_t) :: nmembers, imembers, itype, grp_id, g4iw_id, g4err_id
   integer(hid_t) :: dset_dens_id, dset_magn_id, dset_err_id
   integer(hid_t) :: dspace_iwb_id, dspace_iwf_id
@@ -200,7 +200,7 @@ program symmetrize_vertex
   call getarg(2+nineq,cmd_arg)
   filename_vertex_sym = trim(cmd_arg)
   do ineq=1,nineq
-    call getarg(3+nineq+ineq,cmd_arg)
+    call getarg(2+nineq+ineq,cmd_arg)
     read(cmd_arg,'(I1)') Nbands(ineq)
   enddo
 
@@ -218,22 +218,25 @@ program symmetrize_vertex
  
   call create_complex_datatype
  
-! create new file for the symmetrised vertex:
-  call h5fcreate_f(filename_vertex_sym, h5f_acc_trunc_f, new_file_id, err)
 
 
 ! loop over number of inequivalent atoms
   do ineq=1,nineq
 
-! write magn/iwb and dens/iwb in the output file vertex_sym.hdf5: 
-    call create_channels(new_file_id, ineq)
 
 ! open vertex file 'vertex_full.hdf5':
-    call h5fopen_f(filename_vertex_ineq(ineq), h5f_acc_rdonly_f, file_id, err)
+    call h5fopen_f(trim(filename_vertex_ineq(ineq)), h5f_acc_rdonly_f, file_id, err)
 
+    if (ineq .eq. 1) then ! only write the axes once
+! create new file for the symmetrised vertex:
+      call h5fcreate_f(filename_vertex_sym, h5f_acc_trunc_f, new_file_id, err)
 ! get fermionic and bosonic Matsubara axes: 
-    call read_axes(file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
-    call write_axes(new_file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
+      call read_axes(file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
+      call write_axes(new_file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
+    endif
+
+! write magn/iwb and dens/iwb in the output file vertex_sym.hdf5: 
+    call create_channels(new_file_id, ineq)
 
 !=========================================================================
 
@@ -345,6 +348,7 @@ program symmetrize_vertex
     deallocate(g4iw_r, g4iw_i, g4err)
     deallocate(tmp_r_1, tmp_i_1, tmp_err_1, diff_r, diff_i) 
     deallocate(ind_band_list)
+    deallocate(create_comp)
 
     call h5fclose_f(file_id, err)
 
