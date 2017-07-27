@@ -174,6 +174,9 @@ if options.show_plots:
   f2=plt.figure(2)
   plt.plot(np.linspace(min(rdata),max(rdata)),fitfun(np.linspace(min(rdata),max(rdata)),*fitparam[plotcomp]))
   plt.plot(r_abs,U_r_in[:,plotcomp].real,marker='.',linestyle='None')
+  plt.xlabel('r')
+  plt.ylabel('V(r)')
+  plt.savefig('V_fit.png',dpi=300)
   f2.show()
 print fitparam[plotcomp],min(rdata),max(rdata),fitfun(max(rdata),*fitparam[plotcomp])
 #for iplt in xrange(ncomp):
@@ -266,7 +269,10 @@ outfile.close()
 if options.show_plots:
   f4=plt.figure(4)
   plt.plot(Vq[:,0,0,plotcomp].real,linestyle='None',marker='.')
-  plt.plot(Vq[:,0,0,plotcomp].imag,linestyle='None',marker='.')
+#  plt.plot(Vq[:,0,0,plotcomp].imag,linestyle='None',marker='.')
+  plt.xlabel('qx')
+  plt.ylabel('V(qx,0,0)')
+  plt.savefig('Vq.png',dpi=300)
   f4.show()
 
 print Vq[:,0,0,0]
