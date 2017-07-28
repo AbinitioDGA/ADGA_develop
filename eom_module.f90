@@ -8,7 +8,7 @@ module eom_module
 contains
 
 !================================================================================================
-  subroutine calc_eom(interm3_dens, interm3_magn, gamma_dmft_dens, gamma_dmft_magn, gamma_loc_sum_left, sigma, sigma_dmft, kq_ind, iwb, iq, iw_data, u, v, u_tilde, hk, dc, siw, giw, n_dmft, n_fock)
+  subroutine calc_eom(interm3_dens, interm3_magn, gamma_dmft_dens, gamma_dmft_magn, gamma_loc_sum_left, sigma, sigma_dmft, sigma_hf, kq_ind, iwb, iq, iw_data, u, v, u_tilde, hk, dc, siw, giw, n_dmft, n_fock)
   implicit none
 
   integer :: dum,i,j,iw,iwf,iwf2,l,k,ik,ikq
@@ -17,13 +17,14 @@ contains
   real*8,intent(in) :: iw_data(-iwmax:iwmax-1)
   complex(kind=8),intent(in) :: siw(-iwmax:iwmax-1,ndims), giw(-iwmax:iwmax-1,ndims)
   complex(kind=8),intent(in) :: hk(ndim,ndim,nkp)
-  double precision,intent(in) :: dc(2,ndim)
+  double precision,intent(in) :: dc(2,ndim) 
   complex(kind=8),intent(in) :: u(ndim2,ndim2),u_tilde(ndim2,ndim2),v(ndim2,ndim2)
   complex(kind=8),intent(in) :: gamma_dmft_dens(ndim2,maxdim), gamma_dmft_magn(ndim2,maxdim)
   complex(kind=8) :: gamma_dmft(ndim2,maxdim)
   complex(kind=8) :: interm3_dens(ndim2,maxdim),interm3_magn(ndim2,maxdim)
   complex(kind=8) :: gamma_loc_sum_left(ndim2,maxdim)
   complex(kind=8),intent(inout) :: sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp), sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1)
+  complex(kind=8),intent(inout) :: sigma_hf(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
   complex(kind=8) :: m_tot_array(ndim,ndim,ndim,ndim,-iwfmax_small:iwfmax_small), m_dmft_array(ndim,ndim,ndim,ndim,-iwfmax_small:iwfmax_small) 
   complex(kind=8) :: m_tot(ndim2,maxdim)
   complex(kind=8) :: u_work(ndim2,ndim2), m_work(ndim2,maxdim)
@@ -31,8 +32,7 @@ contains
   complex(kind=8) :: alpha, delta
   complex(kind=8) :: n_fock(nkp,ndim,ndim), n_dmft(ndim), sigma_fock(ndim,ndim)
   complex(kind=8) :: vq(ndim,ndim,ndim,ndim), u_arr(ndim,ndim,ndim,ndim)
-
-  complex(kind=8) :: delta_sigma_nonloc(ndim,ndim)
+  complex(kind=8) :: sigma_hf_0(ndim,ndim)
 
   !subtract -1 in the diagonal of the orbital blocks:
   do i1=1,ndim2
@@ -83,8 +83,7 @@ contains
      m_tot = m_tot + m_work
   endif
 
-  !DMFT part (for the computation of the DMFT self energy through the local EOM,
-  !for comparison)
+  !DMFT part (for the computation of the DMFT self energy through the local EOM, for comparison)
   u_work = -u_tilde
   m_work = 0.d0
   gamma_dmft = 0.d0
@@ -92,6 +91,8 @@ contains
   alpha = 1.d0
   delta = 0.d0
   call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, gamma_dmft, ndim2, delta, m_work, ndim2)
+  
+
   
 
   !break up the compound index:
@@ -114,6 +115,24 @@ contains
      enddo
   enddo
 
+
+  !break up compound index of the Coulomb interaction
+  i2=0
+  do l=1,ndim
+     do j=1,ndim
+        i2=i2+1
+        i1 = 0
+        do i=1,ndim
+           do k=1,ndim
+              i1 = i1+1
+              u_arr(i,j,k,l) = u(i1,i2)
+              if(do_vq) vq(i,j,k,l) = v(i1,i2)
+           enddo
+        enddo
+     enddo
+  enddo
+
+
   
   !compute DMFT self energy through local EOM (for comparison):
   do iwf=0,iwfmax_small-1
@@ -135,7 +154,6 @@ contains
   gkiw = 0.d0 
   do ik=1,nkp
      ikq = kq_ind(ik,iq)
-     sigma_fock = 0.d0
      do iwf=0,iwfmax_small-1
         call get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
         do i=1,ndim
@@ -143,69 +161,31 @@ contains
               do j=1,ndim
                  do k=1,ndim
                     sigma(i,l,iwf,ik) = sigma(i,l,iwf,ik)+m_tot_array(i,j,k,l,iwf)*gkiw(k,j)
-                 enddo
-              enddo
-           enddo
-        enddo
-     enddo !iwf
 
-     
-     if(do_vq .and. iwb==0) then
-        !break up compound index of non-local Coulomb interaction: 
-        i2=0
-        do l=1,ndim
-           do j=1,ndim
-              i2=i2+1
-              i1 = 0
-              do i=1,ndim
-                 do k=1,ndim
-                    i1 = i1+1
-                    vq(i,j,k,l) = v(i1,i2)
-                 enddo
-              enddo
-           enddo
-        enddo
+                    !compute non-local Fock contribution v(q)*n_fock(k-q)
+                    if(do_vq .and. iwb==0) then
+                       sigma_hf(i,l,iwf,ik) = sigma_hf(i,l,iwf,ik)+beta*vq(i,j,k,l)*n_fock(ikq,j,k)
+                    endif
 
-        !compute non-local static Fock contribution v(q)*n_fock(k-q)
-        do i=1,ndim
-           do l=1,ndim
-              do j=1,ndim
-                 do k=1,ndim
-                    sigma_fock(i,l) = sigma_fock(i,l)+beta*vq(i,j,k,l)*n_fock(ikq,j,k)
                  enddo
               enddo
            enddo
         enddo
-    
-        do iwf=0,iwfmax_small-1
-           sigma(:,:,iwf,ik) = sigma(:,:,iwf,ik)+sigma_fock(:,:)
-        enddo
-     endif !do_vq
+     enddo !iwf 
 
      do iwf=0,iwfmax_small-1
         sigma(:,:,-iwf-1,ik) = real(sigma(:,:,iwf,ik),kind=8)-ci*aimag(sigma(:,:,iwf,ik))
+        if(do_vq .and. iwb==0) then
+           sigma_hf(:,:,-iwf-1,ik) = sigma_hf(:,:,iwf,ik)
+        endif
      enddo
+
 
   enddo !ik
 
   
 
-  !compute local Hartree-contribution:
-  u_arr = 0.d0
-  i2=0
-  do l=1,ndim
-     do j=1,ndim
-        i2=i2+1
-        i1 = 0
-        do i=1,ndim
-           do k=1,ndim
-              i1 = i1+1
-              u_arr(i,j,k,l) = u(i1,i2)
-           enddo
-        enddo
-     enddo
-  enddo
-
+  !compute local Hartree-contribution and add it to sigma_dmft:
   if(iq==1 .and. iwb==0) then
      do i=1,ndim
         do j=1,ndim
@@ -216,17 +196,17 @@ contains
   endif
 
 
-  !compute non-local Hartree-contribution 2*v(q=0)*n_DMFT
+  !compute non-local Hartree-contribution 2*v(q=0)*n_DMFT and add it to sigma_hf
   if(do_vq .and. iq==1 .and. iwb==0) then
-     delta_sigma_nonloc=0
+     sigma_hf_0=0.d0
      do i=1,ndim
         do j=1,ndim
-           sigma(i,i,:,:) = sigma(i,i,:,:)-2.d0*dble(nqp)*beta*vq(i,j,i,j)*n_dmft(j)
-           delta_sigma_nonloc(i,i) = delta_sigma_nonloc(i,i)-2.d0*dble(nqp)*beta*vq(i,j,i,j)*n_dmft(j)+dble(nqp)*beta*vq(i,j,j,i)*n_dmft(j)
+           sigma_hf(i,i,:,:) = sigma_hf(i,i,:,:)-2.d0*dble(nqp)*beta*vq(i,j,i,j)*n_dmft(j)
+           sigma_hf_0(i,i) = sigma_hf_0(i,i)-2.d0*vq(i,j,i,j)*n_dmft(j)+vq(i,j,j,i)*n_dmft(j)
         enddo
      enddo
-     open(unit=7774,file=trim(output_dir)//'hartree_nonloc.dat')
-     write(7774,*) ( delta_sigma_nonloc(i,i),i=1,ndim)
+     open(unit=7774,file=trim(output_dir)//'hartree_fock_0.dat')
+     write(7774,*) (real(sigma_hf_0(i,i)),i=1,ndim)
      close(7774)
   endif
      
@@ -256,7 +236,7 @@ subroutine add_siw_dmft(siw, sigma_sum)
 
 
 
-subroutine get_sigma_g_loc(beta, iw_data, hk, dc, siw, sigma_sum, sigma_loc, gloc, n_dga)
+subroutine get_sigma_g_loc(iw_data, hk, dc, siw, sigma_sum, sigma_loc, gloc, n_dga)
   implicit none
   complex(kind=8), intent(out) :: sigma_loc(ndim, ndim,-iwfmax_small:iwfmax_small-1)
   complex(kind=8), intent(out) :: gloc(-iwmax:iwmax-1,ndim,ndim)
@@ -265,7 +245,7 @@ subroutine get_sigma_g_loc(beta, iw_data, hk, dc, siw, sigma_sum, sigma_loc, glo
   complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
   double precision, intent(in) :: iw_data(-iwmax:iwmax-1)
   complex(kind=8), intent(in) :: hk(ndim,ndim,nkp)
-  double precision, intent(in) :: dc(2,ndim),beta
+  double precision, intent(in) :: dc(2,ndim)
   integer :: ik, iband, iw
 
   sigma_loc = 0.d0
@@ -292,12 +272,13 @@ end subroutine get_sigma_g_loc
 
 
 !==============================================================================================
-subroutine output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_loc, gloc, n_sum)
+subroutine output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, n_sum)
   implicit none
 
   real*8, intent(in) :: iw_data(-iwmax:iwmax-1)
   real*8, intent(in) :: k_data(3,nkp)
   complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp), sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1)
+  complex(kind=8), intent(in) :: sigma_sum_hf(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
   complex(kind=8), intent(in) :: sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1)
   complex(kind=8) :: sigma_tmp(ndim*(ndim+1)/2)
   complex(kind=8), intent(in) :: n_sum(ndim)
@@ -306,14 +287,14 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_loc, glo
   character(len=50) :: eom_format
   character(len=200) :: filename_siwk
 
-  do ik=1,nkp
-    write(filename_siwk,'(A,F5.3,A,F5.3,A,F5.3,A)') 'siwk_',k_data(1,ik),'_',k_data(2,ik),'_',k_data(3,ik),'.dat'
-    open(34, file=trim(output_dir)//filename_siwk)
-    do iwf=-iwfmax_small,iwfmax_small
-      write(34,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndims), i=1,ndims)
-    end do
-    close(34)
-  end do
+  !do ik=1,nkp
+  !  write(filename_siwk,'(A,F5.3,A,F5.3,A,F5.3,A)') 'siwk_',k_data(1,ik),'_',k_data(2,ik),'_',k_data(3,ik),'.dat'
+  !  open(34, file=trim(output_dir)//filename_siwk)
+  !  do iwf=-iwfmax_small,iwfmax_small
+  !    write(34,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndims), i=1,ndims)
+  !  end do
+  !  close(34)
+  !end do
 
 
 
@@ -342,18 +323,18 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_loc, glo
 
   !TODO read symmetry points from file
   do iwf=-iwfmax_small,iwfmax_small-1
-     write(34,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,1)), aimag(sigma_sum(i,j,iwf,1)), j=i,ndims), i=1,ndims)
-     write(35,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,6)), aimag(sigma_sum(i,j,iwf,6)), j=i,ndims), i=1,ndims)
-     write(36,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,11)), aimag(sigma_sum(i,j,iwf,11)), j=i,ndims), i=1,ndims)
-     write(37,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,106)), aimag(sigma_sum(i,j,iwf,106)), j=i,ndims), i=1,ndims)
-     write(38,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,84)), aimag(sigma_sum(i,j,iwf,84)), j=i,ndims), i=1,ndims)
-     write(39,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,85)), aimag(sigma_sum(i,j,iwf,85)), j=i,ndims), i=1,ndims)
-     write(40,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,111)), aimag(sigma_sum(i,j,iwf,111)), j=i,ndims), i=1,ndims)
-     write(41,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,211)), aimag(sigma_sum(i,j,iwf,211)), j=i,ndims), i=1,ndims)
-     write(42,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,4211)), aimag(sigma_sum(i,j,iwf,4211)), j=i,ndims), i=1,ndims)
-     write(43,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,2106)), aimag(sigma_sum(i,j,iwf,2106)), j=i,ndims), i=1,ndims)
-     write(47,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,201)),aimag(sigma_sum(i,j,iwf,201)), j=i,ndims), i=1,ndims)
-     write(48,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,2101)),aimag(sigma_sum(i,j,iwf,2101)), j=i,ndims), i=1,ndims)
+     write(34,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,1)), aimag(sigma_sum(i,j,iwf,1)), real(sigma_sum_hf(i,j,iwf,1)), j=i,ndims), i=1,ndims)
+     write(35,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,6)), aimag(sigma_sum(i,j,iwf,6)), real(sigma_sum_hf(i,j,iwf,6)), j=i,ndims), i=1,ndims)
+     write(36,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,11)),aimag(sigma_sum(i,j,iwf,11)), real(sigma_sum_hf(i,j,iwf,11)),j=i,ndims), i=1,ndims)
+     write(37,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,106)), aimag(sigma_sum(i,j,iwf,106)), real(sigma_sum_hf(i,j,iwf,106)), j=i,ndims), i=1,ndims)
+     write(38,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,84)), aimag(sigma_sum(i,j,iwf,84)), real(sigma_sum_hf(i,j,iwf,84)), j=i,ndims), i=1,ndims)
+     write(39,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,85)), aimag(sigma_sum(i,j,iwf,85)), real(sigma_sum_hf(i,j,iwf,85)),j=i,ndims), i=1,ndims)
+     write(40,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,111)), aimag(sigma_sum(i,j,iwf,111)), real(sigma_sum_hf(i,j,iwf,111)),j=i,ndims), i=1,ndims)
+     write(41,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,211)), aimag(sigma_sum(i,j,iwf,211)), real(sigma_sum_hf(i,j,iwf,211)),j=i,ndims), i=1,ndims)
+     write(42,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,4211)), aimag(sigma_sum(i,j,iwf,4211)), real(sigma_sum_hf(i,j,iwf,4211)),j=i,ndims), i=1,ndims)
+     write(43,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,2106)), aimag(sigma_sum(i,j,iwf,2106)), real(sigma_sum_hf(i,j,iwf,2106)),j=i,ndims), i=1,ndims)
+     write(47,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,201)),aimag(sigma_sum(i,j,iwf,201)), real(sigma_sum_hf(i,j,iwf,201)),j=i,ndims), i=1,ndims)
+     write(48,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,2101)),aimag(sigma_sum(i,j,iwf,2101)), real(sigma_sum_hf(i,j,iwf,2101)),j=i,ndims), i=1,ndims)
 
      write(50,'(100F12.6)')iw_data(iwf), ((real(sigma_sum_dmft(i,j,iwf)),aimag(sigma_sum_dmft(i,j,iwf)), j=i,ndims), i=1,ndims)
      write(44,'(100F12.6)')iw_data(iwf), ((real(sigma_loc(i,j,iwf)), aimag(sigma_loc(i,j,iwf)), j=i,ndims), i=1,ndims)
@@ -368,11 +349,11 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_loc, glo
 
     do ik=1,nkp
        do iwf=0,5
-          write(45,'(100F12.6)') k_data(1,ik), k_data(2,ik), k_data(3,ik), iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndims), i=1,ndims)
+          write(45,'(100F12.6)') k_data(1,ik), k_data(2,ik), k_data(3,ik), iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), real(sigma_sum_hf(i,j,iwf,ik)),j=i,ndims), i=1,ndims)
        enddo
     enddo
 
-   write(49,'(100F12.6)')  (n_sum(i), i=1,ndim)
+   write(49,'(100F12.6)')  (real(n_sum(i)), i=1,ndim)
 
   close(34)
   close(35)

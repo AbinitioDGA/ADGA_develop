@@ -67,7 +67,8 @@ program main
   double precision, allocatable :: hr(:,:), hi(:,:)
   complex(kind=8), allocatable :: gamma_loc(:,:), gamma_loc_sum_left(:,:), v(:,:)
 
-  complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_dmft(:,:,:), sigma_sum(:,:,:,:), sigma_sum_dmft(:,:,:), sigma_loc(:,:,:)
+  complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_hf(:,:,:,:), sigma_dmft(:,:,:)
+  complex(kind=8), allocatable :: sigma_sum(:,:,:,:), sigma_sum_hf(:,:,:,:), sigma_sum_dmft(:,:,:), sigma_loc(:,:,:)
   complex(kind=8), allocatable :: giw_sum(:), n_dga(:), n_dmft(:), n_fock(:,:,:)
   integer(hsize_t) ::  inull
   integer :: iwb_zero, iband, ispin
@@ -361,6 +362,7 @@ program main
   !compute k-dependent filling for Fock-term (computed in the EOM):
   n_fock = 0.d0
   gkiw = 0.d0
+  open(110, file=trim(output_dir)//"n_fock.dat", status='unknown')
   do ik=1,nkp
      do iw=0,iwmax-1
         call get_gkiw(ik, iw, 0, iw_data, siw, hk, dc, gkiw)
@@ -370,6 +372,7 @@ program main
      do i=1,ndims
         n_fock(ik,i,i) = n_fock(ik,i,i)+0.5d0
      enddo
+     write(110,'(100F12.6)') k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_fock(ik,i,i)),i=1,ndims)
   enddo  
 
 
@@ -512,9 +515,10 @@ start = mpi_wtime()
 
 
 if (do_eom) then
-  allocate(sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
+  allocate(sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp), sigma_hf(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
   allocate(sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1))
   sigma = 0.d0
+  sigma_hf = 0.d0
   sigma_dmft = 0.d0
 end if
 
@@ -892,7 +896,7 @@ end if
      end if
      if (do_eom) then
         !equation of motion     
-        call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,sigma_dmft,kq_ind,iwb,iq,iw_data,u,v,u_tilde,hk,dc,siw,giw,n_dmft,n_fock)
+        call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,sigma_dmft,sigma_hf,kq_ind,iwb,iq,iw_data,u,v,u_tilde,hk,dc,siw,giw,n_dmft,n_fock)
      end if
      call cpu_time(finish)
 
@@ -916,17 +920,20 @@ end if
   write(*,*)'nkp=', nkp
   if (do_eom) then
      allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp), sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1))
+     allocate(sigma_sum_hf(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
      allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1))
      call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+     call MPI_reduce(sigma_hf, sigma_sum_hf, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      call MPI_reduce(sigma_dmft, sigma_sum_dmft, ndim*ndim*2*iwfmax_small, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      sigma_sum = -sigma_sum/(beta*nqp)
+     sigma_sum_hf = -sigma_sum_hf/(beta*nqp)
      sigma_sum_dmft = -sigma_sum_dmft/(beta*nqp)
      call add_siw_dmft(siw, sigma_sum)
-     call get_sigma_g_loc(beta, iw_data, hk, dc, siw, sigma_sum, sigma_loc, gloc, n_dga) 
+     call get_sigma_g_loc(iw_data, hk, dc, siw, sigma_sum, sigma_loc, gloc, n_dga) 
      if (mpi_wrank .eq. master) then
-       call output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_loc, gloc, n_dga)
+       call output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, n_dga)
      end if
-     deallocate(sigma, sigma_sum, sigma_sum_dmft, sigma_loc)
+     deallocate(sigma, sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc)
   end if
 
 
