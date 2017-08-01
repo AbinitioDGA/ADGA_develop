@@ -8,10 +8,10 @@
 1 1
 
 # file name for one-particle data
-PAM-2PG-2017-07-04-Tue-01-46-38.hdf5
+PAM-2PG-2017-08-01-Tue-12-30-25.hdf5
 
 # file name for two-particle data
-vertex_out_PAM.hdf5
+vertex_out_PAM_large.hdf5
 
 # file name of umatrix
 umatrix.dat
@@ -20,7 +20,7 @@ umatrix.dat
 1 1 0
 
 # size of small fermionic (1) and bosonic (2) frequency box
-5 2
+10 5
 
 # q_vol,k_path_eom,q_path_susc, read ext hamiltonian
 1 0 0 1
@@ -29,7 +29,7 @@ umatrix.dat
 path.qp
 
 # nkpx, nkpy, nkpz, nqpx, nqpy, nqpz, nd
-80 80 80            1 1 1          2
+10 10 10            1 1 1          2
 
 # Output directory, has to end with '/'
 ./Output/
@@ -41,7 +41,7 @@ path.qp
 0
 
 # hamiltonian file
-ham
+ham.1000
 
 # computation with V^q (0==.false., 1==.true.)
 0

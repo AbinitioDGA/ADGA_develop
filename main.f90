@@ -37,7 +37,7 @@ program main
   double precision, allocatable :: siw_data(:,:,:,:), giw_data(:,:,:,:)  
   complex(kind=8), allocatable :: siw(:,:)
   double precision, allocatable :: hk_data(:,:,:,:)
-  double precision, allocatable :: dc(:,:)
+  double precision, allocatable :: dc(:,:), dc_data(:,:)
   complex(kind=8), allocatable :: hk(:,:,:)
   complex(kind=8), allocatable :: u(:,:), u_tilde(:,:)
   
@@ -341,15 +341,28 @@ program main
   call h5dclose_f(mu_id, error)
 
 ! read double counting:
-!  call h5dopen_f(file_id, "stat-001/ineq-001/dc/value", dc_id, error)
-!  call h5dget_space_f(dc_id, dc_space_id, error)
-!  call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
-!  allocate(dc(dc_dims(1),dc_dims(2))) !indices: spin band
-!  call h5dread_f(dc_id, h5t_native_double, dc, dc_dims, error)
-!  call h5dclose_f(dc_id, error)
+  allocate(dc(2,ndim)) ! indices: spin band
+  ! dc for noninteracting bands set to 0
+  dc = 0.d0
+  do ineq=1,nineq
+    dimstart=1
+    do i=2,ineq
+      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+    enddo
+    dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
+    write(name_buffer,'("ineq-",I3.3)') ineq
+    call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/dc/value", dc_id, error)
+    call h5dget_space_f(dc_id, dc_space_id, error)
+    call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
+    allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
+    call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, error)
+    call h5dclose_f(dc_id, error)
 
-  allocate(dc(2,ndim))
-  dc=0.d0
+    do iband=dimstart,dimend
+      dc(:,iband) = dc_data(:,iband-dimstart+1)
+    enddo
+    deallocate(dc_data)
+  enddo
 
 ! read inverse temperature beta:
   call h5gopen_f(file_id, ".config", config_id, error)
@@ -385,8 +398,6 @@ program main
    enddo
    close(35)
 
-  call MPI_finalize(ierr)
-
   !compute DMFT filling n_dmft
   allocate(gloc(-iwmax:iwmax-1,ndim,ndim), gkiw(ndim,ndim))
   allocate(giw_sum(ndim), n_dmft(ndim), n_fock(nkp,ndim,ndim), n_dga(ndim))
@@ -415,6 +426,9 @@ program main
         n_fock(ik,i,i) = n_fock(ik,i,i)+0.5d0
      enddo
   enddo  
+
+
+  call mpi_finalize(ierr)
 
   allocate(chi0_loc(ndim2,ndim2,iwstart:iwstop)) 
   allocate(chi0_sum(ndim2,ndim2,iwstart:iwstop)) 
