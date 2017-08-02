@@ -3,7 +3,7 @@ program umatrix
   ! if inequivalent atoms are existent: block diagonal
   implicit none
   integer :: i,j,k,l
-  integer, parameter :: ndim=2
+  integer, parameter :: ndim=6
   real(8) :: U,JJ
   real(8), dimension(ndim,ndim,ndim,ndim) :: Umat
 

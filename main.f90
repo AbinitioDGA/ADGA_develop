@@ -182,7 +182,6 @@ program main
   ! siw from DMFT contains all possible bands
   ! siw at p (non-interacting bands) is set to 0
   allocate(siw(-iwmax:iwmax-1,ndim))
-  allocate(giw(-iwmax:iwmax-1,ndim))
   siw=0.d0
 
   do ineq=1,nineq
@@ -233,10 +232,18 @@ program main
 
 
 ! read in all inequivalent atoms
+  allocate(giw(-iwmax:iwmax-1,ndim))
+  giw=0.d0
+
   do ineq=1,nineq
+    dimstart=1
+    do i=2,ineq
+      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+    enddo
+    dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1 ! here we are only interested in the interacting orbitals
 
     write(name_buffer,'("ineq-",I3.3)') ineq
-
+    !read giw
     call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/giw/value", giw_id, error)
     call h5dget_space_f(giw_id, giw_space_id, error)
     call h5sget_simple_extent_dims_f(giw_space_id, giw_dims, giw_maxdims, error)
@@ -244,8 +251,10 @@ program main
     call h5dread_f(giw_id, compound_id, giw_data, giw_dims, error)
 
     !paramagnetic:
-    giw(:,:) = giw_data(1,:,1,:)+giw_data(1,:,2,:)+ci*giw_data(2,:,1,:)+ci*giw_data(2,:,2,:)
-    giw = giw/2.d0
+    do i=dimstart,dimend
+      giw(:,i) = giw_data(1,:,1,i-dimstart+1)+giw_data(1,:,2,i-dimstart+1)+ci*giw_data(2,:,1,i-dimstart+1)+ci*giw_data(2,:,2,i-dimstart+1)
+      giw(:,i) = giw(:,i)/2.d0
+    enddo
 
     call h5dclose_f(giw_id, error)
     deallocate(giw_data)
@@ -253,6 +262,7 @@ program main
 
     if (orb_sym) then
     ! enforce orbital symmetry:
+        ! here we need to enforce symmetry over one type of band specifically
         dimstart=1
         do i=2,ineq
           dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
@@ -329,9 +339,6 @@ program main
     enddo
     close(34)
   end if
-
-  ! instead of reading 1P DMFT giw calculate it by hand with
-  ! siw from above
 
   call init()
 
