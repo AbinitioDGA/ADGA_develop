@@ -186,7 +186,7 @@ program symmetrize_vertex
   if (.not. iargc() .eq. 2*nineq+2 ) then
     write(*,*) 'The program has to be executed with the following arguments'
     write(*,*) 'number of inequivalent atoms, names of input files (as many as inequivalent atoms)'
-    write(*,*) 'name of output file, number of bands for each input file'
+    write(*,*) 'name of output file, number of correlated (d) bands for each input file'
     stop
   endif
 

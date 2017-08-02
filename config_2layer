@@ -2,7 +2,7 @@
 # Never change lines or order! Only change values!
 
 # number of inequivalent atoms
-1
+2
 
 # number of d / p bands per inequivalent site -- always has to be a tupel of 2 -- (3 0) == 3d bands
 3 0 3 0
@@ -17,7 +17,7 @@ vertex_out_SVO2L.hdf5
 umatrix.dat
 
 # decide if you use orbital symmetrization (1) and/or small frequency box (2). (0==.false., 1==.true.)
-1 1 0
+0 1 0
 
 # size of small fermionic (1) and bosonic (2) frequency box
 5 5

@@ -218,8 +218,8 @@ program main
 
        do iband=dimstart+1,dimend
           siw(:,iband) = siw(:,dimstart)
+          siw(:,iband) = siw(:,iband)/dble(dimend-dimstart+1)
        enddo
-       siw = siw/dble(dimend-dimstart+1)
     endif
   enddo ! loop over inequivalent atoms
 
@@ -259,6 +259,7 @@ program main
     call h5dclose_f(giw_id, error)
     deallocate(giw_data)
  
+    write(*,*) 'orb_symmetry = ', orb_sym
 
     if (orb_sym) then
     ! enforce orbital symmetry:
@@ -289,7 +290,7 @@ program main
   ! test giw:
     open(54, file=trim(output_dir)//"giw.dat", status='unknown')
     do iw=-iwmax,iwmax-1
-       write(54,'(100F12.6)')iw_data(iw), (real(giw(iw,1)),aimag(giw(iw,1)),i=1,ndim)
+       write(54,'(100F12.6)')iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
     enddo
     close(54)
 
