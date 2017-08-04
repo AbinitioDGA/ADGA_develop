@@ -1,5 +1,5 @@
 F90 = mpiifort
-FFLAGS += -O3 -g -fpp -DMPI #-traceback -check all
+FFLAGS += -O3 -g -fpp -DMPI -traceback #-check all
 FINCLUDE += -I/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/include
 LD = $(F90)
 LDFLAGS += -lhdf5_fortran -lhdf5hl_fortran -lmkl_rt  #-limf

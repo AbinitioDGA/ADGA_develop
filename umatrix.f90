@@ -48,7 +48,7 @@ program umatrix
     endif
 
     write(10,'(4I10,F15.8)') i,j,k,l,Umat(i,j,k,l)
-  
+
   enddo
   enddo
   enddo

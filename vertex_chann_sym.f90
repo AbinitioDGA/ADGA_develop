@@ -179,37 +179,59 @@ program symmetrize_vertex
 
   real(kind=8) :: start, finish
 !================================================================
-! read command line arguments -> number ineq atoms, input filenames and output filename, number of bands.
-  call getarg(1,cmd_arg)
-  read(cmd_arg,'(I1)') nineq
 
-  if (.not. iargc() .eq. 2*nineq+2 ) then
-    write(*,*) 'The program has to be executed with the following arguments'
-    write(*,*) 'number of inequivalent atoms, names of input files (as many as inequivalent atoms)'
-    write(*,*) 'name of output file, number of correlated (d) bands for each input file'
-    stop
-  endif
-
+! alternatively - read input
+! this is definitely more clearer
+  write(*,'(A)',advance='no') 'Number of inequivalent atoms: '
+  read(*,*) nineq
   allocate(filename_vertex_ineq(nineq))
   allocate(Nbands(nineq))
+  do ineq=1,nineq
+    write(*,'(A,I1,A)',advance='no') 'Vertex of inequivalent atom ', ineq, ': '
+    read(*,*) filename_vertex_ineq(ineq)
+    write(*,'(A,I1,A)',advance='no') 'Number of correlated bands for inequivalent atom ', ineq, ': '
+    read(*,*) Nbands(ineq)
+  enddo
+  write(*,'(A)',advance='no') 'Outputfile for symmetrized Vertex: '
+  read(*,*) filename_vertex_sym
+
+
+! read command line arguments -> number ineq atoms, input filenames and output filename, number of bands.
+  ! call getarg(1,cmd_arg)
+  ! read(cmd_arg,'(I1)') nineq
+
+  ! if (.not. iargc() .eq. 2*nineq+2 ) then
+  !   write(*,*) 'The program has to be executed with the following arguments'
+  !   write(*,*) 'number of inequivalent atoms, names of input files (as many as inequivalent atoms)'
+  !   write(*,*) 'name of output file, number of correlated (d) bands for each input file'
+  !   stop
+  ! endif
+
+  ! allocate(filename_vertex_ineq(nineq))
+  ! allocate(Nbands(nineq))
   
-  do ineq=1,nineq
-    call getarg(1+ineq,cmd_arg)
-    filename_vertex_ineq(ineq)=trim(cmd_arg)
-  enddo
-  call getarg(2+nineq,cmd_arg)
-  filename_vertex_sym = trim(cmd_arg)
-  do ineq=1,nineq
-    call getarg(2+nineq+ineq,cmd_arg)
-    read(cmd_arg,'(I1)') Nbands(ineq)
-  enddo
+  ! do ineq=1,nineq
+  !   call getarg(1+ineq,cmd_arg)
+  !   filename_vertex_ineq(ineq)=trim(cmd_arg)
+  ! enddo
+  ! call getarg(2+nineq,cmd_arg)
+  ! filename_vertex_sym = trim(cmd_arg)
+  ! do ineq=1,nineq
+  !   call getarg(2+nineq+ineq,cmd_arg)
+  !   read(cmd_arg,'(I1)') Nbands(ineq)
+  ! enddo
 
 !================================================================
 !Define orbital symmetry here:
   su2_only = .true. 
   write(*,*) 'Symmetrizing ',(filename_vertex_ineq(ineq),ineq=1,nineq),'>>>>>',filename_vertex_sym
-  write(*,*) 'Number of bands: ',sum(Nbands)
-  write(*,*) 'Using orbital and SU2 symmetry'
+  write(*,*) 'Total number of bands: ',sum(Nbands)
+  if(su2_only) then
+    write(*,*) 'Using only SU2 symmetry'
+  else
+    write(*,*) 'Using orbital and SU2 symmetry'
+  endif
+    
 !=================================================================
 
   call cpu_time(start)
