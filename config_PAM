@@ -14,7 +14,7 @@ PAM-2PG-2017-08-01-Tue-12-30-25.hdf5
 vertex_out_PAM_large.hdf5
 
 # file name of umatrix
-umatrix.dat
+umatrix_PAM.dat
 
 # decide if you use orbital symmetrization (1) and/or small frequency box (2). (0==.false., 1==.true.)
 1 0 0

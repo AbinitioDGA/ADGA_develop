@@ -1,4 +1,4 @@
-# Abinitio_DGA config file. 
+# Abinitio_DGA config file.
 # Never change lines or order! Only change values!
 
 # number of inequivalent atoms
@@ -47,7 +47,7 @@ path.qp
 0
 
 # file name of V^q
-Vq.file 
+Vq.file
 
 # number of r points in U(r) (226981)
 0

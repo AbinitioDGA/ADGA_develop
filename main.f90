@@ -1045,7 +1045,6 @@ end if
     deallocate(chi_qw_full)
   end if
 
-  call MPI_finalize(ierr)
 
 ! Output
   if (mpi_wrank .eq. master) then
@@ -1057,8 +1056,11 @@ end if
      end if
   endif
 
+  call MPI_finalize(ierr)
+
 #endif
 deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,qw)
+write(*,*) 'end of program'
 end program main
 
 
