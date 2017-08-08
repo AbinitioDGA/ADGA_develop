@@ -215,10 +215,9 @@ program main
        do iband=dimstart+1,dimend
           siw(:,dimstart) = siw(:,dimstart)+siw(:,iband)
        enddo
-
+       siw(:,dimstart)=siw(:,dimstart)/dble(dimend-dimstart+1)
        do iband=dimstart+1,dimend
           siw(:,iband) = siw(:,dimstart)
-          siw(:,iband) = siw(:,iband)/dble(dimend-dimstart+1)
        enddo
     endif
   enddo ! loop over inequivalent atoms
@@ -270,31 +269,33 @@ program main
         enddo
 
         do i=1,2 ! d and p bands
-          dimend=dimstart+ndims(ineq,1)-1
+          if (ndims(ineq,i) .eq. 0) cycle ! do nothing
+          if (i .eq. 1) then
+            dimend = dimstart+ndims(ineq,1)-1
+          endif
           if (i .eq. 2) then
-            dimstart = dimend + 1
-            dimend = dimend + ndims(ineq,2)
+            dimend = dimstart+ndims(ineq,1)+ndims(ineq,2)-1
+            dimstart = dimend-ndims(ineq,2)+1
           endif
 
           do iband=dimstart+1,dimend
             giw(:,dimstart) = giw(:,dimstart)+giw(:,iband)
           enddo
-
-          do iband=dimstart,dimend
+          giw(:,dimstart)=giw(:,dimstart)/dble(dimend-dimstart+1)
+          do iband=dimstart+1,dimend
             giw(:,iband) = giw(:,dimstart)
-            giw(:,iband) = giw(:,iband)/dble(dimend-dimstart+1)
           enddo
         enddo
     endif
 
-  ! test giw:
-    open(54, file=trim(output_dir)//"giw.dat", status='unknown')
-    do iw=-iwmax,iwmax-1
-       write(54,'(100F12.6)')iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
-    enddo
-    close(54)
-
   enddo ! inequivalent atom loop
+
+  ! test giw:
+  open(54, file=trim(output_dir)//"giw.dat", status='unknown')
+  do iw=-iwmax,iwmax-1
+     write(54,'(100F12.6)')iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
+  enddo
+  close(54)
 
   write(*,*) 'ok'
 
@@ -352,25 +353,27 @@ program main
   allocate(dc(2,ndim)) ! indices: spin band
   ! dc for noninteracting bands set to 0
   dc = 0.d0
-  do ineq=1,nineq
-    dimstart=1
-    do i=2,ineq
-      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
-    enddo
-    dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
-    write(name_buffer,'("ineq-",I3.3)') ineq
-    call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/dc/value", dc_id, error)
-    call h5dget_space_f(dc_id, dc_space_id, error)
-    call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
-    allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
-    call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, error)
-    call h5dclose_f(dc_id, error)
 
-    do iband=dimstart,dimend
-      dc(:,iband) = dc_data(:,iband-dimstart+1)
-    enddo
-    deallocate(dc_data)
-  enddo
+  ! do ineq=1,nineq
+  !   dimstart=1
+  !   do i=2,ineq
+  !     dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+  !   enddo
+  !   dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
+  !   write(name_buffer,'("ineq-",I3.3)') ineq
+  !   call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/dc/value", dc_id, error)
+  !   call h5dget_space_f(dc_id, dc_space_id, error)
+  !   call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
+  !   allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
+  !   call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, error)
+  !   call h5dclose_f(dc_id, error)
+
+  !   do iband=dimstart,dimend
+  !     dc(:,iband) = dc_data(:,iband-dimstart+1)
+  !   enddo
+  !   deallocate(dc_data)
+  ! enddo
+
 
 ! read inverse temperature beta:
   call h5gopen_f(file_id, ".config", config_id, error)
@@ -397,7 +400,7 @@ program main
 
 ! compute local single-particle Greens function:
 ! allocate(giw(-iwmax:iwmax-1,ndim))
-  call get_giw(iw_data, hk, siw, dc, giw)
+  ! call get_giw(iw_data, hk, siw, dc, giw)
 
 ! test giw:
    open(35, file=trim(output_dir)//"giw_calc.dat", status='unknown')

@@ -223,7 +223,7 @@ program symmetrize_vertex
 
 !================================================================
 !Define orbital symmetry here:
-  su2_only = .true. 
+  su2_only = .false. 
   write(*,*) 'Symmetrizing ',(filename_vertex_ineq(ineq),ineq=1,nineq),'>>>>>',filename_vertex_sym
   write(*,*) 'Total number of bands: ',sum(Nbands)
   if(su2_only) then
