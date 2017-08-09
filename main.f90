@@ -354,25 +354,25 @@ program main
   ! dc for noninteracting bands set to 0
   dc = 0.d0
 
-  ! do ineq=1,nineq
-  !   dimstart=1
-  !   do i=2,ineq
-  !     dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
-  !   enddo
-  !   dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
-  !   write(name_buffer,'("ineq-",I3.3)') ineq
-  !   call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/dc/value", dc_id, error)
-  !   call h5dget_space_f(dc_id, dc_space_id, error)
-  !   call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
-  !   allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
-  !   call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, error)
-  !   call h5dclose_f(dc_id, error)
+  do ineq=1,nineq
+    dimstart=1
+    do i=2,ineq
+      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+    enddo
+    dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
+    write(name_buffer,'("ineq-",I3.3)') ineq
+    call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/dc/value", dc_id, error)
+    call h5dget_space_f(dc_id, dc_space_id, error)
+    call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
+    allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
+    call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, error)
+    call h5dclose_f(dc_id, error)
 
-  !   do iband=dimstart,dimend
-  !     dc(:,iband) = dc_data(:,iband-dimstart+1)
-  !   enddo
-  !   deallocate(dc_data)
-  ! enddo
+    do iband=dimstart,dimend
+      dc(:,iband) = dc_data(:,iband-dimstart+1)
+    enddo
+    deallocate(dc_data)
+  enddo
 
 
 ! read inverse temperature beta:
@@ -400,7 +400,7 @@ program main
 
 ! compute local single-particle Greens function:
 ! allocate(giw(-iwmax:iwmax-1,ndim))
-  ! call get_giw(iw_data, hk, siw, dc, giw)
+  call get_giw(iw_data, hk, siw, dc, giw)
 
 ! test giw:
    open(35, file=trim(output_dir)//"giw_calc.dat", status='unknown')
@@ -694,8 +694,6 @@ end if
         enddo ! loop for inequivalent atoms
 
         write(*,*) "Reading Vertex complete"
-
-
 
         !compute chi_loc (go into compound index and subtract straight term):
         chi_loc_magn_full = 0.d0

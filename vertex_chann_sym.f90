@@ -176,6 +176,7 @@ program symmetrize_vertex
   integer :: ichannel, ntot, ind_band, icount
   integer, allocatable :: ind_band_list(:)
   character(len=150), allocatable :: filename_vertex_ineq(:)
+  character(len=1) :: arg_sym
 
   real(kind=8) :: start, finish
 !================================================================
@@ -194,6 +195,17 @@ program symmetrize_vertex
   enddo
   write(*,'(A)',advance='no') 'Outputfile for symmetrized Vertex: '
   read(*,*) filename_vertex_sym
+  write(*,*)
+  write(*,'(A)',advance='no') 'SU2 symmetry only (s) or SU2 AND orbital symmetry (o)?: '
+  read(*,*) arg_sym
+  if (arg_sym .eq. 'o' .or. arg_sym .eq. 'O') then
+    su2_only = .false.
+  elseif (arg_sym .eq. 's' .or. arg_sym .eq. 'S') then
+    su2_only = .true.
+  else
+    su2_only = .false.
+    write(*,*) 'Wrong input - Using only SU2 symmetry.'
+  endif
 
 
 ! read command line arguments -> number ineq atoms, input filenames and output filename, number of bands.
