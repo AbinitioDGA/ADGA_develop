@@ -14,5 +14,18 @@
 *.hdf5
 *.hk
 
+# configfiles
+config*
+# except config_template which is maintained by hand
+!config_template
+
+# all possible output folder and everything inside
+Output*/**
+output*/**
+# all possible input folder and everything inside
+Input*/**
+input*/**
+
+# binaries
 main
 vertex_chann_sym
