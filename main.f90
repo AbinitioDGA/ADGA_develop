@@ -104,6 +104,15 @@ program main
 #endif
 
 
+if (mpi_wrank .eq. master) then
+  write(*,*) 
+  write(*,*) '/-----------------------------------------------------------\'
+  write(*,*) '|  Ab initio dynamical vertex approximation program (ADGA)  |'
+  write(*,*) '|  Running on ',mpi_wsize,' cores.                          |'
+  write(*,*) '\-----------------------------------------------------------/'
+  write(*,*) 
+end if
+
   !THE FOLLOWING PARAMETERS ARE READ FROM THE W2DYNAMICS OUTPUT-FILE:
   !iwmax or iw_dims(1)/2    number of fermionic Matsubara frequencies for single particle quantities
   !nkp or hk_dims(3)    number of k-points in H(k)
@@ -299,8 +308,6 @@ program main
   enddo
   close(54)
 
-  write(*,*) 'ok'
-
   if(.not. read_ext_hk) then
     ! read k-points:
     call h5dopen_f(file_id, ".axes/k-points", k_id, error)
@@ -345,6 +352,10 @@ program main
   end if
 
   call init()
+
+  if (mpi_wrank .eq. master) then
+    call init_h5_output('test.hdf5')
+  end if
 
 ! read chemical potential:
   call h5dopen_f(file_id, "stat-001/mu/value", mu_id, error)
@@ -1031,18 +1042,21 @@ end if
     deallocate(chi_qw_dens)
     if (mpi_wrank .eq. master) then
       call output_chi_qw(chi_qw_full,iwb_data,qw,'chi_qw_dens.dat')
+      call output_chi_qw_h5('test.hdf5','dens',chi_qw_full)
     end if
 
     call MPI_gatherv(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(chi_qw_magn)
     if (mpi_wrank .eq. master) then
       call output_chi_qw(chi_qw_full,iwb_data,qw,'chi_qw_magn.dat')
+      call output_chi_qw_h5('test.hdf5','magn',chi_qw_full)
     end if
 
     call MPI_gatherv(bubble,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,     MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(bubble)
     if (mpi_wrank .eq. master) then
       call output_chi_qw(chi_qw_full,iwb_data,qw,'bubble.dat')
+      call output_chi_qw_h5('test.hdf5','dens',chi_qw_full)
     end if
 
     deallocate(chi_qw_full)
@@ -1055,6 +1069,9 @@ end if
         call output_chi_loc(chi_loc_dens,iwb_data,'chi_loc_dens.dat')
         call output_chi_loc(chi_loc_magn,iwb_data,'chi_loc_magn.dat')
         call output_chi_loc(bubble_loc,iwb_data,'bubble_loc.dat')
+        call output_chi_loc_h5('test.hdf5','dens',chi_loc_dens)
+        call output_chi_loc_h5('test.hdf5','magn',chi_loc_magn)
+        call output_chi_loc_h5('test.hdf5','bubble',bubble_loc)
         deallocate(chi_loc_dens,chi_loc_magn,bubble_loc)
      end if
   endif
