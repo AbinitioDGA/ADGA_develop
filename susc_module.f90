@@ -205,6 +205,8 @@ subroutine init_h5_output(filename_output)
   character(len=*) :: filename_output
   integer(kind=8) :: chi_qw_dims(3),chi_loc_dims(3)
   
+  write(*,*) 'initialize output file'
+
   call h5open_f(error)
   call h5fcreate_f(filename_output, h5f_acc_trunc_f, file_id, error)
 
@@ -263,32 +265,87 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
   use hdf5
   use hdf5_module
   use parameters_module
+
   implicit none
   character(len=*) :: filename_output,channel
   integer :: error,rank_chi_qw
-  integer(kind=8),dimension(:),allocatable :: dims_chi_qw
+  integer :: iwb,iqx,iqy,iqz,i1,i2,i3,i4
+  integer(kind=8),dimension(:),allocatable :: dims_chi_qw,dims_chi_slice,offset_chi_slice,stride,block
   integer(hid_t) :: file_id,grp_id_chi_qw
-  integer(hid_t) :: dspace_id_chi_qw
+  integer(hid_t) :: dspace_id_chi_qw,dspace_id_chi_slice
   integer(hid_t) :: dset_id_chi_qw
   complex(kind=8),dimension(ndim**2,ndim**2,nqp*(2*iwbmax_small+1)) :: chi_qw
+  complex(kind=8),dimension(ndim,ndim,ndim,ndim,nqpz,nqpy,nqpx) :: chi_slice
 
-  rank_chi_qw=5 ! TODO: make q dimensions explicit -> 8 dimensions...
+  rank_chi_qw=8 
   allocate(dims_chi_qw(rank_chi_qw))
-  dims_chi_qw=(/ ndim,ndim,ndim,ndim,nqp*(2*iwbmax_small+1) /)
-
+  dims_chi_qw=(/ ndim,ndim,ndim,ndim,nqpz,nqpy,nqpx,2*iwbmax_small+1 /)
+  allocate(dims_chi_slice(rank_chi_qw))
+  dims_chi_slice=(/ ndim,ndim,ndim,ndim,nqpz,nqpy,nqpx,1/)
+  allocate(stride(rank_chi_qw),block(rank_chi_qw),offset_chi_slice(rank_chi_qw))
+  stride=(/1,1,1,1,1,1,1,1/)
+  block=(/1,1,1,1,1,1,1,1/)
+  chi_slice=1.d0
+  !write(*,*) chi_slice
 
   call h5open_f(error)
+  write(*,*) 'open file'
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,error)
+  write(*,*) 'open group'
   call h5gopen_f(file_id,'chi_qw',grp_id_chi_qw,error)
 
+  write(*,*) 'create data space'
   call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_qw,error)
   call h5sset_extent_simple_f(dspace_id_chi_qw,rank_chi_qw,dims_chi_qw,dims_chi_qw,error)
 
+  write(*,*) 'create data set'
   call h5dcreate_f(grp_id_chi_qw,channel,compound_id,dspace_id_chi_qw,dset_id_chi_qw,error)
-  call h5dwrite_f(dset_id_chi_qw,type_r_id,real(chi_qw),dims_chi_qw,error)
+  write(*,*) 'write zeros to data set'
+  call h5dwrite_f(dset_id_chi_qw,type_r_id,real(chi_qw),dims_chi_qw,error) ! this is overwritten anyway
   call h5dwrite_f(dset_id_chi_qw,type_i_id,aimag(chi_qw),dims_chi_qw,error)
-
+  write(*,*) 'close data set'
   call h5dclose_f(dset_id_chi_qw,error)
+
+  write(*,*) 'close group'
+  call h5gclose_f(grp_id_chi_qw,error)
+
+  write(*,*) 're-open group'
+  call h5gopen_f(file_id,'chi_qw',grp_id_chi_qw,error)
+  do iwb=1,2*iwbmax_small+1
+    write(*,*) 'extract slice nr ',iwb
+    do iqz=1,nqpz
+      do iqy=1,nqpy
+        do iqx=1,nqpx
+          do i1=1,ndim
+            do i2=1,ndim
+              do i3=1,ndim
+                do i4=1,ndim
+                  chi_slice(i4,i3,i2,i1,nqpz,nqpy,nqpx) = chi_qw(ndim*(i1-1)+i2,ndim*(i4-1)+i3,(iwb-1)*nqp+(iqz-1)+(iqy-1)*nqpz+(iqx-1)*nqpy*nqpz+1)
+                end do ! i4
+              end do ! i3
+            end do ! i2
+          end do ! i1
+        end do ! nqpx
+      end do ! nqpy
+    end do ! nqpz
+    write(*,*) 're-open dataset'
+    call h5dopen_f(grp_id_chi_qw,channel,dset_id_chi_qw,error)
+    offset_chi_slice=(/0,0,0,0,0,0,0,iwb-1/)
+    
+    write(*,*) 'select hyperslab'
+    call h5sselect_hyperslab_f(dspace_id_chi_qw,H5S_SELECT_SET_F,offset_chi_slice,dims_chi_slice,error,stride,block)
+    write(*,*) 'create data space for subset'
+    call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_slice,error)
+    call h5sset_extent_simple_f(dspace_id_chi_slice,rank_chi_qw,dims_chi_slice,dims_chi_slice,error)
+
+    write(*,*) 'write subset'
+    !write(*,*) chi_slice
+    !write(*,*) chi_qw
+    call h5dwrite_f(dset_id_chi_qw,type_r_id,real(chi_slice),dims_chi_slice,error,dspace_id_chi_slice,dspace_id_chi_qw)
+    call h5dwrite_f(dset_id_chi_qw,type_i_id,aimag(chi_slice),dims_chi_slice,error,dspace_id_chi_slice,dspace_id_chi_qw)
+    call h5dclose_f(dset_id_chi_qw,error)
+  end do ! iwb
+
   call h5gclose_f(grp_id_chi_qw,error)
   call h5close_f(error)
  

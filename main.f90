@@ -176,18 +176,19 @@ end if
   iwb_zero = 0
 
   if (small_freq_box .eqv. .false.) iwfmax_small = iwfmax
-  if (iwfmax_small .gt. iwfmax) then
+  if (iwfmax_small .gt. iwfmax .and. mpi_wrank.eq.master) then
      write(*,*) 'Error: Maximum number of fermionic frequencies =', iwfmax
   endif
-  write(*,*) 'iwfmax=', iwfmax, 'iwfmax_small=', iwfmax_small
-  write(*,*) 'iwmax=', iwmax
 
   if (small_freq_box .eqv. .false.) iwbmax_small = iwbmax
-  if (iwbmax_small .gt. iwbmax) then
+  if (iwbmax_small .gt. iwbmax .and. mpi_wrank.eq.master) then
      write(*,*) 'Error: Maximum number of bosonic frequencies =', iwbmax
   endif
-  write(*,*)'iwbmax=',iwbmax, 'iwbmax_small=', iwbmax_small
-
+  if (mpi_wrank .eq. master) then
+    write(*,*) 'iwmax=', iwmax, ' (number of fermionic matsubara frequencies of one-particle quantities)'
+    write(*,*) 'iwfmax=', iwfmax, 'iwfmax_small=', iwfmax_small, ' (number of fermionic matsubara frequencies of two-particle quantities)'
+    write(*,*)'iwbmax=',iwbmax, 'iwbmax_small=', iwbmax_small, ' (number of bosonic matsubara frequencies of two-particle quantities)'
+  end if
 
 ! read in all inequivalent atoms
   ! siw from DMFT contains all possible bands
@@ -269,7 +270,9 @@ end if
     call h5dclose_f(giw_id, error)
     deallocate(giw_data)
 
-    write(*,*) 'orb_symmetry = ', orb_sym
+    if (mpi_wrank .eq. master) then
+      write(*,*) 'orb_symmetry = ', orb_sym
+    end if
 
     if (orb_sym) then
     ! enforce orbital symmetry:
@@ -367,25 +370,25 @@ end if
   ! dc for noninteracting bands set to 0
   dc = 0.d0
 
-  do ineq=1,nineq
-    dimstart=1
-    do i=2,ineq
-      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
-    enddo
-    dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
-    write(name_buffer,'("ineq-",I3.3)') ineq
-    call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/dc/value", dc_id, error)
-    call h5dget_space_f(dc_id, dc_space_id, error)
-    call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
-    allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
-    call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, error)
-    call h5dclose_f(dc_id, error)
-
-    do iband=dimstart,dimend
-      dc(:,iband) = dc_data(:,iband-dimstart+1)
-    enddo
-    deallocate(dc_data)
-  enddo
+!  do ineq=1,nineq
+!    dimstart=1
+!    do i=2,ineq
+!      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+!    enddo
+!    dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
+!    write(name_buffer,'("ineq-",I3.3)') ineq
+!    call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/dc/value", dc_id, error)
+!    call h5dget_space_f(dc_id, dc_space_id, error)
+!    call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
+!    allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
+!    call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, error)
+!    call h5dclose_f(dc_id, error)
+!
+!    do iband=dimstart,dimend
+!      dc(:,iband) = dc_data(:,iband-dimstart+1)
+!    enddo
+!    deallocate(dc_data)
+!  enddo
 
 
 ! read inverse temperature beta:
@@ -400,10 +403,11 @@ end if
 
   call h5close_f(error)
 
-  write(*,*) 'beta=', beta
-  write(*,*) 'mu=', mu
-  write(*,*) 'dc=', dc
-
+  if (mpi_wrank .eq. master) then
+    write(*,*) 'beta=', beta
+    write(*,*) 'mu=', mu
+    write(*,*) 'dc=', dc
+  end if
   !read umatrix from separate file:
   allocate(u(ndim**2,ndim**2), u_tilde(ndim**2,ndim**2))
   call read_u(u,u_tilde)
@@ -431,7 +435,6 @@ end if
       giw_sum(:) = giw_sum(:)+giw(iw,:)
   enddo
 
-  write(*,*) beta
   n_dmft = 0.d0
   n_dmft(:) = 2.d0*real(giw_sum(:))/beta+0.5d0
   open(56, file=trim(output_dir)//"n_dmft.dat", status='unknown')
@@ -493,7 +496,7 @@ end if
   end if
 
 
-  if (mpi_wrank .eq. 1) then
+  if (mpi_wrank .eq. master) then
     write(*,*) nkp1,'k points in one direction'
     write(*,*) nkp,'k points total'
     write(*,*) nqp1,'k points in one direction'
@@ -525,11 +528,15 @@ end if
 !  call index_kq_search(k_data, q_data, kq_ind) ! old method, assumes cubic case
   call index_kq(kq_ind) ! new method
   call cpu_time(finish)
-  write(*,*)'finding k-q index:', finish-start
+  if (mpi_wrank .eq. master) then
+    write(*,*)'finding k-q index:', finish-start
+  end if
 !##################### parallel code ##################################################
 
-  write(*,*)'nqp=', nqp !test
-  write(*,*) maxval(kq_ind)
+  if (mpi_wrank .eq. master) then
+    write(*,*)'nqp=', nqp !test
+    write(*,*) maxval(kq_ind)
+  end if
 
 
 !define qw compound index for mpi:
@@ -1056,7 +1063,7 @@ end if
     deallocate(bubble)
     if (mpi_wrank .eq. master) then
       call output_chi_qw(chi_qw_full,iwb_data,qw,'bubble.dat')
-      call output_chi_qw_h5('test.hdf5','dens',chi_qw_full)
+      call output_chi_qw_h5('test.hdf5','bubble',chi_qw_full)
     end if
 
     deallocate(chi_qw_full)
