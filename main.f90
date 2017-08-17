@@ -83,6 +83,11 @@ program main
   integer,allocatable :: rct(:),disp(:)
 #endif
 
+! variables for date-time string
+  character(20) :: date,time,zone
+  character(200) :: output_filename
+  integer,dimension(8) :: values
+
 
   ! read command line argument -> file name of config file
   if (iargc().eq.0 .or. iargc().gt.1) then
@@ -321,7 +326,7 @@ end if
     call h5dread_f(k_id, h5t_native_double, k_data, k_dims, error)
     call h5dclose_f(k_id, error)
   end if
-  write(*,*) nkp,'k points'
+
 ! write k-points:
   open(37, file=trim(output_dir)//'k_points.dat', status='unknown')
   do ik=1,100
@@ -355,9 +360,16 @@ end if
   end if
 
   call init()
+  if (.not. do_vq .and. mpi_wrank .eq. master) then
+    write(*,*) 'Main: Run without V(q)'
+  end if
 
   if (mpi_wrank .eq. master) then
-    call init_h5_output('test.hdf5')
+    ! generate a date-time string for output file name
+    call date_and_time(date,time,zone,values)
+    output_filename=trim(output_dir)//'adga-'//trim(date)//'-'//trim(time)//'-output.hdf5'
+    write(*,*) 'writing output to ',output_filename
+    call init_h5_output(output_filename)
   end if
 
 ! read chemical potential:
@@ -1049,21 +1061,21 @@ end if
     deallocate(chi_qw_dens)
     if (mpi_wrank .eq. master) then
       call output_chi_qw(chi_qw_full,iwb_data,qw,'chi_qw_dens.dat')
-      call output_chi_qw_h5('test.hdf5','dens',chi_qw_full)
+      call output_chi_qw_h5(output_filename,'dens',chi_qw_full)
     end if
 
     call MPI_gatherv(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(chi_qw_magn)
     if (mpi_wrank .eq. master) then
       call output_chi_qw(chi_qw_full,iwb_data,qw,'chi_qw_magn.dat')
-      call output_chi_qw_h5('test.hdf5','magn',chi_qw_full)
+      call output_chi_qw_h5(output_filename,'magn',chi_qw_full)
     end if
 
     call MPI_gatherv(bubble,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,     MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(bubble)
     if (mpi_wrank .eq. master) then
       call output_chi_qw(chi_qw_full,iwb_data,qw,'bubble.dat')
-      call output_chi_qw_h5('test.hdf5','bubble',chi_qw_full)
+      call output_chi_qw_h5(output_filename,'bubble',chi_qw_full)
     end if
 
     deallocate(chi_qw_full)
@@ -1076,9 +1088,9 @@ end if
         call output_chi_loc(chi_loc_dens,iwb_data,'chi_loc_dens.dat')
         call output_chi_loc(chi_loc_magn,iwb_data,'chi_loc_magn.dat')
         call output_chi_loc(bubble_loc,iwb_data,'bubble_loc.dat')
-        call output_chi_loc_h5('test.hdf5','dens',chi_loc_dens)
-        call output_chi_loc_h5('test.hdf5','magn',chi_loc_magn)
-        call output_chi_loc_h5('test.hdf5','bubble',bubble_loc)
+        call output_chi_loc_h5(output_filename,'dens',chi_loc_dens)
+        call output_chi_loc_h5(output_filename,'magn',chi_loc_magn)
+        call output_chi_loc_h5(output_filename,'bubble',bubble_loc)
         deallocate(chi_loc_dens,chi_loc_magn,bubble_loc)
      end if
   endif

@@ -173,21 +173,11 @@ subroutine init()
   end if
 
   if (q_path_susc .or. k_path_eom) then
-  !  stop 'q paths currently not stable'
+    stop 'q paths currently not stable'
     nkp1=nkpx
     nqp1=nqpx
   end if
 
-  if (.not. do_vq) then
-    write(*,*) 'Run without V(q)'
-  else
-  !  allocate(r_data(3,nr))
-  !  allocate(v_r(ndim2,ndim2,nr))
-
-  !  write(*,*) 'Read V(r)'
-
-  !  call read_v_r(v_r,r_data)
-  end if
 
 end subroutine init
 
