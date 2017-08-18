@@ -25,6 +25,7 @@ module parameters_module
   character(len=150) filename_vr ! filename of extrapolated V(r)
   real(kind=8) :: a,b,c ! lattice spacing
   character(len=150) ::  filename_vertex, filename_vertex_sym
+  character(len=100) :: config_file
 
 
 contains
@@ -32,11 +33,9 @@ contains
 subroutine read_config()
   implicit none
   character(len=100) :: cmd_arg
-  character(len=100) :: config_file
   character(len=150) :: str_tmp
   integer :: int_tmp_1,int_tmp_2,int_tmp_3,int_tmp_4
 
-  write(*,*) 'Reading config: ',config_file
   call getarg(1,cmd_arg)
   config_file=trim(cmd_arg)
 

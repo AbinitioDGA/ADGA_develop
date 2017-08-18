@@ -75,6 +75,7 @@ program main
   integer :: iwb_zero, iband, ispin
 
   double precision :: iw_val, giw_r, giw_i, siw_r, siw_i
+  logical :: index2ineq
 
 
 #ifdef MPI
@@ -106,18 +107,22 @@ program main
 #endif
 
   call read_config()
+  if (mpi_wrank .eq. master) write(*,*) 'Config file: ',trim(config_file)
 
-! master id creates output folder if necessary
-if (mpi_wrank .eq. master) call system("mkdir -p "//trim(output_dir))
+  ! master id creates output folder if necessary
+  if (mpi_wrank .eq. master) call system('mkdir -p ' // adjustl(trim(output_dir)))
+  ! this barrier is necessary to avoid file writing before folder creation
+  call mpi_barrier(mpi_comm_world,ierr)
 
-if (mpi_wrank .eq. master) then
-  write(*,*)
-  write(*,*) '/-----------------------------------------------------------\'
-  write(*,*) '|  Ab initio dynamical vertex approximation program (ADGA)  |'
-  write(*,*) '|  Running on ',mpi_wsize,' core(s).                        |'
-  write(*,*) '\-----------------------------------------------------------/'
-  write(*,*)
-end if
+  if (mpi_wrank .eq. master) then
+    write(*,*)
+    write(*,*) '/-----------------------------------------------------------\'
+    write(*,*) '|  Ab initio dynamical vertex approximation program (ADGA)  |'
+    write(*,*) '|  Running on ',mpi_wsize,' core(s).                        |'
+    write(*,*) '\-----------------------------------------------------------/'
+    write(*,*)
+  end if
+
 
   !THE FOLLOWING PARAMETERS ARE READ FROM THE W2DYNAMICS OUTPUT-FILE:
   !iwmax or iw_dims(1)/2    number of fermionic Matsubara frequencies for single particle quantities
@@ -758,15 +763,19 @@ end if
                             !full 2-particle GF:
                             !straight term G(\nu)G(\nu') is subtracted (twice) only in the dens channel and only for iw=0:
                             if((iwb .eq. iwb_zero) .and. i==j .and. k==l)then
-                               chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l)
+                              if(index2ineq(nineq,ndims,i,j,k,l)) then
+                                chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l)
+                              endif
                             endif
 
                           else if (vertex_type .eq. connected_g4) then
                             !G_conn:
                             !bubble term -G(\nu)G(\nu-\omega) is added in both channels
                             if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
-                               chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
-                               chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
+                              if(index2ineq(nineq,ndims,i,j,k,l)) then
+                                chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
+                                chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
+                              endif
                             endif
                           end if
 
@@ -1149,3 +1158,40 @@ subroutine index2component_band(Nbands, ind, b1, b2, b3, b4)
 
 end subroutine index2component_band
 
+
+
+! function which checks blockdiagonality of 1PG functions
+logical function index2ineq(nineq,ndims,m,n,o,p)
+  implicit none
+  integer, intent(in) :: nineq
+  integer, intent(in) :: ndims(nineq,2)
+  ! band indices from specific beginning or end point of a 1PG
+  integer, intent(in) :: m,n,o,p
+  ! inequivalent atom number for specific index
+  integer :: a,b,c,d
+  integer :: dimstart,dimend,ineq, i
+
+  a=0;b=0;c=0;d=0
+
+  do ineq=1,nineq
+    dimstart=1
+    do i=2,ineq
+      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+    enddo
+    dimend=dimstart+ndims(ineq,1)-1 ! only in correlated sub space
+    if ( m .ge. dimstart .and. m .le. dimend ) a=ineq
+    if ( n .ge. dimstart .and. n .le. dimend ) b=ineq
+    if ( o .ge. dimstart .and. o .le. dimend ) c=ineq
+    if ( p .ge. dimstart .and. p .le. dimend ) d=ineq
+  enddo
+
+  ! checking if everything is on the same atom
+  ! AND on correlated bands (non correlated lines would have ineq=0)
+  if ( (a .eqv. b) .and. (c .eqv. d) .and. (a .eqv. d) .and. (a .neqv. 0)) then
+    index2ineq = .true.
+  else
+    index2ineq = .false.
+  endif
+
+  return
+end function index2ineq
