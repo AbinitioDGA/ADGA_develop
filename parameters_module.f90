@@ -16,7 +16,7 @@ module parameters_module
   integer :: nqp,nkp_eom, idp
   integer,allocatable :: q_data(:),k_data_eom(:)
   character(len=150) :: filename, filename_umatrix, filename_vq, filename_hk, output_dir, filename_q_path
-  logical :: orb_sym,small_freq_box,full_chi0
+  logical :: orb_sym,full_chi0
   logical :: do_eom,do_chi,do_vq
   logical :: q_path_susc,k_path_eom,q_vol,read_ext_hk
   integer :: vertex_type
@@ -25,7 +25,7 @@ module parameters_module
   character(len=150) filename_vr ! filename of extrapolated V(r)
   real(kind=8) :: a,b,c ! lattice spacing
   character(len=150) ::  filename_vertex, filename_vertex_sym
- 
+
 
 contains
 
@@ -36,13 +36,19 @@ subroutine read_config()
   character(len=150) :: str_tmp
   integer :: int_tmp_1,int_tmp_2,int_tmp_3,int_tmp_4
 
+  write(*,*) 'Reading config: ',config_file
   call getarg(1,cmd_arg)
   config_file=trim(cmd_arg)
-  write(*,*) 'Reading config: ',config_file
 
   open(unit=1,file=config_file)
   read(1,*)
   read(1,*)
+  read(1,*)
+  read(1,*)
+  read(1,*) int_tmp_1,int_tmp_2
+  do_chi=int_tmp_1
+  do_eom=int_tmp_2
+
   read(1,*)
   read(1,*)
   read(1,*) int_tmp_1
@@ -52,34 +58,16 @@ subroutine read_config()
   read(1,*)
   read(1,*)
   read(1,*) ((ndims(ineq, idp), idp=1,2), ineq=1,nineq)
+  ndim=sum(ndims)
 
   read(1,*)
   read(1,*)
   read(1,'(A)') str_tmp
-  filename=trim(str_tmp)
+  filename_hk=trim(str_tmp)
 
   read(1,*)
   read(1,*)
-  read(1,'(A)') str_tmp
-  filename_vertex_sym=trim(str_tmp)
-
-  read(1,*)
-  read(1,*)
-  read(1,'(A)') str_tmp
-  filename_umatrix=trim(str_tmp)
-
-  read(1,*)
-  read(1,*)
-  read(1,*) int_tmp_1,int_tmp_2,int_tmp_3
-  orb_sym=int_tmp_1
-  small_freq_box=int_tmp_2
-  full_chi0=int_tmp_3
-
-  read(1,*)
-  read(1,*)
-  read(1,*) int_tmp_1,int_tmp_2
-  iwfmax_small=int_tmp_1
-  iwbmax_small=int_tmp_2
+  read(1,*) nkpx, nkpy, nkpz, nqpx, nqpy, nqpz
 
   read(1,*)
   read(1,*)
@@ -96,30 +84,6 @@ subroutine read_config()
 
   read(1,*)
   read(1,*)
-  read(1,*) nkpx, nkpy, nkpz, nqpx, nqpy, nqpz, ndim
-
-  read(1,*)
-  read(1,*)
-  read(1,'(A)') str_tmp
-  output_dir=trim(str_tmp)
-
-  read(1,*)
-  read(1,*)
-  read(1,*) int_tmp_1,int_tmp_2
-  do_chi=int_tmp_1
-  do_eom=int_tmp_2
-
-  read(1,*)
-  read(1,*)
-  read(1,*) vertex_type
-
-  read(1,*)
-  read(1,*)
-  read(1,'(A)') str_tmp
-  filename_hk=trim(str_tmp)
-
-  read(1,*)
-  read(1,*)
   read(1,*) int_tmp_1
   do_vq = int_tmp_1
 
@@ -130,21 +94,56 @@ subroutine read_config()
 
   read(1,*)
   read(1,*)
-  read(1,*) nr
+  read(1,'(A)') str_tmp
+  filename_umatrix=trim(str_tmp)
 
-  if (nr .gt. 0) then
-    read(1,*)
-    read(1,*)
-    read(1,'(A)') str_tmp
-    filename_vr = trim(str_tmp)
-  end if
+  read(1,*)
+  read(1,*)
+  read(1,'(A)') str_tmp
+  filename=trim(str_tmp)
+
+  read(1,*)
+  read(1,*)
+  read(1,*) int_tmp_1
+  orb_sym=int_tmp_1
+
+  read(1,*)
+  read(1,*)
+  read(1,*) vertex_type
+
+  read(1,*)
+  read(1,*)
+  read(1,'(A)') str_tmp
+  filename_vertex_sym=trim(str_tmp)
+
+  read(1,*)
+  read(1,*)
+  read(1,*) int_tmp_1,int_tmp_2
+  iwfmax_small=int_tmp_1
+  iwbmax_small=int_tmp_2
+
+  read(1,*)
+  read(1,*)
+  read(1,'(A)') str_tmp
+  output_dir=trim(str_tmp)
+
+  ! read(1,*)
+  ! read(1,*)
+  ! read(1,*) nr ! VR
+
+  ! if (nr .gt. 0) then
+  !   read(1,*)
+  !   read(1,*)
+  !   read(1,'(A)') str_tmp
+  !   filename_vr = trim(str_tmp)
+  ! end if
 
   close(1)
 
 end subroutine read_config
 
 
-subroutine init() 
+subroutine init()
   implicit none
   integer :: i,j,k,l,n
   maxdim = ndim*ndim*2*iwfmax_small

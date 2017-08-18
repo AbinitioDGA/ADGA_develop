@@ -47,4 +47,4 @@ vertex_out_PAM_large.hdf5
 10 5
 
 # Output directory, has to end with '/'
-./Output/
+Output/

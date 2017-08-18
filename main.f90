@@ -91,12 +91,11 @@ program main
 
 
   ! read command line argument -> file name of config file
-  if (iargc().eq.0 .or. iargc().gt.1) then
+  if (iargc() .ne. 1) then
     write(*,*) 'The program has to be executed with exactly one argument. (Name of config file)'
     stop
   end if
 
-  call read_config()
 
 #ifdef MPI
   call MPI_init(ierr)
@@ -106,16 +105,18 @@ program main
   allocate(rct(mpi_wsize),disp(mpi_wsize))
 #endif
 
+  call read_config()
+
 ! master id creates output folder if necessary
 if (mpi_wrank .eq. master) call system("mkdir -p "//trim(output_dir))
 
 if (mpi_wrank .eq. master) then
-  write(*,*) 
+  write(*,*)
   write(*,*) '/-----------------------------------------------------------\'
   write(*,*) '|  Ab initio dynamical vertex approximation program (ADGA)  |'
-  write(*,*) '|  Running on ',mpi_wsize,' cores.                          |'
+  write(*,*) '|  Running on ',mpi_wsize,' core(s).                        |'
   write(*,*) '\-----------------------------------------------------------/'
-  write(*,*) 
+  write(*,*)
 end if
 
   !THE FOLLOWING PARAMETERS ARE READ FROM THE W2DYNAMICS OUTPUT-FILE:
@@ -150,11 +151,6 @@ end if
   end if
 
 
-  if (ndim .ne. sum(ndims)) then
-    write(*,*) 'Sum over bands of inequivalent atoms does not match Hamiltonian'
-    stop
-  endif
-
 !##################  READ W2DYNAMICS HDF5 OUTPUT FILE  #####################################
 
   call h5open_f(error)
@@ -180,15 +176,24 @@ end if
   ! "Find" the zero
   iwb_zero = 0
 
-  if (small_freq_box .eqv. .false.) iwfmax_small = iwfmax
-  if (iwfmax_small .gt. iwfmax .and. mpi_wrank.eq.master) then
-     write(*,*) 'Error: Maximum number of fermionic frequencies =', iwfmax
+  if (iwfmax_small .le. 0 .or. iwfmax_small .gt. iwfmax) then
+    iwfmax_small = iwfmax
+    if (mpi_wrank .eq. master) then
+      write(*,*) 'Error: Wrong input for fermionic frequencies'
+      write(*,*) 'Calculating with maximum number of fermionic frequencies &
+                  =', iwfmax
+    endif
   endif
 
-  if (small_freq_box .eqv. .false.) iwbmax_small = iwbmax
-  if (iwbmax_small .gt. iwbmax .and. mpi_wrank.eq.master) then
-     write(*,*) 'Error: Maximum number of bosonic frequencies =', iwbmax
+  if (iwbmax_small .le. 0 .or. iwbmax_small .gt. iwbmax) then
+    iwbmax_small = iwbmax
+    if (mpi_wrank .eq. master) then
+      write(*,*) 'Error: Wrong input for bosonic frequencies'
+      write(*,*) 'Calculating with maximum number of bosonic frequencies &
+                  =', iwbmax
+    endif
   endif
+
   if (mpi_wrank .eq. master) then
     write(*,*) 'iwmax=', iwmax, ' (number of fermionic matsubara frequencies of one-particle quantities)'
     write(*,*) 'iwfmax=', iwfmax, 'iwfmax_small=', iwfmax_small, ' (number of fermionic matsubara frequencies of two-particle quantities)'
@@ -466,7 +471,7 @@ end if
         n_fock(ik,i,i) = n_fock(ik,i,i)+0.5d0
      enddo
      write(110,'(100F12.6)') k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_fock(ik,i,i)),i=1,ndim)
-  enddo  
+  enddo
 
 
   allocate(chi0_loc(ndim2,ndim2,iwstart:iwstop))
@@ -1002,7 +1007,7 @@ end if
         end if
      end if
      if (do_eom) then
-        !equation of motion     
+        !equation of motion
         call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,sigma_dmft,sigma_hf,kq_ind,iwb,iq,iw_data,u,v,u_tilde,hk,dc,siw,giw,n_dmft,n_fock)
      end if
      call cpu_time(finish)
@@ -1036,7 +1041,7 @@ end if
      sigma_sum_hf = -sigma_sum_hf/(beta*nqp)
      sigma_sum_dmft = -sigma_sum_dmft/(beta*nqp)
      call add_siw_dmft(siw, sigma_sum)
-     call get_sigma_g_loc(iw_data, hk, dc, siw, sigma_sum, sigma_loc, gloc, n_dga) 
+     call get_sigma_g_loc(iw_data, hk, dc, siw, sigma_sum, sigma_loc, gloc, n_dga)
      if (mpi_wrank .eq. master) then
        call output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, n_dga)
      end if
