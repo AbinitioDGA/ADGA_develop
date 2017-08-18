@@ -96,9 +96,6 @@ program main
   end if
 
   call read_config()
-  ! master id creates output folder if necessary
-  if (mpi_wrank .eq. master) call system("mkdir -p "//trim(output_dir))
-
 
 #ifdef MPI
   call MPI_init(ierr)
@@ -108,6 +105,8 @@ program main
   allocate(rct(mpi_wsize),disp(mpi_wsize))
 #endif
 
+! master id creates output folder if necessary
+if (mpi_wrank .eq. master) call system("mkdir -p "//trim(output_dir))
 
 if (mpi_wrank .eq. master) then
   write(*,*) 
