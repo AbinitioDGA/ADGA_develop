@@ -1,194 +1,350 @@
 module susc_module
   implicit none
 
-  contains
+contains
 
-    subroutine calc_chi_qw(chi_qw,interm3,chi0_sum)
-      use parameters_module
-      implicit none
-      complex(kind=8), intent(out) :: chi_qw(ndim2,ndim2)
-      complex(kind=8), intent(in) :: interm3(ndim2,maxdim)
-      complex(kind=8), intent(in) :: chi0_sum(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)
-      integer :: iwf,iband,i1,i2
-      do i1=1,ndim2
-         do i2=1,ndim2
-            do iwf=1,2*iwfmax_small
-               do iband=1,ndim2
-                  chi_qw(i1,i2)=chi_qw(i1,i2)+interm3(i1,(iwf-1)*ndim2+iband)*chi0_sum(iband,i2,iwf-1-iwfmax_small)
-               end do
-            end do
-         end do
-      end do
-      chi_qw=chi_qw/(beta**2)
-    end subroutine calc_chi_qw
+subroutine calc_chi_qw(chi_qw,interm3,chi0_sum)
+  use parameters_module
+  implicit none
+  complex(kind=8), intent(out) :: chi_qw(ndim2,ndim2)
+  complex(kind=8), intent(in) :: interm3(ndim2,maxdim)
+  complex(kind=8), intent(in) :: chi0_sum(ndim2,ndim2,-iwfmax_small:iwfmax_small-1)
+  integer :: iwf,iband,i1,i2
+  do i1=1,ndim2
+     do i2=1,ndim2
+        do iwf=1,2*iwfmax_small
+           do iband=1,ndim2
+              chi_qw(i1,i2)=chi_qw(i1,i2)+interm3(i1,(iwf-1)*ndim2+iband)*chi0_sum(iband,i2,iwf-1-iwfmax_small)
+           end do
+        end do
+     end do
+  end do
+  chi_qw=chi_qw/(beta**2)
+end subroutine calc_chi_qw
 
-    subroutine calc_bubble(bubble,chi0_sum)
-      use parameters_module
-      implicit none
-      complex(kind=8), intent(in) :: chi0_sum(ndim2,ndim2,iwstart:iwstop)
-      complex(kind=8) :: bubble(ndim2,ndim2)
-      integer :: iwf
-      bubble=0.d0
-      do iwf=iwstart,iwstop
-        bubble(:,:)=bubble(:,:)+chi0_sum(:,:,iwf)
-      end do
-      bubble=bubble/(beta**2)
-    end subroutine calc_bubble
+subroutine calc_bubble(bubble,chi0_sum)
+  use parameters_module
+  implicit none
+  complex(kind=8), intent(in) :: chi0_sum(ndim2,ndim2,iwstart:iwstop)
+  complex(kind=8) :: bubble(ndim2,ndim2)
+  integer :: iwf
+  bubble=0.d0
+  do iwf=iwstart,iwstop
+    bubble(:,:)=bubble(:,:)+chi0_sum(:,:,iwf)
+  end do
+  bubble=bubble/(beta**2)
+end subroutine calc_bubble
 
-    ! subroutine to output susceptibility
-    subroutine output_chi_qw(chi_qw,iwb_data,qw,filename_output)
-      use parameters_module
-      implicit none
-      character(len=*) :: filename_output
-      character(len=100) :: format_str
-      real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
-      complex(kind=8) :: chi_qw(ndim2,ndim2,nqp*(2*iwbmax_small+1))
-      integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i
-      integer :: i1
+! subroutine to output susceptibility
+subroutine output_chi_qw(chi_qw,iwb_data,qw,filename_output)
+  use parameters_module
+  implicit none
+  character(len=*) :: filename_output
+  character(len=100) :: format_str
+  real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
+  complex(kind=8) :: chi_qw(ndim2,ndim2,nqp*(2*iwbmax_small+1))
+  integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i
+  integer :: i1
 
-      write(*,*) 'Output chi_qw'
+  write(*,*) 'Output chi_qw'
 
-      ! create a format string that works for various orbital dimensions
-      write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
+  ! create a format string that works for various orbital dimensions
+  write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
 
-      ! open file and write head line
-      open(unit=10,file=trim(output_dir)//filename_output)
-      ! the file header should contain important information
-      write(10,*) '#iwbmax, nqp, ndim, beta, mu'
-      write(10,'(I5,2X,I5,2X,I5,2X,E14.7E2,2X,E14.7E2)') iwbmax_small,nqp,ndim,beta,mu
-      write(10,*) '#iwb  ','wb    ','iq  ','      (q)      ','chi_qw'
+  ! open file and write head line
+  open(unit=10,file=trim(output_dir)//filename_output)
+  ! the file header should contain important information
+  write(10,*) '#iwbmax, nqp, ndim, beta, mu'
+  write(10,'(I5,2X,I5,2X,I5,2X,E14.7E2,2X,E14.7E2)') iwbmax_small,nqp,ndim,beta,mu
+  write(10,*) '#iwb  ','wb    ','iq  ','      (q)      ','chi_qw'
 
-      ! loop over all entries
-      do i1=1,nqp*(2*iwbmax_small+1)
-         iq = qw(2,i1)
-         iwb = qw(1,i1)
-         do i=1,ndim2**2!flatten the band matrix into one output line
-            chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1),8)
-            chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1))
-         end do
-         write(10,format_str) iwb,iwb_data(iwb),iq,k_data(:,q_data(iq)),chi_qw_1q
+  ! loop over all entries
+  do i1=1,nqp*(2*iwbmax_small+1)
+     iq = qw(2,i1)
+     iwb = qw(1,i1)
+     do i=1,ndim2**2!flatten the band matrix into one output line
+        chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1),8)
+        chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1))
+     end do
+     write(10,format_str) iwb,iwb_data(iwb),iq,k_data(:,q_data(iq)),chi_qw_1q
 
-         ! insert an empty line after each omega block. could be useful for plotting.
-         if (mod(i1,nqp).eq.0) then
-            write(10,*) ' '
-         end if
+     ! insert an empty line after each omega block. could be useful for plotting.
+     if (mod(i1,nqp).eq.0) then
+        write(10,*) ' '
+     end if
 
-      end do
+  end do
 
-      close(10)
-    end subroutine output_chi_qw
+  close(10)
+end subroutine output_chi_qw
 
-    ! subroutine to output one line of susceptibility
-    subroutine output_chi_qw_1line(chi_qw,iwb_data,qw,iqw,rank,filename_output)
-      use parameters_module
-      implicit none
-      character(len=*) :: filename_output
-      character(len=100) :: format_str
-      real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
-      complex(kind=8) :: chi_qw(ndim2,ndim2)
-      integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i,iqw,rank,un
+! subroutine to output one line of susceptibility
+subroutine output_chi_qw_1line(chi_qw,iwb_data,qw,iqw,rank,filename_output)
+  use parameters_module
+  implicit none
+  character(len=*) :: filename_output
+  character(len=100) :: format_str
+  real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
+  complex(kind=8) :: chi_qw(ndim2,ndim2)
+  integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i,iqw,rank,un
 
-      ! create a format string that works for various orbital dimensions
-      write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
+  ! create a format string that works for various orbital dimensions
+  write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
 
-      ! open file and write head line
-      un=10000+rank
-      open(unit=un,file=trim(output_dir)//filename_output,access='append')
-         iq = qw(2,iqw)
-         iwb = qw(1,iqw)
-         do i=1,ndim2**2!flatten the band matrix into one output line
-            chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1),8)
-            chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1))
-         end do
-         write(un,format_str) iwb,iwb_data(iwb),iq,k_data(:,q_data(iq)),chi_qw_1q
-      close(un)
-    end subroutine output_chi_qw_1line
+  ! open file and write head line
+  un=10000+rank
+  open(unit=un,file=trim(output_dir)//filename_output,access='append')
+     iq = qw(2,iqw)
+     iwb = qw(1,iqw)
+     do i=1,ndim2**2!flatten the band matrix into one output line
+        chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1),8)
+        chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1))
+     end do
+     write(un,format_str) iwb,iwb_data(iwb),iq,k_data(:,q_data(iq)),chi_qw_1q
+  close(un)
+end subroutine output_chi_qw_1line
 
-    subroutine output_chi_loc(chi_qw,iwb_data,filename_output)
-      use parameters_module
-      implicit none
-      character(len=*) :: filename_output
-      character(len=100) :: format_str
-      real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
-      complex(kind=8) :: chi_qw(ndim2,ndim2,2*iwbmax_small+1)
-      integer :: iwb,i,i1
+subroutine output_chi_loc(chi_qw,iwb_data,filename_output)
+  use parameters_module
+  implicit none
+  character(len=*) :: filename_output
+  character(len=100) :: format_str
+  real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
+  complex(kind=8) :: chi_qw(ndim2,ndim2,2*iwbmax_small+1)
+  integer :: iwb,i,i1
 
-      write(*,*) 'output chi_loc'
+  write(*,*) 'output chi_loc'
 
-      ! create a format string that works for various orbital dimensions
-      write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X',2*ndim2**2,'(E14.7E2,2X))'
+  ! create a format string that works for various orbital dimensions
+  write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X',2*ndim2**2,'(E14.7E2,2X))'
 
-      ! open file and write head line
-      open(unit=10,file=trim(output_dir)//filename_output)
-      ! the file header should contain important information
-      write(10,*) '#iwbmax, nqp, ndim, beta, mu'
-      write(10,'(I5,2X,I5,2X,I5,2X,E14.7E2,2X,E14.7E2)') iwbmax_small,0,ndim,beta,mu!nqp=0 can be used as a flag for the postprocessing
-      write(10,*) '#iwb  ','wb    ','chi_loc'
-  
-      ! loop over all entries
-      do i1=1,2*iwbmax_small+1
-         iwb = i1-iwbmax_small-1
-         do i=1,ndim2**2!flatten the band matrix into one output line
-            chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1),8)
-            chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1))
-         end do
-         write(10,format_str) iwb,iwb_data(iwb),chi_qw_1q
+  ! open file and write head line
+  open(unit=10,file=trim(output_dir)//filename_output)
+  ! the file header should contain important information
+  write(10,*) '#iwbmax, nqp, ndim, beta, mu'
+  write(10,'(I5,2X,I5,2X,I5,2X,E14.7E2,2X,E14.7E2)') iwbmax_small,0,ndim,beta,mu!nqp=0 can be used as a flag for the postprocessing
+  write(10,*) '#iwb  ','wb    ','chi_loc'
 
-      end do
-      close(10)
-    end subroutine output_chi_loc
+  ! loop over all entries
+  do i1=1,2*iwbmax_small+1
+     iwb = i1-iwbmax_small-1
+     do i=1,ndim2**2!flatten the band matrix into one output line
+        chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1),8)
+        chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1,i1))
+     end do
+     write(10,format_str) iwb,iwb_data(iwb),chi_qw_1q
 
-    subroutine output_chi_loc_1line(chi_qw,iwb_data,iwb,rank,filename_output)
-      use parameters_module
-      implicit none
-      character(len=*) :: filename_output
-      character(len=100) :: format_str
-      real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
-      complex(kind=8) :: chi_qw(ndim2,ndim2)
-      integer :: iwb,i,un,rank
+  end do
+  close(10)
+end subroutine output_chi_loc
 
-      ! create a format string that works for various orbital dimensions
-      write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X',2*ndim2**2,'(E14.7E2,2X))'
+subroutine output_chi_loc_1line(chi_qw,iwb_data,iwb,rank,filename_output)
+  use parameters_module
+  implicit none
+  character(len=*) :: filename_output
+  character(len=100) :: format_str
+  real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
+  complex(kind=8) :: chi_qw(ndim2,ndim2)
+  integer :: iwb,i,un,rank
 
-      ! open file and write head line
-      un=20000+rank
-      open(unit=un,file=trim(output_dir)//filename_output,access='append')
-  
-         do i=1,ndim2**2!flatten the band matrix into one output line
-            chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1),8)
-            chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1))
-         end do
-         write(un,format_str) iwb,iwb_data(iwb),chi_qw_1q
+  ! create a format string that works for various orbital dimensions
+  write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X',2*ndim2**2,'(E14.7E2,2X))'
 
-      close(un)
-    end subroutine output_chi_loc_1line
+  ! open file and write head line
+  un=20000+rank
+  open(unit=un,file=trim(output_dir)//filename_output,access='append')
 
-    subroutine calc_bubble_old(bubble,iwb,iq,kq_ind,iw_data,siw,hk,dc)
-      use parameters_module
-      use one_particle_quant_module
-      implicit none
-      integer,intent(in) :: iwb,iq,kq_ind(nkp,nqp)
-      double precision,intent(in) :: iw_data(-iwmax:iwmax-1),dc(2,ndim)
-      complex(kind=8),intent(in) :: siw(-iwmax:iwmax-1,ndims), hk(ndim,ndim,nkp)
-      complex(kind=8) :: bubble(ndim2,ndim2),g1(ndim,ndim),g2(ndim,ndim)
-      integer :: ik,iwf,ikq1,ikq2
-      integer :: i1,i2,i3,i4
-      bubble=0.d0
-      do ik=1,nkp
-        do iwf=-iwfmax_small,iwfmax_small-1
-          call get_gkiw(kq_ind(ik,1),  iwf, 0,   iw_data, siw, hk, dc, g1)
-          call get_gkiw(kq_ind(ik,iq), iwf, iwb, iw_data, siw, hk, dc, g2)
-          do i1=1,ndim
-            do i2=1,ndim
-              do i3=1,ndim
-                do i4=1,ndim
-                  bubble(i3+ndim*(i1-1),i4+ndim*(i2-1))=bubble(i3+ndim*(i1-1),i4+ndim*(i2-1))+g1(i1,i2)*g2(i3,i4)
-                end do
-              end do
+     do i=1,ndim2**2!flatten the band matrix into one output line
+        chi_qw_1q(2*i-1) =  real(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1),8)
+        chi_qw_1q(2*i)   = dimag(chi_qw((i-1)/ndim2+1,mod(i-1,ndim2)+1))
+     end do
+     write(un,format_str) iwb,iwb_data(iwb),chi_qw_1q
+
+  close(un)
+end subroutine output_chi_loc_1line
+
+subroutine calc_bubble_old(bubble,iwb,iq,kq_ind,iw_data,siw,hk,dc)
+  use parameters_module
+  use one_particle_quant_module
+  implicit none
+  integer,intent(in) :: iwb,iq,kq_ind(nkp,nqp)
+  double precision,intent(in) :: iw_data(-iwmax:iwmax-1),dc(2,ndim)
+  complex(kind=8),intent(in) :: siw(-iwmax:iwmax-1,ndim), hk(ndim,ndim,nkp)
+  complex(kind=8) :: bubble(ndim2,ndim2),g1(ndim,ndim),g2(ndim,ndim)
+  integer :: ik,iwf,ikq1,ikq2
+  integer :: i1,i2,i3,i4
+  bubble=0.d0
+  do ik=1,nkp
+    do iwf=-iwfmax_small,iwfmax_small-1
+      call get_gkiw(kq_ind(ik,1),  iwf, 0,   iw_data, siw, hk, dc, g1)
+      call get_gkiw(kq_ind(ik,iq), iwf, iwb, iw_data, siw, hk, dc, g2)
+      do i1=1,ndim
+        do i2=1,ndim
+          do i3=1,ndim
+            do i4=1,ndim
+              bubble(i3+ndim*(i1-1),i4+ndim*(i2-1))=bubble(i3+ndim*(i1-1),i4+ndim*(i2-1))+g1(i1,i2)*g2(i3,i4)
             end do
           end do
         end do
       end do
-    end subroutine calc_bubble_old
+    end do
+  end do
+end subroutine calc_bubble_old
+
+
+! This subroutine creates the HDF5 output file and initializes its structure
+subroutine init_h5_output(filename_output)
+  use hdf5
+  use hdf5_module
+  use parameters_module
+
+  implicit none
+
+  integer :: error
+  integer(hid_t) :: file_id,grp_id_chi_qw,grp_id_chi_loc
+  character(len=*) :: filename_output
+  integer(kind=8) :: chi_qw_dims(3),chi_loc_dims(3)
+  
+  write(*,*) 'initialize output file'
+
+  call h5open_f(error)
+  call h5fcreate_f(filename_output, h5f_acc_trunc_f, file_id, error)
+
+  call h5gcreate_f(file_id,'chi_qw',grp_id_chi_qw,error)
+
+  call h5gcreate_f(file_id,'chi_loc',grp_id_chi_loc,error)
+
+  call h5gclose_f(grp_id_chi_qw,error)
+
+  call h5gclose_f(grp_id_chi_loc,error)
+
+  call h5fclose_f(file_id,error)
+
+  write(*,*) 'hdf5 output initialized'
+end subroutine init_h5_output
+
+
+subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
+  use hdf5
+  use hdf5_module
+  use parameters_module
+  implicit none
+  character(len=*) :: filename_output,channel
+  integer :: error,rank_chi_loc
+  integer(kind=8),dimension(:),allocatable :: dims_chi_loc
+  integer(hid_t) :: file_id,grp_id_chi_loc
+  integer(hid_t) :: dspace_id_chi_loc
+  integer(hid_t) :: dset_id_chi_loc
+  complex(kind=8),dimension(ndim**2,ndim**2,2*iwbmax_small+1) :: chi_loc
+
+  rank_chi_loc=5
+  allocate(dims_chi_loc(rank_chi_loc))
+  dims_chi_loc=(/ ndim,ndim,ndim,ndim,2*iwbmax_small+1 /)
+
+
+  call h5open_f(error)
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,error)
+  call h5gopen_f(file_id,'chi_loc',grp_id_chi_loc,error)
+
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_loc,error)
+  call h5sset_extent_simple_f(dspace_id_chi_loc,rank_chi_loc,dims_chi_loc,dims_chi_loc,error)
+
+  call h5dcreate_f(grp_id_chi_loc,channel,compound_id,dspace_id_chi_loc,dset_id_chi_loc,error)
+  call h5dwrite_f(dset_id_chi_loc,type_r_id,real(chi_loc),dims_chi_loc,error)
+  call h5dwrite_f(dset_id_chi_loc,type_i_id,aimag(chi_loc),dims_chi_loc,error)
+
+  call h5dclose_f(dset_id_chi_loc,error)
+  call h5gclose_f(grp_id_chi_loc,error)
+  call h5close_f(error)
+ 
+  write(*,*) 'chi_loc ',channel,' written to h5'
+end subroutine output_chi_loc_h5
+
+
+subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
+  use hdf5
+  use hdf5_module
+  use parameters_module
+
+  implicit none
+  character(len=*) :: filename_output,channel
+  integer :: error,rank_chi_qw
+  integer :: iwb,iqx,iqy,iqz,i1,i2,i3,i4
+  integer(kind=8),dimension(:),allocatable :: dims_chi_qw,dims_chi_slice,offset_chi_slice,stride,block
+  integer(hid_t) :: file_id,grp_id_chi_qw
+  integer(hid_t) :: dspace_id_chi_qw,dspace_id_chi_slice
+  integer(hid_t) :: dset_id_chi_qw
+  complex(kind=8),dimension(ndim**2,ndim**2,nqp*(2*iwbmax_small+1)) :: chi_qw
+  complex(kind=8),dimension(ndim,ndim,ndim,ndim,nqpz,nqpy,nqpx) :: chi_slice
+
+  rank_chi_qw=8 
+  allocate(dims_chi_qw(rank_chi_qw))
+  dims_chi_qw=(/ ndim,ndim,ndim,ndim,nqpz,nqpy,nqpx,2*iwbmax_small+1 /)
+  allocate(dims_chi_slice(rank_chi_qw))
+  dims_chi_slice=(/ ndim,ndim,ndim,ndim,nqpz,nqpy,nqpx,1/)
+  allocate(stride(rank_chi_qw),block(rank_chi_qw),offset_chi_slice(rank_chi_qw))
+  stride=(/1,1,1,1,1,1,1,1/)
+  block=(/1,1,1,1,1,1,1,1/)
+  chi_slice=1.d0
+
+  call h5open_f(error)
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,error)
+  call h5gopen_f(file_id,'chi_qw',grp_id_chi_qw,error)
+
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_qw,error)
+  call h5sset_extent_simple_f(dspace_id_chi_qw,rank_chi_qw,dims_chi_qw,dims_chi_qw,error)
+
+  call h5dcreate_f(grp_id_chi_qw,channel,compound_id,dspace_id_chi_qw,dset_id_chi_qw,error)
+  call h5dwrite_f(dset_id_chi_qw,type_r_id,real(chi_qw),dims_chi_qw,error) ! this is overwritten anyway
+  call h5dwrite_f(dset_id_chi_qw,type_i_id,aimag(chi_qw),dims_chi_qw,error)
+  call h5dclose_f(dset_id_chi_qw,error)
+
+  call h5gclose_f(grp_id_chi_qw,error)
+
+  ! re-open group
+  call h5gopen_f(file_id,'chi_qw',grp_id_chi_qw,error)
+
+  ! since fortran knows only 7-dimensional arrays, we cannot write the 8-dimensional chi directly
+  ! instead it is written slice-by-slice in a loop over omega
+  ! additionally, the order of the indices is reversed here, because fortran uses column-major memory layout
+  ! Furthermore, the last two band indices are swapped back here.
+  ! TODO: check, if really everything is ok with the indices!
+  do iwb=1,2*iwbmax_small+1
+    do iqz=1,nqpz
+      do iqy=1,nqpy
+        do iqx=1,nqpx
+          do i1=1,ndim
+            do i2=1,ndim
+              do i3=1,ndim
+                do i4=1,ndim
+                  chi_slice(i4,i3,i2,i1,iqz,iqy,iqx) = chi_qw(ndim*(i1-1)+i2,ndim*(i4-1)+i3,(iwb-1)*nqp+(iqz-1)+(iqy-1)*nqpz+(iqx-1)*nqpy*nqpz+1)
+                end do ! i4
+              end do ! i3
+            end do ! i2
+          end do ! i1
+        end do ! nqpx
+      end do ! nqpy
+    end do ! nqpz
+    ! re-open dataset
+    call h5dopen_f(grp_id_chi_qw,channel,dset_id_chi_qw,error)
+    offset_chi_slice=(/0,0,0,0,0,0,0,iwb-1/)
+    
+    ! select hyperslab
+    call h5sselect_hyperslab_f(dspace_id_chi_qw,H5S_SELECT_SET_F,offset_chi_slice,dims_chi_slice,error,stride,block)
+    ! create data space for subset
+    call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_slice,error)
+    call h5sset_extent_simple_f(dspace_id_chi_slice,rank_chi_qw,dims_chi_slice,dims_chi_slice,error)
+
+    call h5dwrite_f(dset_id_chi_qw,type_r_id,real(chi_slice),dims_chi_slice,error,dspace_id_chi_slice,dspace_id_chi_qw)
+    call h5dwrite_f(dset_id_chi_qw,type_i_id,aimag(chi_slice),dims_chi_slice,error,dspace_id_chi_slice,dspace_id_chi_qw)
+    call h5dclose_f(dset_id_chi_qw,error)
+  end do ! iwb
+
+  call h5gclose_f(grp_id_chi_qw,error)
+  call h5close_f(error)
+ 
+  write(*,*) 'chi_qw ',channel,' written to h5'
+end subroutine output_chi_qw_h5
+
 
 end module

@@ -21,31 +21,32 @@ program main
   integer(hid_t) :: iw_space_id, iwb_space_id, iwf_space_id, siw_space_id, giw_space_id, k_space_id, hk_space_id, dc_space_id
 
   character(len=20) :: grpname_magn, grpname_dens, name_buffer
-  character(len=30) :: name_buffer_dset
+  character(len=100) :: name_buffer_dset
   character(len=100) :: out_tmp,rank_str
   integer(hid_t) :: grp_magn_id, grp_dens_id, nmembers, itype, dset_magn_id, dset_dens_id
   integer(hsize_t), dimension(2) :: tmp_dims
 
   integer :: error, ierr
-  integer(hsize_t), dimension(1) :: iw_dims, iw_maxdims, iwb_dims, iwb_maxdims, iwf_dims, iwf_maxdims 
+  integer(hsize_t), dimension(1) :: iw_dims, iw_maxdims, iwb_dims, iwb_maxdims, iwf_dims, iwf_maxdims
   integer(hsize_t), dimension(3) :: siw_dims, siw_maxdims, giw_dims, giw_maxdims
   integer(hsize_t), dimension(3) :: hk_dims, hk_maxdims
   integer(hsize_t), dimension(2) :: k_dims, k_maxdims, dc_dims, dc_maxdims
   integer(hsize_t), dimension(0) :: mu_dims, beta_dims
-  
+
   double precision, allocatable :: iw_data(:), iwb_data(:), iwf_data(:)
-  double precision, allocatable :: siw_data(:,:,:,:), giw_data(:,:,:,:)  
+  double precision, allocatable :: siw_data(:,:,:,:), giw_data(:,:,:,:)
   complex(kind=8), allocatable :: siw(:,:)
   double precision, allocatable :: hk_data(:,:,:,:)
-  double precision, allocatable :: dc(:,:)
+  double precision, allocatable :: dc(:,:), dc_data(:,:)
   complex(kind=8), allocatable :: hk(:,:,:)
   complex(kind=8), allocatable :: u(:,:), u_tilde(:,:)
-  
+
   integer :: iw, ik, iq, ikq, iwf, iwb, iv, dum, dum1, ind_iwb, ind_grp, iwf1, iwf2
   integer :: i, j, k, l, n, i1, i2, i3, i4
+  integer :: dimstart, dimend
   integer :: imembers
   complex(kind=8), allocatable :: giw(:,:), gloc(:,:,:), gkiw(:,:)
-  complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:) 
+  complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:)
   double precision, allocatable :: tmp_r(:,:), tmp_i(:,:)
   complex(kind=8), allocatable :: chi0_loc(:,:,:), chi0_loc_inv(:,:,:), chi0(:,:), chi0_sum(:,:,:)
   complex(kind=8), allocatable :: chi_loc_slice_dens(:,:), sum_chi0_loc(:,:)
@@ -83,6 +84,11 @@ program main
   integer,allocatable :: rct(:),disp(:)
 #endif
 
+! variables for date-time string
+  character(20) :: date,time,zone
+  character(200) :: output_filename
+  integer,dimension(8) :: values
+
 
   ! read command line argument -> file name of config file
   if (iargc().eq.0 .or. iargc().gt.1) then
@@ -91,7 +97,6 @@ program main
   end if
 
   call read_config()
-  
 
 #ifdef MPI
   call MPI_init(ierr)
@@ -101,9 +106,20 @@ program main
   allocate(rct(mpi_wsize),disp(mpi_wsize))
 #endif
 
+! master id creates output folder if necessary
+if (mpi_wrank .eq. master) call system("mkdir -p "//trim(output_dir))
+
+if (mpi_wrank .eq. master) then
+  write(*,*) 
+  write(*,*) '/-----------------------------------------------------------\'
+  write(*,*) '|  Ab initio dynamical vertex approximation program (ADGA)  |'
+  write(*,*) '|  Running on ',mpi_wsize,' cores.                          |'
+  write(*,*) '\-----------------------------------------------------------/'
+  write(*,*) 
+end if
 
   !THE FOLLOWING PARAMETERS ARE READ FROM THE W2DYNAMICS OUTPUT-FILE:
-  !iwmax or iw_dims(1)/2    number of fermionic Matsubara frequencies for single particle quantities 
+  !iwmax or iw_dims(1)/2    number of fermionic Matsubara frequencies for single particle quantities
   !nkp or hk_dims(3)    number of k-points in H(k)
   !ndim or hk_dims(1(2)) total number of bands in H(k) (d+p)
   !ndims or siw_dims(3)   number of d-bands
@@ -133,19 +149,23 @@ program main
     close(21)
   end if
 
- 
-  
+
+  if (ndim .ne. sum(ndims)) then
+    write(*,*) 'Sum over bands of inequivalent atoms does not match Hamiltonian'
+    stop
+  endif
+
 !##################  READ W2DYNAMICS HDF5 OUTPUT FILE  #####################################
 
   call h5open_f(error)
   inull = 0
 
   call create_complex_datatype
-                      
+
   call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, error)
-  call h5fopen_f(filename_vertex_sym, h5f_acc_rdonly_f, file_vert_id, error) 
-  
-! read Matsubara frequencies iw (big range): 
+  call h5fopen_f(filename_vertex_sym, h5f_acc_rdonly_f, file_vert_id, error)
+
+! read Matsubara frequencies iw (big range):
   call h5dopen_f(file_id, ".axes/iw", iw_id, error)
   call h5dget_space_f(iw_id, iw_space_id, error)
   call h5sget_simple_extent_dims_f(iw_space_id, iw_dims, iw_maxdims, error)
@@ -157,97 +177,144 @@ program main
 ! read bosonic and fermionic Matsubara axes iwf-g4,iwb-g4:
   call read_axes(file_vert_id, iwb_data, iwf_data, iwb_space_id, iwf_space_id, iwb_dims, iwf_dims)
 
-  ! "Find" the zero 
+  ! "Find" the zero
   iwb_zero = 0
 
   if (small_freq_box .eqv. .false.) iwfmax_small = iwfmax
-  if (iwfmax_small .gt. iwfmax) then
+  if (iwfmax_small .gt. iwfmax .and. mpi_wrank.eq.master) then
      write(*,*) 'Error: Maximum number of fermionic frequencies =', iwfmax
   endif
-  write(*,*) 'iwfmax=', iwfmax, 'iwfmax_small=', iwfmax_small
-  write(*,*) 'iwmax=', iwmax
 
   if (small_freq_box .eqv. .false.) iwbmax_small = iwbmax
-  if (iwbmax_small .gt. iwbmax) then
+  if (iwbmax_small .gt. iwbmax .and. mpi_wrank.eq.master) then
      write(*,*) 'Error: Maximum number of bosonic frequencies =', iwbmax
   endif
-  write(*,*)'iwbmax=',iwbmax, 'iwbmax_small=', iwbmax_small
- 
+  if (mpi_wrank .eq. master) then
+    write(*,*) 'iwmax=', iwmax, ' (number of fermionic matsubara frequencies of one-particle quantities)'
+    write(*,*) 'iwfmax=', iwfmax, 'iwfmax_small=', iwfmax_small, ' (number of fermionic matsubara frequencies of two-particle quantities)'
+    write(*,*)'iwbmax=',iwbmax, 'iwbmax_small=', iwbmax_small, ' (number of bosonic matsubara frequencies of two-particle quantities)'
+  end if
 
-! read siw:
-  call h5dopen_f(file_id, "stat-001/ineq-001/siw/value", siw_id, error)
-  call h5dget_space_f(siw_id, siw_space_id, error)
-  call h5sget_simple_extent_dims_f(siw_space_id, siw_dims, siw_maxdims, error)
-  ndims = siw_dims(3)
-  allocate(siw_data(2,-iwmax:iwmax-1,siw_dims(2),siw_dims(3))) !indices: real/imag iw spin band
-  call h5dread_f(siw_id, compound_id, siw_data, siw_dims, error)
-  allocate(siw(-iwmax:iwmax-1,siw_dims(3)))
+! read in all inequivalent atoms
+  ! siw from DMFT contains all possible bands
+  ! siw at p (non-interacting bands) is set to 0
+  allocate(siw(-iwmax:iwmax-1,ndim))
+  siw=0.d0
 
-  !paramagnetic:
-  siw = 0.d0
-  siw(:,:) = siw_data(1,:,1,:)+siw_data(1,:,2,:)+ci*siw_data(2,:,1,:)+ci*siw_data(2,:,2,:)
-  siw = siw/2.d0
+  do ineq=1,nineq
+    dimstart=1
+    do i=2,ineq
+      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+    enddo
+    dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
 
-  call h5dclose_f(siw_id, error)
-  deallocate(siw_data)
+    write(name_buffer,'("ineq-",I3.3)') ineq
+    ! read siw:
+    ! local self energy - only for interacting orbitals == d
+    call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/siw/value", siw_id, error)
+    call h5dget_space_f(siw_id, siw_space_id, error)
+    call h5sget_simple_extent_dims_f(siw_space_id, siw_dims, siw_maxdims, error)
+    ! ndims = siw_dims(3)
+    allocate(siw_data(2,-iwmax:iwmax-1,siw_dims(2),siw_dims(3))) !indices: real/imag iw spin band
+    call h5dread_f(siw_id, compound_id, siw_data, siw_dims, error)
 
-  if (orb_sym) then
-     ! enforce orbital symmetry:
-     do iband=2,ndims
-        siw(:,1) = siw(:,1)+siw(:,iband)
-     enddo
+    !paramagnetic (spin average):
+    do i=dimstart,dimend
+      siw(:,i) = siw_data(1,:,1,i-dimstart+1)+siw_data(1,:,2,i-dimstart+1)+ci*siw_data(2,:,1,i-dimstart+1)+ci*siw_data(2,:,2,i-dimstart+1)
+      siw(:,i) = siw(:,i)/2.d0
+    enddo
 
-     do iband=1,ndims
-        siw(:,iband) = siw(:,1)
-     enddo
-     siw = siw/dble(ndims)
-  endif
+    call h5dclose_f(siw_id, error)
+    deallocate(siw_data)
+
+    if (orb_sym) then
+       ! enforce orbital symmetry:
+       do iband=dimstart+1,dimend
+          siw(:,dimstart) = siw(:,dimstart)+siw(:,iband)
+       enddo
+       siw(:,dimstart)=siw(:,dimstart)/dble(dimend-dimstart+1)
+       do iband=dimstart+1,dimend
+          siw(:,iband) = siw(:,dimstart)
+       enddo
+    endif
+  enddo ! loop over inequivalent atoms
 
   ! test siw:
   open(34, file=trim(output_dir)//"siw.dat", status='unknown')
-  do iw=-iwmax,iwmax-1   
-     write(34,'(100F12.6)')iw_data(iw), (real(siw(iw,i)),aimag(siw(iw,i)), i=1,ndims)
+  do iw=-iwmax,iwmax-1
+     write(34,'(100F12.6)')iw_data(iw), (real(siw(iw,i)),aimag(siw(iw,i)), i=1,ndim)
   enddo
   close(34)
 
 
-  ! read giw:
-  call h5dopen_f(file_id, "stat-001/ineq-001/giw/value", giw_id, error)
-  call h5dget_space_f(giw_id, giw_space_id, error)
-  call h5sget_simple_extent_dims_f(giw_space_id, giw_dims, giw_maxdims, error)
-  allocate(giw_data(2,-iwmax:iwmax-1,giw_dims(2),giw_dims(3))) !indices: real/imag iw spin band
-  call h5dread_f(giw_id, compound_id, giw_data, giw_dims, error)
-  allocate(giw(-iwmax:iwmax-1,giw_dims(3)))
+! read in all inequivalent atoms
+  allocate(giw(-iwmax:iwmax-1,ndim))
+  giw=0.d0
 
-  !paramagnetic:
-  giw = 0.d0
-  giw(:,:) = giw_data(1,:,1,:)+giw_data(1,:,2,:)+ci*giw_data(2,:,1,:)+ci*giw_data(2,:,2,:)
-  giw = giw/2.d0
+  do ineq=1,nineq
+    dimstart=1
+    do i=2,ineq
+      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+    enddo
+    dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1 ! here we are only interested in the interacting orbitals
 
-  call h5dclose_f(giw_id, error)
-  deallocate(giw_data)
-  
-  if (orb_sym) then
-  ! enforce orbital symmetry:
-     do iband=2,ndims
-        giw(:,1) = giw(:,1)+giw(:,iband)
-     enddo
+    write(name_buffer,'("ineq-",I3.3)') ineq
+    !read giw
+    call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/giw/value", giw_id, error)
+    call h5dget_space_f(giw_id, giw_space_id, error)
+    call h5sget_simple_extent_dims_f(giw_space_id, giw_dims, giw_maxdims, error)
+    allocate(giw_data(2,-iwmax:iwmax-1,giw_dims(2),giw_dims(3))) !indices: real/imag iw spin band
+    call h5dread_f(giw_id, compound_id, giw_data, giw_dims, error)
 
-     do iband=1,ndims
-        giw(:,iband) = giw(:,1)
-     enddo
-     giw = giw/dble(ndims)
-  endif 
+    !paramagnetic:
+    do i=dimstart,dimend
+      giw(:,i) = giw_data(1,:,1,i-dimstart+1)+giw_data(1,:,2,i-dimstart+1)+ci*giw_data(2,:,1,i-dimstart+1)+ci*giw_data(2,:,2,i-dimstart+1)
+      giw(:,i) = giw(:,i)/2.d0
+    enddo
 
-! test giw:
+    call h5dclose_f(giw_id, error)
+    deallocate(giw_data)
+
+    if (mpi_wrank .eq. master) then
+      write(*,*) 'orb_symmetry = ', orb_sym
+    end if
+
+    if (orb_sym) then
+    ! enforce orbital symmetry:
+        ! here we need to enforce symmetry over one type of band specifically
+        dimstart=1
+        do i=2,ineq
+          dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+        enddo
+
+        do i=1,2 ! d and p bands
+          if (ndims(ineq,i) .eq. 0) cycle ! do nothing
+          if (i .eq. 1) then
+            dimend = dimstart+ndims(ineq,1)-1
+          endif
+          if (i .eq. 2) then
+            dimend = dimstart+ndims(ineq,1)+ndims(ineq,2)-1
+            dimstart = dimend-ndims(ineq,2)+1
+          endif
+
+          do iband=dimstart+1,dimend
+            giw(:,dimstart) = giw(:,dimstart)+giw(:,iband)
+          enddo
+          giw(:,dimstart)=giw(:,dimstart)/dble(dimend-dimstart+1)
+          do iband=dimstart+1,dimend
+            giw(:,iband) = giw(:,dimstart)
+          enddo
+        enddo
+    endif
+
+  enddo ! inequivalent atom loop
+
+  ! test giw:
   open(54, file=trim(output_dir)//"giw.dat", status='unknown')
   do iw=-iwmax,iwmax-1
-     write(54,'(100F12.6)')iw_data(iw), (real(giw(iw,1)),aimag(giw(iw,1)),i=1,ndims)
+     write(54,'(100F12.6)')iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
   enddo
   close(54)
-
-  write(*,*) 'ok' 
-  
 
   if(.not. read_ext_hk) then
     ! read k-points:
@@ -259,7 +326,7 @@ program main
     call h5dread_f(k_id, h5t_native_double, k_data, k_dims, error)
     call h5dclose_f(k_id, error)
   end if
-  write(*,*) nkp,'k points'
+
 ! write k-points:
   open(37, file=trim(output_dir)//'k_points.dat', status='unknown')
   do ik=1,100
@@ -293,6 +360,17 @@ program main
   end if
 
   call init()
+  if (.not. do_vq .and. mpi_wrank .eq. master) then
+    write(*,*) 'Main: Run without V(q)'
+  end if
+
+  if (mpi_wrank .eq. master) then
+    ! generate a date-time string for output file name
+    call date_and_time(date,time,zone,values)
+    output_filename=trim(output_dir)//'adga-'//trim(date)//'-'//trim(time)//'-output.hdf5'
+    write(*,*) 'writing output to ',output_filename
+    call init_h5_output(output_filename)
+  end if
 
 ! read chemical potential:
   call h5dopen_f(file_id, "stat-001/mu/value", mu_id, error)
@@ -300,15 +378,30 @@ program main
   call h5dclose_f(mu_id, error)
 
 ! read double counting:
-!  call h5dopen_f(file_id, "stat-001/ineq-001/dc/value", dc_id, error)
-!  call h5dget_space_f(dc_id, dc_space_id, error)
-!  call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
-!  allocate(dc(dc_dims(1),dc_dims(2))) !indices: spin band
-!  call h5dread_f(dc_id, h5t_native_double, dc, dc_dims, error)
-!  call h5dclose_f(dc_id, error)
+  allocate(dc(2,ndim)) ! indices: spin band
+  ! dc for noninteracting bands set to 0
+  dc = 0.d0
 
-  allocate(dc(2,ndim))
-  dc=0.d0
+!  do ineq=1,nineq
+!    dimstart=1
+!    do i=2,ineq
+!      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+!    enddo
+!    dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
+!    write(name_buffer,'("ineq-",I3.3)') ineq
+!    call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/dc/value", dc_id, error)
+!    call h5dget_space_f(dc_id, dc_space_id, error)
+!    call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
+!    allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
+!    call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, error)
+!    call h5dclose_f(dc_id, error)
+!
+!    do iband=dimstart,dimend
+!      dc(:,iband) = dc_data(:,iband-dimstart+1)
+!    enddo
+!    deallocate(dc_data)
+!  enddo
+
 
 ! read inverse temperature beta:
   call h5gopen_f(file_id, ".config", config_id, error)
@@ -316,16 +409,17 @@ program main
   call h5aread_f(beta_id, h5t_native_double, beta, beta_dims, error)
   call h5aclose_f(beta_id, error)
   call h5gclose_f(config_id,error)
- 
+
   call h5fclose_f(file_vert_id, error)
   call h5fclose_f(file_id, error)
-  
+
   call h5close_f(error)
 
-  write(*,*) 'beta=', beta
-  write(*,*) 'mu=', mu
-  write(*,*) 'dc=', dc
-
+  if (mpi_wrank .eq. master) then
+    write(*,*) 'beta=', beta
+    write(*,*) 'mu=', mu
+    write(*,*) 'dc=', dc
+  end if
   !read umatrix from separate file:
   allocate(u(ndim**2,ndim**2), u_tilde(ndim**2,ndim**2))
   call read_u(u,u_tilde)
@@ -334,30 +428,29 @@ program main
 !################################################################################################
 
 ! compute local single-particle Greens function:
-!  allocate(giw(-iwmax:iwmax-1),ndim) 
-!  call get_giw(iw_data, hk, siw, dc, giw)
- 
+! allocate(giw(-iwmax:iwmax-1,ndim))
+  call get_giw(iw_data, hk, siw, dc, giw)
+
 ! test giw:
-!  open(35, file=trim(output_dir)//"giw_calc.dat", status='unknown')
-!  do iw=-iwmax,iwmax-1
-!     write(35,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,1)
-!  enddo
-!  close(35)
+   open(35, file=trim(output_dir)//"giw_calc.dat", status='unknown')
+   do iw=-iwmax,iwmax-1
+      write(35,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
+   enddo
+   close(35)
 
   !compute DMFT filling n_dmft
-  allocate(gloc(-iwmax:iwmax-1,ndim,ndim), gkiw(ndims,ndims))
-  allocate(giw_sum(ndims), n_dmft(ndims), n_fock(nkp,ndims,ndims), n_dga(ndims))
+  allocate(gloc(-iwmax:iwmax-1,ndim,ndim), gkiw(ndim,ndim))
+  allocate(giw_sum(ndim), n_dmft(ndim), n_fock(nkp,ndim,ndim), n_dga(ndim))
   giw_sum = 0.d0
   n_dmft = 0.d0
   do iw=0,iwmax-1
       giw_sum(:) = giw_sum(:)+giw(iw,:)
   enddo
 
-  write(*,*) beta
   n_dmft = 0.d0
   n_dmft(:) = 2.d0*real(giw_sum(:))/beta+0.5d0
   open(56, file=trim(output_dir)//"n_dmft.dat", status='unknown')
-  write(56,'(100F12.6)') (real(n_dmft(i)),i=1,ndims)
+  write(56,'(100F12.6)') (real(n_dmft(i)),i=1,ndim)
 
   !compute k-dependent filling for Fock-term (computed in the EOM):
   n_fock = 0.d0
@@ -369,21 +462,21 @@ program main
         n_fock(ik,:,:) = n_fock(ik,:,:)+real(gkiw(:,:))
      enddo
      n_fock = 2.d0*n_fock/beta
-     do i=1,ndims
+     do i=1,ndim
         n_fock(ik,i,i) = n_fock(ik,i,i)+0.5d0
      enddo
-     write(110,'(100F12.6)') k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_fock(ik,i,i)),i=1,ndims)
+     write(110,'(100F12.6)') k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_fock(ik,i,i)),i=1,ndim)
   enddo  
 
 
-  allocate(chi0_loc(ndim2,ndim2,iwstart:iwstop)) 
-  allocate(chi0_sum(ndim2,ndim2,iwstart:iwstop)) 
+  allocate(chi0_loc(ndim2,ndim2,iwstart:iwstop))
+  allocate(chi0_sum(ndim2,ndim2,iwstart:iwstop))
 
   allocate(chi0_loc_inv(ndim2,ndim2,-iwfmax:iwfmax-1))
-  
+
   allocate(interm1(ndim2,ndim2))
   allocate(interm1_v(ndim2,ndim2))
-  
+
   allocate(gamma_dmft_dens(ndim2,maxdim), gamma_dmft_magn(ndim2,maxdim))
   allocate(chi_loc_dens_sum_left(ndim2,maxdim))
   allocate(chi_loc_magn_sum_left(ndim2,maxdim))
@@ -407,7 +500,7 @@ program main
     allocate(q_data(nqp))
     call generate_q_path(nqp1,q_data)
     write(*,*) 'q path with',n_segments(),'segments and',nqp,'points.'
-  else 
+  else
     if (q_path_susc .and. q_vol) then
       write(*,*) 'Warning: q_path_susc .and. q_vol currently has the same effect as only q_vol.'
     end if
@@ -417,7 +510,7 @@ program main
   end if
 
 
-  if (mpi_wrank .eq. 1) then
+  if (mpi_wrank .eq. master) then
     write(*,*) nkp1,'k points in one direction'
     write(*,*) nkp,'k points total'
     write(*,*) nqp1,'k points in one direction'
@@ -442,20 +535,24 @@ program main
 !    write(*,*) 'only (q_vol) and (.not. do_eom .and. q_path) are implemented yet.'
 !    stop
 !  end if
-  
+
   !search for k+q - index:
   call cpu_time(start)
   allocate(kq_ind(nkp,nqp))
 !  call index_kq_search(k_data, q_data, kq_ind) ! old method, assumes cubic case
   call index_kq(kq_ind) ! new method
   call cpu_time(finish)
-  write(*,*)'finding k-q index:', finish-start
+  if (mpi_wrank .eq. master) then
+    write(*,*)'finding k-q index:', finish-start
+  end if
 !##################### parallel code ##################################################
 
-  write(*,*)'nqp=', nqp !test
-  write(*,*) maxval(kq_ind)
+  if (mpi_wrank .eq. master) then
+    write(*,*)'nqp=', nqp !test
+    write(*,*) maxval(kq_ind)
+  end if
 
- 
+
 !define qw compound index for mpi:
   allocate(qw(2,nqp*(2*iwbmax+1)))
   i1=0
@@ -490,7 +587,7 @@ program main
     write(*,*) 'receive ct',rct
     write(*,*) 'displacing',disp
   end if
-#else 
+#else
   qwstart = 1
   qwstop = nqp*(2*iwbmax_small+1)
 #endif
@@ -523,7 +620,7 @@ if (do_eom) then
 end if
 
 
-if (mpi_wrank.eq.0) then 
+if (mpi_wrank.eq.0) then
   open(unit=256,file=trim(output_dir)//'kdata',status='replace')
   do ik=1,nkp
     write(256,*) k_data(:,ik)
@@ -544,7 +641,7 @@ end if
      iq = qw(2,iqw)
      iwb = qw(1,iqw)
      write(*,*) iq, iwb !TEST
-  
+
      !read nonlocal interaction v and go into compound index:
      if(do_vq) then
         call read_vq(iq,v)
@@ -552,10 +649,10 @@ end if
      else
         v = 0.d0
      endif
-    
+
      !update chi_loc only if iwb is different than the previous one:
-     if(update_chi_loc_flag) then    
-        
+     if(update_chi_loc_flag) then
+
         chi0_loc=0.d0
         ! compute local bubble chi0_loc^{-1}(i1,i2)(orbital compound index i1,i2):
         do iwf=-iwfmax,iwfmax-1
@@ -566,63 +663,73 @@ end if
              call get_chi0_loc(  iwf, iwb, giw, chi0_loc(:,:,iwf))
            enddo
         end if
-       
+
 !        if (do_chi .and. update_chi_loc_flag) then
 
         !get iwb-slice of w2dynamics vertex:
-        allocate(g4iw_magn(ndims, ndims, -iwfmax:iwfmax-1, ndims, ndims, -iwfmax:iwfmax-1))
-        allocate(g4iw_dens(ndims, ndims, -iwfmax:iwfmax-1, ndims, ndims, -iwfmax:iwfmax-1))
+        allocate(g4iw_magn(ndim, ndim, -iwfmax:iwfmax-1, ndim, ndim, -iwfmax:iwfmax-1))
+        allocate(g4iw_dens(ndim, ndim, -iwfmax:iwfmax-1, ndim, ndim, -iwfmax:iwfmax-1))
         allocate(tmp_r(-iwfmax:iwfmax-1, -iwfmax:iwfmax-1))
         allocate(tmp_i(-iwfmax:iwfmax-1, -iwfmax:iwfmax-1))
         tmp_dims = (/2*iwfmax, 2*iwfmax/)
-        
+
         g4iw_magn = 0.d0
         g4iw_dens = 0.d0
- 
+
         ind_iwb = iwb+iwbmax
-        write(grpname_magn, '(A5,(I5.5),A1,(I5.5))'), "magn/", ind_iwb
-        write(grpname_dens, '(A5,(I5.5),A1,(I5.5))'), "dens/", ind_iwb
+
+        do ineq=1,nineq
+          write(grpname_magn, '("ineq-",I3.3,"/magn/",(I5.5))'), ineq, ind_iwb
+          write(grpname_dens, '("ineq-",I3.3,"/dens/",(I5.5))'), ineq, ind_iwb
+
+          dimstart=1
+          do i=2,ineq
+            dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+          enddo
+          dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1
+
+          call h5fopen_f(filename_vertex_sym, h5f_acc_rdonly_f, file_vert_id, error)
+          call h5gopen_f(file_vert_id, grpname_magn, grp_magn_id, error)
+          call h5gopen_f(file_vert_id, grpname_dens, grp_dens_id, error)
+
+          call h5gn_members_f(file_vert_id, grpname_magn, nmembers, error)
+
+          do imembers=0,nmembers-1
+
+             call h5gget_obj_info_idx_f(file_vert_id, grpname_magn, imembers, name_buffer, itype, error)
+             read(name_buffer,'(I5.5)')ind_grp
+
+             call index2component_band(dimend-dimstart+1, ind_grp, b1, b2, b3, b4)
+
+             write(name_buffer_dset, '("ineq-",I3.3,"/magn/",(I5.5),"/",(I5.5),"/value")') ineq, ind_iwb, ind_grp
+             call h5dopen_f(file_vert_id, name_buffer_dset, dset_magn_id, error)
+             call h5dread_f(dset_magn_id, type_r_id, tmp_r, tmp_dims, error)
+             call h5dread_f(dset_magn_id, type_i_id, tmp_i, tmp_dims, error)
+
+             g4iw_magn(dimstart+b1-1,dimstart+b2-1,:,dimstart+b3-1,dimstart+b4-1,:) = (tmp_r(:,:)+ci*tmp_i(:,:))*beta
+
+             call h5dclose_f(dset_magn_id, error)
+
+             write(name_buffer_dset, '("ineq-",I3.3,"/dens/",(I5.5),"/",(I5.5),"/value")') ineq, ind_iwb, ind_grp
+             call h5dopen_f(file_vert_id, name_buffer_dset, dset_dens_id, error)
+             call h5dread_f(dset_dens_id, type_r_id, tmp_r, tmp_dims, error)
+             call h5dread_f(dset_dens_id, type_i_id, tmp_i, tmp_dims, error)
+
+             g4iw_dens(dimstart+b1-1,dimstart+b2-1,:,dimstart+b3-1,dimstart+b4-1,:) = (tmp_r(:,:)+ci*tmp_i(:,:))*beta
+
+             call h5dclose_f(dset_dens_id, error)
 
 
-        call h5fopen_f(filename_vertex_sym, h5f_acc_rdonly_f, file_vert_id, error)
-        call h5gopen_f(file_vert_id, grpname_magn, grp_magn_id, error) 
-        call h5gopen_f(file_vert_id, grpname_dens, grp_dens_id, error)
+          enddo
 
-        call h5gn_members_f(file_vert_id, grpname_magn, nmembers, error)
-        
-        do imembers=0,nmembers-1
-           
-           call h5gget_obj_info_idx_f(file_vert_id, grpname_magn, imembers, name_buffer, itype, error)
-           read(name_buffer,'(I5.5)')ind_grp
-           
-           call index2component_band(ndims, ind_grp, b1, b2, b3, b4)
-           
-           write(name_buffer_dset, '(A5,(I5.5),A1,(I5.5),A6)')"magn/", ind_iwb, "/", ind_grp, "/value"
-           call h5dopen_f(file_vert_id, name_buffer_dset, dset_magn_id, error)
-           call h5dread_f(dset_magn_id, type_r_id, tmp_r, tmp_dims, error)
-           call h5dread_f(dset_magn_id, type_i_id, tmp_i, tmp_dims, error)
+          call h5gclose_f(grp_dens_id, error)
+          call h5gclose_f(grp_magn_id, error)
+          call h5fclose_f(file_vert_id, error)
 
-           g4iw_magn(b1,b2,:,b3,b4,:) = (tmp_r(:,:)+ci*tmp_i(:,:))*beta
+        enddo ! loop for inequivalent atoms
 
-           call h5dclose_f(dset_magn_id, error)
+        write(*,*) "Reading Vertex complete"
 
-           write(name_buffer_dset, '(A5,(I5.5),A1,(I5.5),A6)')"dens/", ind_iwb, "/", ind_grp, "/value"
-           call h5dopen_f(file_vert_id, name_buffer_dset, dset_dens_id, error)
-           call h5dread_f(dset_dens_id, type_r_id, tmp_r, tmp_dims, error)
-           call h5dread_f(dset_dens_id, type_i_id, tmp_i, tmp_dims, error)
-
-           g4iw_dens(b1,b2,:,b3,b4,:) = (tmp_r(:,:)+ci*tmp_i(:,:))*beta
-           
-           call h5dclose_f(dset_dens_id, error)
-           
-           
-        enddo
-
-        call h5gclose_f(grp_dens_id, error)
-        call h5gclose_f(grp_magn_id, error)
-        call h5fclose_f(file_vert_id, error)
-
-     
         !compute chi_loc (go into compound index and subtract straight term):
         chi_loc_magn_full = 0.d0
         chi_loc_dens_full = 0.d0
@@ -646,15 +753,15 @@ end if
                             !full 2-particle GF:
                             !straight term G(\nu)G(\nu') is subtracted (twice) only in the dens channel and only for iw=0:
                             if((iwb .eq. iwb_zero) .and. i==j .and. k==l)then
-                               chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l) 
+                               chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l)
                             endif
 
                           else if (vertex_type .eq. connected_g4) then
-                            !G_conn: 
+                            !G_conn:
                             !bubble term -G(\nu)G(\nu-\omega) is added in both channels
                             if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
-                               chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j) 
-                               chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j) 
+                               chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
+                               chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
                             endif
                           end if
 
@@ -666,7 +773,7 @@ end if
         enddo
 
         deallocate(g4iw_magn, g4iw_dens, tmp_r, tmp_i)
-       
+
         !time reversal symmetry (which is simply a transpose in our compound index)
         do i1=1,maxdim
            do i2=i1+1,maxdim
@@ -701,8 +808,8 @@ end if
               chi_loc_dens_sum_left(i1,:) = chi_loc_dens_sum_left(i1,:)+chi_loc_dens_full(i1+dum*ndim2,:)
            enddo
         enddo
-        
-       
+
+
         gamma_dmft_dens = 0.d0
         gamma_dmft_magn = 0.d0
 
@@ -717,11 +824,11 @@ end if
               gamma_dmft_magn(i1,i1+dum*ndim2) = chi_loc_magn_sum_left(i1,i1+dum*ndim2)-1.d0
            enddo
         enddo
-      
+
      endif !update local quantities
 
      dum1 = 0 !index for second matrix multiplication to get interm2
-     
+
      allocate(interm2_dens(maxdim,maxdim))
      allocate(interm2_magn(maxdim,maxdim))
      allocate(gamma_loc(maxdim,maxdim))
@@ -730,12 +837,12 @@ end if
      interm2_magn = 0.d0
      gamma_loc = 0.d0
      chi0_sum=0.d0
-     
+
      do iwf=iwstart,iwstop
         ! compute k-summed (but still q-dependent) bubble chi0(i1,i2):
         do ik=1,nkp
            ikq = kq_ind(ik,iq) !Index of G(k+q)
-           call get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0(:,:)) 
+           call get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0(:,:))
            chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)+chi0(:,:)
         enddo
         chi0_sum(:,:,iwf) = chi0_sum(:,:,iwf)/dble(nkp)
@@ -750,7 +857,7 @@ end if
               interm1(i,j) = chi0_sum(i,j,iwf)*chi0_loc_inv(j,j,iwf) !remove one index for chi0_loc_inv
           enddo
         enddo
-        
+
         ! compute part containing nonlocal interaction v: chi0*v
         ! do it with matrix multiplication routine?
         interm1_v = 0.d0
@@ -762,39 +869,39 @@ end if
               enddo
            enddo
         enddo
-                    
+
         interm1_v = interm1_v/(beta**2)
 
         !get horizontal slice of chi_loc for matmul (interm2):
         chi_loc_slice_magn(:,:) = chi_loc_magn_full((dum1*ndim2)+1 : (dum1+1)*ndim2, :)
         chi_loc_slice_dens(:,:) = chi_loc_dens_full((dum1*ndim2)+1 : (dum1+1)*ndim2, :)
-        
+
 
         ! compute intermediate quantity (chi0*chi0_loc_inv)*chi_loc:
         c_interm = 0.d0
         alpha = 1.d0
         delta = 0.d0
         call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, interm1, ndim2, chi_loc_slice_dens, ndim2, delta, c_interm, ndim2)
-             
+
         do i=1,ndim2
            do j=1,maxdim
               interm2_dens(i+(dum1*ndim2),j) = c_interm(i,j)
            enddo
         enddo
-        
+
         !same for the magn channel:
         c_interm = 0.d0
         alpha = 1.d0
         delta = 0.d0
         call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, interm1, ndim2, chi_loc_slice_magn, ndim2, delta, c_interm, ndim2)
-             
+
         do i=1,ndim2
            do j=1,maxdim
               interm2_magn(i+(dum1*ndim2),j) = c_interm(i,j)
            enddo
         enddo
-            
-             
+
+
         ! subtract interm1(diagonal in iwf) from interm2:
         do i=1,ndim2
            do j=1,ndim2
@@ -803,7 +910,7 @@ end if
            enddo
         enddo
 
-        !store interm2 here since this quantity will be used in the EOM 
+        !store interm2 here since this quantity will be used in the EOM
         do i=1,ndim2
            do j=1,maxdim
               gamma_loc(i+(dum1*ndim2),j) = interm2_dens(i+(dum1*ndim2),j)
@@ -816,7 +923,7 @@ end if
         alpha = 1.d0
         delta = 0.d0
         call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, interm1_v, ndim2, chi_loc_dens_sum_left, ndim2, delta, c_interm, ndim2)
-             
+
         ! add it to interm2:
         do i=1,ndim2
            do j=1,maxdim
@@ -829,17 +936,17 @@ end if
 !        alpha = 1.d0
 !        delta = 0.d0
 !        call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, interm1_v, ndim2, chi_loc_magn_sum_left, ndim2, delta, c_interm, ndim2)
-!             
+!
 !        do i=1,ndim2
 !           do j=1,maxdim
 !              interm2_magn(i+(dum1*ndim2),j) = interm2_magn(i+(dum1*ndim2),j)+c_interm(i,j)
 !           enddo
 !        enddo
-        
-                    
+
+
         dum1 = dum1+1
      enddo !iwf
-     
+
      deallocate(chi0)
 
      !sum up left iwf-index of interm2_dens and store the quantity (is afterwards directly used in the EOM):
@@ -857,8 +964,8 @@ end if
      !construct quantity that is inverted right afterwards:
      interm2_dens = chi_loc_dens_full-interm2_dens
      interm2_magn = chi_loc_magn_full-interm2_magn
-    
- 
+
+
      call inverse_matrix(interm2_dens)
      call inverse_matrix(interm2_magn)
 
@@ -909,12 +1016,12 @@ end if
 
 !  close(267)
 
-  deallocate(interm3_dens,interm3_magn) 
+  deallocate(interm3_dens,interm3_magn)
   deallocate(giw,u,u_tilde,chi0_loc,chi0_loc_inv,chi0_sum,interm1,interm1_v,gamma_dmft_dens,gamma_dmft_magn)
   deallocate(chi_loc_dens_sum_left,chi_loc_magn_sum_left)
   deallocate(chi_loc_magn_full,chi_loc_dens_full,gamma_loc_sum_left,v,c_interm)
   deallocate(chi_loc_slice_dens,chi_loc_slice_magn)
-  
+
 #ifdef MPI
   ! MPI reduction and output
   write(*,*)'nkp=', nkp
@@ -942,41 +1049,43 @@ end if
        call MPI_reduce(MPI_IN_PLACE,chi_loc_dens,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
        call MPI_reduce(MPI_IN_PLACE,chi_loc_magn,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
        call MPI_reduce(MPI_IN_PLACE,bubble_loc,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-    else 
+    else
        call MPI_reduce(chi_loc_dens,chi_loc_dens,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
        call MPI_reduce(chi_loc_magn,chi_loc_magn,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
        call MPI_reduce(bubble_loc,bubble_loc,ndim2*ndim2*(2*iwbmax_small+1),MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
        deallocate(chi_loc_dens,chi_loc_magn,bubble_loc)
     end if
     allocate(chi_qw_full(1,1,1))
-    if (mpi_wrank .eq. master) then 
+    if (mpi_wrank .eq. master) then
       deallocate(chi_qw_full)
-      allocate(chi_qw_full(ndim2,ndim2,nqp*(2*iwbmax+1))) 
+      allocate(chi_qw_full(ndim2,ndim2,nqp*(2*iwbmax+1)))
     end if
     chi_qw_full=0.d0
 
     call MPI_gatherv(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(chi_qw_dens)
-    if (mpi_wrank .eq. master) then 
+    if (mpi_wrank .eq. master) then
       call output_chi_qw(chi_qw_full,iwb_data,qw,'chi_qw_dens.dat')
+      call output_chi_qw_h5(output_filename,'dens',chi_qw_full)
     end if
 
     call MPI_gatherv(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(chi_qw_magn)
-    if (mpi_wrank .eq. master) then 
+    if (mpi_wrank .eq. master) then
       call output_chi_qw(chi_qw_full,iwb_data,qw,'chi_qw_magn.dat')
+      call output_chi_qw_h5(output_filename,'magn',chi_qw_full)
     end if
 
     call MPI_gatherv(bubble,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,     MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(bubble)
-    if (mpi_wrank .eq. master) then 
+    if (mpi_wrank .eq. master) then
       call output_chi_qw(chi_qw_full,iwb_data,qw,'bubble.dat')
+      call output_chi_qw_h5(output_filename,'bubble',chi_qw_full)
     end if
 
     deallocate(chi_qw_full)
   end if
-  
-  call MPI_finalize(ierr)
+
 
 ! Output
   if (mpi_wrank .eq. master) then
@@ -984,12 +1093,18 @@ end if
         call output_chi_loc(chi_loc_dens,iwb_data,'chi_loc_dens.dat')
         call output_chi_loc(chi_loc_magn,iwb_data,'chi_loc_magn.dat')
         call output_chi_loc(bubble_loc,iwb_data,'bubble_loc.dat')
+        call output_chi_loc_h5(output_filename,'dens',chi_loc_dens)
+        call output_chi_loc_h5(output_filename,'magn',chi_loc_magn)
+        call output_chi_loc_h5(output_filename,'bubble',bubble_loc)
         deallocate(chi_loc_dens,chi_loc_magn,bubble_loc)
      end if
   endif
-  
+
+  call MPI_finalize(ierr)
+
 #endif
 deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,qw)
+write(*,*) 'end of program'
 end program main
 
 
@@ -1016,7 +1131,7 @@ subroutine index2component_band(Nbands, ind, b1, b2, b3, b4)
   integer :: g1,g2,g3,g4
 
   ! the proposed back conversion assumes the indices are
-  ! given form 0 to max-1  
+  ! given form 0 to max-1
   ind_tmp = ind - 1
   tmp1 = Nbands**3
   tmp2 = Nbands**2

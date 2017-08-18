@@ -12,7 +12,7 @@ subroutine get_giw(iw_data, hk, siw, dc, giw)
  
   double precision :: iw_data(-iwmax:iwmax-1)
   complex(kind=8) :: hk(ndim,ndim,nkp)
-  complex(kind=8) :: siw(-iwmax:iwmax-1,ndims)
+  complex(kind=8) :: siw(-iwmax:iwmax-1,ndim)
   double precision :: dc(2,ndim)
   integer :: ik, iw, i
   complex(kind=8) :: g(ndim,ndim), g2(ndim,ndim)
@@ -25,7 +25,7 @@ subroutine get_giw(iw_data, hk, siw, dc, giw)
         do i=1,ndim
            g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)
         enddo
-        do i=1,ndims
+        do i=1,ndim
            g(i,i) = g(i,i)-siw(iw,i) !no spin dependence in single particle Greens function
         enddo
         g2 = g(:,:)
@@ -56,7 +56,7 @@ subroutine get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
   integer :: iwf, iwb, ikq
   double precision :: iw_data(-iwmax:iwmax-1)
   complex(kind=8) :: hk(ndim,ndim,nkp)
-  complex(kind=8) :: siw(-iwmax:iwmax-1,ndims)
+  complex(kind=8) :: siw(-iwmax:iwmax-1,ndim)
   double precision :: dc(2,ndim)
   complex(kind=8), intent(out) :: gkiw(ndim,ndim)
 
@@ -65,7 +65,7 @@ subroutine get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
   do i=1,ndim
      gkiw(i,i) = ci*iw_data(iwf-iwb)+mu-hk(i,i,ikq)-dc(1,i)
   enddo
-  do i=1,ndims
+  do i=1,ndim
   gkiw(i,i) = gkiw(i,i)-siw(iwf-iwb,i) 
   enddo
   call inverse_matrix(gkiw)
@@ -81,7 +81,7 @@ subroutine get_gloc(iw_data, hk, siw, sigma_sum, dc, gloc)
 
   double precision :: iw_data(-iwmax:iwmax-1)
   complex(kind=8) :: hk(ndim,ndim,nkp)
-  complex(kind=8) :: siw(-iwmax:iwmax-1,ndims)
+  complex(kind=8) :: siw(-iwmax:iwmax-1,ndim)
   complex(kind=8) :: sigma_sum(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
   double precision :: dc(2,ndim)
   integer :: ik, iw, i
@@ -95,7 +95,7 @@ subroutine get_gloc(iw_data, hk, siw, sigma_sum, dc, gloc)
         do i=1,ndim
            g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)
         enddo
-        do i=1,ndims
+        do i=1,ndim
            g(i,i) = g(i,i)-sigma_sum(i,i,iw,ik)
         enddo
         g2 = g(:,:)
@@ -107,7 +107,7 @@ subroutine get_gloc(iw_data, hk, siw, sigma_sum, dc, gloc)
         do i=1,ndim
            g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)
         enddo
-        do i=1,ndims
+        do i=1,ndim
            g(i,i) = g(i,i)-siw(iw,i)
         enddo
         g2 = g(:,:)
@@ -191,7 +191,7 @@ subroutine get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
   complex(kind=8) :: g1(ndim,ndim), g2(ndim,ndim)
   double precision :: iw_data(-iwmax:iwmax-1)
   complex(kind=8) :: hk(ndim,ndim,nkp)
-  complex(kind=8) :: siw(-iwmax:iwmax-1,ndims)
+  complex(kind=8) :: siw(-iwmax:iwmax-1,ndim)
   double precision :: dc(2,ndim)
   complex(kind=8), intent(out) :: chi0(ndim*ndim,ndim*ndim)
 
@@ -199,7 +199,7 @@ subroutine get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
   do i=1,ndim
      g1(i,i) = ci*iw_data(iwf)+mu-hk(i,i,ik)-dc(1,i)
   enddo
-  do i=1,ndims
+  do i=1,ndim
   g1(i,i) = g1(i,i)-siw(iwf,i) 
   enddo
 
@@ -218,7 +218,7 @@ subroutine get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
   do i=1,ndim
      g2(i,i) = ci*iw_data(iwf-iwb)+mu-hk(i,i,ikq)-dc(1,i)
   enddo
-  do i=1,ndims
+  do i=1,ndim
   g2(i,i) = g2(i,i)-siw(iwf-iwb,i) 
   enddo
 

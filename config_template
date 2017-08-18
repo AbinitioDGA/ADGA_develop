@@ -1,20 +1,20 @@
-# Abinitio_DGA config file. 
+# Abinitio_DGA config file.
 # Never change lines or order! Only change values!
 
-# file name for one-particle data
-/home/lv70693/gallerTEST/abinitioDGA/SVO/beta10/vertex_asymptotics/reproduce_dmft/SVO-VERTEX-2016-07-14-Thu-07-24-43.hdf5
+# Decide, whether to calculate susceptibilities (1) and/or the equation of motion (2). (0==.false., 1==.true.)
+0 1
 
-# file name for two-particle data
-/home/lv70693/gallerTEST/abinitioDGA/SVO/beta10/vertex_asymptotics/reproduce_dmft/g4iw_asymp_60.hdf5
+# number of inequivalent atoms
+1
 
-# file name of umatrix
-/home/lv70693/gallerTEST/abinitioDGA/SVO/beta10/vertex_asymptotics/reproduce_dmft/umatrix.dat
+# number of d / p bands per inequivalent site -- always has to be a tupel of 2 -- (3 0) == 3d bands
+1 1
 
-# decide if you use orbital symmetrization (1) and/or small frequency box (2). (0==.false., 1==.true.)
-1 1 0
+# hamiltonian file
+ham.1000
 
-# size of small fermionic (1) and bosonic (2) frequency box
-20 2
+# nkpx, nkpy, nkpz, nqpx, nqpy, nqpz
+10 10 10            1 1 1
 
 # q_vol,k_path_eom,q_path_susc, read ext hamiltonian
 1 0 0 1
@@ -22,29 +22,29 @@
 # file name of q path file (ignored for q_vol)
 path.qp
 
-# nkpx, nkpy, nkpz, nqpx, nqpy, nqpz, nd
-20 20 20            1 1 1          3
-
-# Output directory, has to end with '/'
-./Output/
-
-# Decide, whether to calculate susceptibilities (1) and/or the equation of motion (2). (0==.false., 1==.true.)
-0 1
-
-# vertex type (0: 2P GF, 1: chi_conn, 2: chi)
-1
-
-# hamiltonian file
-/home/lv70693/gallerTEST/abinitioDGA/SVO/beta10/vertex_asymptotics/reproduce_dmft/SVO_k20.hk
-
 # computation with V^q (0==.false., 1==.true.)
 0
 
 # file name of V^q
-Vq.hdf5 
+Vq.file
 
-# number of r points in U(r) (226981)
+# file name of umatrix
+umatrix.dat
+
+# file name for one-particle data
+PAM-2PG-2017-08-01-Tue-12-30-25.hdf5
+
+# decide if you use orbital symmetrization (0==.false., 1==.true.)
+1
+
+# vertex type (0: 2P GF, 1: chi_conn, 2: chi)
 0
 
-# File name of extrapolated U(r)
-V_r.dat
+# file name for two-particle data
+vertex_out_PAM_large.hdf5
+
+# size of fermionic (1) and bosonic (2) frequency box
+10 5
+
+# Output directory, has to end with '/'
+./Output/
