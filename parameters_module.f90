@@ -36,9 +36,9 @@ subroutine read_config()
   character(len=150) :: str_tmp
   integer :: int_tmp_1,int_tmp_2,int_tmp_3,int_tmp_4
 
-  write(*,*) 'Reading config: ',config_file
   call getarg(1,cmd_arg)
   config_file=trim(cmd_arg)
+  write(*,*) 'Reading config: ',config_file
 
   open(unit=1,file=config_file)
   read(1,*)
