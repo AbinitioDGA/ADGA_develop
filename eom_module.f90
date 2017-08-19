@@ -8,16 +8,13 @@ module eom_module
 contains
 
 !================================================================================================
-  subroutine calc_eom(interm3_dens, interm3_magn, gamma_dmft_dens, gamma_dmft_magn, gamma_loc_sum_left, sigma, sigma_dmft, sigma_hf, kq_ind, iwb, iq, iw_data, u, v, u_tilde, hk, dc, siw, giw, n_dmft, n_fock)
+  subroutine calc_eom(interm3_dens, interm3_magn, gamma_dmft_dens, gamma_dmft_magn, gamma_loc_sum_left, sigma, sigma_dmft, sigma_hf, kq_ind, iwb, iq, iw_data, u, v, u_tilde, n_dmft, n_fock)
   implicit none
 
   integer :: dum,i,j,iw,iwf,iwf2,l,k,ik,ikq
   integer :: i1,i2,i3,i4
   integer,intent(in) :: kq_ind(nkp,nqp),iwb,iq
   real*8,intent(in) :: iw_data(-iwmax:iwmax-1)
-  complex(kind=8),intent(in) :: siw(-iwmax:iwmax-1,ndim), giw(-iwmax:iwmax-1,ndim)
-  complex(kind=8),intent(in) :: hk(ndim,ndim,nkp)
-  double precision,intent(in) :: dc(2,ndim) 
   complex(kind=8),intent(in) :: u(ndim2,ndim2),u_tilde(ndim2,ndim2),v(ndim2,ndim2)
   complex(kind=8),intent(in) :: gamma_dmft_dens(ndim2,maxdim), gamma_dmft_magn(ndim2,maxdim)
   complex(kind=8) :: gamma_dmft(ndim2,maxdim)
@@ -153,7 +150,7 @@ contains
   do ik=1,nkp
      ikq = kq_ind(ik,iq)
      do iwf=0,iwfmax_small-1
-        call get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
+        call get_gkiw(ikq, iwf, iwb, gkiw)
         do i=1,ndim
            do l=1,ndim
               do j=1,ndim
@@ -214,9 +211,8 @@ end subroutine calc_eom
 
 
 !=============================================================================================
-subroutine add_siw_dmft(siw, sigma_sum)
+subroutine add_siw_dmft(sigma_sum)
   implicit none
-  complex(kind=8), intent(in) :: siw(-iwmax:iwmax-1,ndim)
   complex(kind=8) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
   integer :: ik, iwf, iband
 
@@ -234,16 +230,13 @@ subroutine add_siw_dmft(siw, sigma_sum)
 
 
 
-subroutine get_sigma_g_loc(iw_data, hk, dc, siw, sigma_sum, sigma_loc, gloc, n_dga)
+subroutine get_sigma_g_loc(iw_data, sigma_sum, sigma_loc, gloc, n_dga)
   implicit none
   complex(kind=8), intent(out) :: sigma_loc(ndim, ndim,-iwfmax_small:iwfmax_small-1)
   complex(kind=8), intent(out) :: gloc(-iwmax:iwmax-1,ndim,ndim)
   complex(kind=8), intent(out) :: n_dga(ndim)
-  complex(kind=8), intent(in) :: siw(-iwmax:iwmax-1,ndim)
   complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
   double precision, intent(in) :: iw_data(-iwmax:iwmax-1)
-  complex(kind=8), intent(in) :: hk(ndim,ndim,nkp)
-  double precision, intent(in) :: dc(2,ndim)
   integer :: ik, iband, iw
 
   sigma_loc = 0.d0
@@ -252,7 +245,7 @@ subroutine get_sigma_g_loc(iw_data, hk, dc, siw, sigma_sum, sigma_loc, gloc, n_d
   enddo
   sigma_loc = sigma_loc/dble(nkp)
 
-  call get_gloc(iw_data, hk, siw, sigma_sum, dc, gloc)
+  call get_gloc(sigma_sum, gloc)
 
   n_dga = 0.d0
   do iw=0,iwmax-1

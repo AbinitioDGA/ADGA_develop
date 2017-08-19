@@ -9,10 +9,13 @@ module parameters_module
   integer, allocatable :: ndims(:,:)
   integer :: nkpx,nkpy,nkpz,nkp1,nqpx,nqpy,nqpz,nqp1
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,nk_frac
+  double precision, allocatable :: iw_data(:), iwb_data(:), iwf_data(:)
   integer :: iwstart,iwstop
-  integer :: ineq
   double precision :: mu, beta
+  complex(kind=8), allocatable :: u(:,:), u_tilde(:,:)
   double precision, allocatable :: k_data(:,:), r_data(:,:)
+  complex(kind=8), allocatable :: hk(:,:,:),dc(:,:)
+  complex(kind=8), allocatable :: siw(:,:),giw(:,:) 
   integer :: nqp,nkp_eom, idp
   integer,allocatable :: q_data(:),k_data_eom(:)
   character(len=150) :: filename, filename_umatrix, filename_vq, filename_hk, output_dir, filename_q_path
@@ -35,6 +38,7 @@ subroutine read_config()
   character(len=100) :: config_file
   character(len=150) :: str_tmp
   integer :: int_tmp_1,int_tmp_2,int_tmp_3,int_tmp_4
+  integer :: ineq
 
   call getarg(1,cmd_arg)
   config_file=trim(cmd_arg)
@@ -177,7 +181,25 @@ subroutine init()
     nqp1=nqpx
   end if
 
+  ! create arrays with Matsubara frequencies
+  allocate(iw_data(-iwmax:iwmax-1),iwb_data(-iwbmax:iwbmax),iwf_data(-iwfmax:iwfmax-1))
+  do i=-iwmax,iwmax-1
+    iw_data(i)=pi*(2*i+1)/beta
+  end do
+  do i=-iwfmax,iwfmax-1
+    iwf_data(i)=pi*(2*i+1)/beta
+  end do
+  do i=-iwbmax,iwbmax
+    iwb_data(i)=pi*2*i/beta
+  end do
+  
+  allocate(u(ndim**2,ndim**2), u_tilde(ndim**2,ndim**2))
 
 end subroutine init
+
+subroutine finalize()
+  implicit none
+  deallocate(iw_data,iwf_data,iwb_data)
+end subroutine finalize
 
 end module parameters_module

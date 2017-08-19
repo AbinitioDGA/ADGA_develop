@@ -36,12 +36,12 @@ subroutine calc_bubble(bubble,chi0_sum)
 end subroutine calc_bubble
 
 ! subroutine to output susceptibility
-subroutine output_chi_qw(chi_qw,iwb_data,qw,filename_output)
+subroutine output_chi_qw(chi_qw,qw,filename_output)
   use parameters_module
   implicit none
   character(len=*) :: filename_output
   character(len=100) :: format_str
-  real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
+  real*8 :: chi_qw_1q(2*ndim2**2)
   complex(kind=8) :: chi_qw(ndim2,ndim2,nqp*(2*iwbmax_small+1))
   integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i
   integer :: i1
@@ -79,12 +79,12 @@ subroutine output_chi_qw(chi_qw,iwb_data,qw,filename_output)
 end subroutine output_chi_qw
 
 ! subroutine to output one line of susceptibility
-subroutine output_chi_qw_1line(chi_qw,iwb_data,qw,iqw,rank,filename_output)
+subroutine output_chi_qw_1line(chi_qw,qw,iqw,rank,filename_output)
   use parameters_module
   implicit none
   character(len=*) :: filename_output
   character(len=100) :: format_str
-  real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
+  real*8 :: chi_qw_1q(2*ndim2**2)
   complex(kind=8) :: chi_qw(ndim2,ndim2)
   integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i,iqw,rank,un
 
@@ -104,12 +104,12 @@ subroutine output_chi_qw_1line(chi_qw,iwb_data,qw,iqw,rank,filename_output)
   close(un)
 end subroutine output_chi_qw_1line
 
-subroutine output_chi_loc(chi_qw,iwb_data,filename_output)
+subroutine output_chi_loc(chi_qw,filename_output)
   use parameters_module
   implicit none
   character(len=*) :: filename_output
   character(len=100) :: format_str
-  real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
+  real*8 :: chi_qw_1q(2*ndim2**2)
   complex(kind=8) :: chi_qw(ndim2,ndim2,2*iwbmax_small+1)
   integer :: iwb,i,i1
 
@@ -138,12 +138,12 @@ subroutine output_chi_loc(chi_qw,iwb_data,filename_output)
   close(10)
 end subroutine output_chi_loc
 
-subroutine output_chi_loc_1line(chi_qw,iwb_data,iwb,rank,filename_output)
+subroutine output_chi_loc_1line(chi_qw,iwb,rank,filename_output)
   use parameters_module
   implicit none
   character(len=*) :: filename_output
   character(len=100) :: format_str
-  real*8 :: iwb_data(-iwbmax:iwbmax), chi_qw_1q(2*ndim2**2)
+  real*8 :: chi_qw_1q(2*ndim2**2)
   complex(kind=8) :: chi_qw(ndim2,ndim2)
   integer :: iwb,i,un,rank
 
@@ -163,21 +163,19 @@ subroutine output_chi_loc_1line(chi_qw,iwb_data,iwb,rank,filename_output)
   close(un)
 end subroutine output_chi_loc_1line
 
-subroutine calc_bubble_old(bubble,iwb,iq,kq_ind,iw_data,siw,hk,dc)
+subroutine calc_bubble_old(bubble,iwb,iq,kq_ind)
   use parameters_module
   use one_particle_quant_module
   implicit none
   integer,intent(in) :: iwb,iq,kq_ind(nkp,nqp)
-  double precision,intent(in) :: iw_data(-iwmax:iwmax-1),dc(2,ndim)
-  complex(kind=8),intent(in) :: siw(-iwmax:iwmax-1,ndim), hk(ndim,ndim,nkp)
   complex(kind=8) :: bubble(ndim2,ndim2),g1(ndim,ndim),g2(ndim,ndim)
   integer :: ik,iwf,ikq1,ikq2
   integer :: i1,i2,i3,i4
   bubble=0.d0
   do ik=1,nkp
     do iwf=-iwfmax_small,iwfmax_small-1
-      call get_gkiw(kq_ind(ik,1),  iwf, 0,   iw_data, siw, hk, dc, g1)
-      call get_gkiw(kq_ind(ik,iq), iwf, iwb, iw_data, siw, hk, dc, g2)
+      call get_gkiw(kq_ind(ik,1),  iwf, 0,   g1)
+      call get_gkiw(kq_ind(ik,iq), iwf, iwb, g2)
       do i1=1,ndim
         do i2=1,ndim
           do i3=1,ndim
