@@ -14,28 +14,10 @@ program main
   use vq_module
 
   implicit none
-
-  integer(hid_t) :: file_id, file_vert_id, iw_id, iwb_id, iwf_id, r_id, k_id, hk_id
-  integer :: config_id, beta_id
-  integer(hid_t) :: iw_space_id, iwb_space_id, iwf_space_id, k_space_id, hk_space_id
-
-  character(len=20) :: grpname_magn, grpname_dens, name_buffer
-  character(len=100) :: name_buffer_dset
-  character(len=100) :: out_tmp,rank_str
-  integer(hid_t) :: grp_magn_id, grp_dens_id, nmembers, itype, dset_magn_id, dset_dens_id
-  integer(hsize_t), dimension(2) :: tmp_dims
-
-  integer :: error, ierr
-  integer(hsize_t), dimension(0) :: beta_dims
-
-
-  integer :: iw, ik, iq, ikq, iwf, iwb, iv, dum, dum1, ind_iwb, ind_grp, iwf1, iwf2
+  integer ::  ierr
+  integer :: iw, ik, iq, ikq, iwf, iwb, iv, dum, dum1, iwf1, iwf2
   integer :: i, j, k, l, n, i1, i2, i3, i4
-  integer :: ineq,dimstart, dimend
-  integer :: imembers
   complex(kind=8), allocatable :: gloc(:,:,:), gkiw(:,:)
-  complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:)
-  double precision, allocatable :: tmp_r(:,:), tmp_i(:,:)
   complex(kind=8), allocatable :: chi0_loc(:,:,:), chi0_loc_inv(:,:,:), chi0(:,:), chi0_sum(:,:,:)
   complex(kind=8), allocatable :: chi_loc_slice_dens(:,:), sum_chi0_loc(:,:)
   complex(kind=8), allocatable ::  chi_loc_slice_magn(:,:), chi_loc_dens_full(:,:), chi_loc_magn_full(:,:), chi_loc(:,:)
@@ -45,22 +27,18 @@ program main
   integer, allocatable :: kq_ind(:,:), qw(:,:)
   complex(kind=8), allocatable :: interm2_magn(:,:), interm3_dens(:,:), interm3_magn(:,:), c_interm(:,:)
   complex(kind=8), allocatable :: interm1(:,:), interm1_v(:,:), interm2_dens(:,:)
-
   real(kind=8 ):: start, finish, start1, finish1
   complex(kind=8) :: alpha, delta
   integer :: iqw, qwstart, qwstop
   logical :: update_chi_loc_flag
-  integer :: b1, b2, b3, b4
-
   complex(kind=8), allocatable :: gamma_loc(:,:), gamma_loc_sum_left(:,:), v(:,:)
-
   complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_hf(:,:,:,:), sigma_dmft(:,:,:)
   complex(kind=8), allocatable :: sigma_sum(:,:,:,:), sigma_sum_hf(:,:,:,:), sigma_sum_dmft(:,:,:), sigma_loc(:,:,:)
   complex(kind=8), allocatable :: giw_sum(:), n_dga(:), n_dmft(:), n_fock(:,:,:)
-  integer :: iband, ispin
-
-  double precision :: iw_val, giw_r, giw_i
-
+! variables for date-time string
+  character(20) :: date,time,zone
+  character(200) :: output_filename
+  integer,dimension(8) :: time_date_values
 
 #ifdef MPI
   integer :: mpi_wrank
@@ -68,11 +46,6 @@ program main
   integer :: master
   integer,allocatable :: rct(:),disp(:)
 #endif
-
-! variables for date-time string
-  character(20) :: date,time,zone
-  character(200) :: output_filename
-  integer,dimension(8) :: values
 
 
   ! read command line argument -> file name of config file
@@ -176,7 +149,7 @@ end if
 
   if (mpi_wrank .eq. master) then
     ! generate a date-time string for output file name
-    call date_and_time(date,time,zone,values)
+    call date_and_time(date,time,zone,time_date_values)
     output_filename=trim(output_dir)//'adga-'//trim(date)//'-'//trim(time)//'-output.hdf5'
     write(*,*) 'writing output to ',output_filename
     call init_h5_output(output_filename)
