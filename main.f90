@@ -13,6 +13,7 @@ program main
   use susc_module
   use kq_tools
   use vq_module
+  use aux
 
   implicit none
 
@@ -75,7 +76,7 @@ program main
   integer :: iwb_zero, iband, ispin
 
   double precision :: iw_val, giw_r, giw_i, siw_r, siw_i
-  logical :: index2ineq
+  ! logical :: index2ineq
 
 
 #ifdef MPI
@@ -298,7 +299,7 @@ program main
         enddo
 
         do i=1,2 ! d and p bands
-          if (ndims(ineq,i) .eq. 0) cycle ! do nothing
+          if (ndims(ineq,i) .le. 1) cycle ! nothing to symmetrize
           if (i .eq. 1) then
             dimend = dimstart+ndims(ineq,1)-1
           endif
@@ -1120,78 +1121,3 @@ end if
 deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,qw)
 write(*,*) 'end of program'
 end program main
-
-
-
-
-subroutine component2index_band(Nbands, ind, b1, b2, b3, b4)
-  implicit none
-  integer,intent(in) :: Nbands
-  integer,intent(in) :: b1, b2, b3, b4
-  integer,intent(out) :: ind
-
-  ind =  Nbands**3*(b1-1) + Nbands**2*(b2-1) + Nbands*(b3-1) + b4
-
-end subroutine component2index_band
-
-
-
-! converting an index into a band pattern
-subroutine index2component_band(Nbands, ind, b1, b2, b3, b4)
-  implicit none
-  integer,intent(in) :: Nbands,ind
-  integer,intent(out) :: b1, b2, b3, b4
-  integer :: tmp1,tmp2,tmp3,ind_tmp
-  integer :: g1,g2,g3,g4
-
-  ! the proposed back conversion assumes the indices are
-  ! given form 0 to max-1
-  ind_tmp = ind - 1
-  tmp1 = Nbands**3
-  tmp2 = Nbands**2
-  tmp3 = Nbands
-
-  b1 = ind_tmp/tmp1 + 1
-  b2 = (ind_tmp-tmp1*(b1-1))/tmp2 + 1
-  b3 = (ind_tmp-tmp1*(b1-1)-tmp2*(b2-1))/tmp3 + 1
-  b4 = (ind_tmp-tmp1*(b1-1)-tmp2*(b2-1)-tmp3*(b3-1)) + 1
-
-end subroutine index2component_band
-
-
-
-! function which checks blockdiagonality of 1PG functions
-logical function index2ineq(nineq,ndims,m,n,o,p)
-  implicit none
-  integer, intent(in) :: nineq
-  integer, intent(in) :: ndims(nineq,2)
-  ! band indices from specific beginning or end point of a 1PG
-  integer, intent(in) :: m,n,o,p
-  ! inequivalent atom number for specific index
-  integer :: a,b,c,d
-  integer :: dimstart,dimend,ineq, i
-
-  a=0;b=0;c=0;d=0
-
-  do ineq=1,nineq
-    dimstart=1
-    do i=2,ineq
-      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
-    enddo
-    dimend=dimstart+ndims(ineq,1)-1 ! only in correlated sub space
-    if ( m .ge. dimstart .and. m .le. dimend ) a=ineq
-    if ( n .ge. dimstart .and. n .le. dimend ) b=ineq
-    if ( o .ge. dimstart .and. o .le. dimend ) c=ineq
-    if ( p .ge. dimstart .and. p .le. dimend ) d=ineq
-  enddo
-
-  ! checking if everything is on the same atom
-  ! AND on correlated bands (non correlated lines would have ineq=0)
-  if ( (a .eqv. b) .and. (c .eqv. d) .and. (a .eqv. d) .and. (a .neqv. 0)) then
-    index2ineq = .true.
-  else
-    index2ineq = .false.
-  endif
-
-  return
-end function index2ineq

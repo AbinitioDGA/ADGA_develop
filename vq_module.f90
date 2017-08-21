@@ -1,6 +1,7 @@
 module vq_module
   use parameters_module
   use hdf5_module
+  use aux
   implicit none
 
 
@@ -29,22 +30,22 @@ subroutine read_vq(iq, v)
      write(*,*) 'Inconsistent number of q-points in V^q!', iq_dims(2),'/',nqp
      stop
   endif
- 
+
   vq = 0.d0
 
   call h5gn_members_f(vq_file_id, "/", nmembers, err)
   do imembers = 1,nmembers - 1
      call h5gget_obj_info_idx_f(vq_file_id, "/", imembers, name_buffer, itype, err)
-     
+
      read(name_buffer,'(I5.5)') ind
-     call index2component_band(ndims,ind,i,j,k,l)
-     
+     call index2component_band(ndim,ind,i,j,k,l)
+
      call h5dopen_f(vq_file_id, name_buffer, grp_id, err)
      call h5dread_f(grp_id, type_r_id, vq_tmp_r, vq_dims, err)
      call h5dread_f(grp_id, type_i_id, vq_tmp_i, vq_dims, err)
 
      vq(i,j,k,l) = vq_tmp_r(iq)+ci*vq_tmp_i(iq)
-      
+
      call h5dclose_f(grp_id, err)
   enddo
   call h5fclose_f(vq_file_id, err)
