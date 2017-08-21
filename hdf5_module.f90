@@ -290,7 +290,7 @@ module hdf5_module
  subroutine read_siw()
      use parameters_module
      implicit none
-     integer :: i,ineq,iband,dimstart, dimend
+     integer :: i,iw,ineq,iband,dimstart, dimend
      integer(hid_t) :: file_id,siw_id, siw_space_id
      integer(hsize_t), dimension(3) :: siw_dims, siw_maxdims
      double precision, allocatable :: siw_data(:,:,:,:)
@@ -341,11 +341,11 @@ module hdf5_module
      enddo ! loop over inequivalent atoms
    
      ! test siw:
-   !  open(34, file=trim(output_dir)//"siw.dat", status='unknown')
-   !  do iw=-iwmax,iwmax-1
-   !     write(34,'(100F12.6)')iw_data(iw), (real(siw(iw,i)),aimag(siw(iw,i)), i=1,ndim)
-   !  enddo
-   !  close(34)
+     open(34, file=trim(output_dir)//"siw.dat", status='unknown')
+     do iw=-iwmax,iwmax-1
+        write(34,'(100F12.6)') (real(siw(iw,i)),aimag(siw(iw,i)), i=1,ndim)
+     enddo
+     close(34)
    
 
  end subroutine read_siw
@@ -353,7 +353,7 @@ module hdf5_module
  subroutine read_giw()
      use parameters_module
      implicit none
-     integer :: i,ineq,iband,dimstart, dimend
+     integer :: i,iw,ineq,iband,dimstart, dimend
      integer(hid_t) :: file_id,giw_id, giw_space_id
      integer(hsize_t), dimension(3) :: giw_dims, giw_maxdims
      double precision, allocatable :: giw_data(:,:,:,:)
@@ -423,11 +423,11 @@ module hdf5_module
      enddo ! inequivalent atom loop
 
   ! test giw:
-!  open(54, file=trim(output_dir)//"giw.dat", status='unknown')
-!  do iw=-iwmax,iwmax-1
-!     write(54,'(100F12.6)')iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
-!  enddo
-!  close(54)
+  open(54, file=trim(output_dir)//"giw.dat", status='unknown')
+  do iw=-iwmax,iwmax-1
+     write(54,'(100F12.6)') (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
+  enddo
+  close(54)
  end subroutine read_giw
 
  subroutine read_hk_w2dyn()
@@ -678,25 +678,27 @@ subroutine init_h5_output(filename_output)
 
   implicit none
 
-  integer :: error
-  integer(hid_t) :: file_id,grp_id_chi_qw,grp_id_chi_loc
+  integer :: err
+  integer(hid_t) :: file_id,grp_id_chi_qw,grp_id_chi_loc,grp_id_siwk
   character(len=*) :: filename_output
   integer(kind=8) :: chi_qw_dims(3),chi_loc_dims(3)
   
   write(*,*) 'initialize output file'
 
-  call h5open_f(error)
-  call h5fcreate_f(filename_output, h5f_acc_trunc_f, file_id, error)
+  call h5open_f(err)
+  call h5fcreate_f(filename_output, h5f_acc_trunc_f, file_id, err)
 
-  call h5gcreate_f(file_id,'chi_qw',grp_id_chi_qw,error)
+  call h5gcreate_f(file_id,'chi_qw',grp_id_chi_qw,err)
+  call h5gclose_f(grp_id_chi_qw,err)
 
-  call h5gcreate_f(file_id,'chi_loc',grp_id_chi_loc,error)
+  call h5gcreate_f(file_id,'chi_loc',grp_id_chi_loc,err)
+  call h5gclose_f(grp_id_chi_loc,err)
 
-  call h5gclose_f(grp_id_chi_qw,error)
+  call h5gcreate_f(file_id,'siwk',grp_id_siwk,err)
+  call h5gclose_f(grp_id_siwk,err)
 
-  call h5gclose_f(grp_id_chi_loc,error)
 
-  call h5fclose_f(file_id,error)
+  call h5fclose_f(file_id,err)
 
   write(*,*) 'hdf5 output initialized'
 end subroutine init_h5_output
@@ -706,7 +708,7 @@ subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
   use parameters_module
   implicit none
   character(len=*) :: filename_output,channel
-  integer :: error,rank_chi_loc
+  integer :: err,rank_chi_loc
   integer(kind=8),dimension(:),allocatable :: dims_chi_loc
   integer(hid_t) :: file_id,grp_id_chi_loc
   integer(hid_t) :: dspace_id_chi_loc
@@ -718,20 +720,20 @@ subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
   dims_chi_loc=(/ ndim,ndim,ndim,ndim,2*iwbmax_small+1 /)
 
 
-  call h5open_f(error)
-  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,error)
-  call h5gopen_f(file_id,'chi_loc',grp_id_chi_loc,error)
+  call h5open_f(err)
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+  call h5gopen_f(file_id,'chi_loc',grp_id_chi_loc,err)
 
-  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_loc,error)
-  call h5sset_extent_simple_f(dspace_id_chi_loc,rank_chi_loc,dims_chi_loc,dims_chi_loc,error)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_loc,err)
+  call h5sset_extent_simple_f(dspace_id_chi_loc,rank_chi_loc,dims_chi_loc,dims_chi_loc,err)
 
-  call h5dcreate_f(grp_id_chi_loc,channel,compound_id,dspace_id_chi_loc,dset_id_chi_loc,error)
-  call h5dwrite_f(dset_id_chi_loc,type_r_id,real(chi_loc),dims_chi_loc,error)
-  call h5dwrite_f(dset_id_chi_loc,type_i_id,aimag(chi_loc),dims_chi_loc,error)
+  call h5dcreate_f(grp_id_chi_loc,channel,compound_id,dspace_id_chi_loc,dset_id_chi_loc,err)
+  call h5dwrite_f(dset_id_chi_loc,type_r_id,real(chi_loc),dims_chi_loc,err)
+  call h5dwrite_f(dset_id_chi_loc,type_i_id,aimag(chi_loc),dims_chi_loc,err)
 
-  call h5dclose_f(dset_id_chi_loc,error)
-  call h5gclose_f(grp_id_chi_loc,error)
-  call h5close_f(error)
+  call h5dclose_f(dset_id_chi_loc,err)
+  call h5gclose_f(grp_id_chi_loc,err)
+  call h5close_f(err)
  
   write(*,*) 'chi_loc ',channel,' written to h5'
 end subroutine output_chi_loc_h5
@@ -743,7 +745,7 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
 
   implicit none
   character(len=*) :: filename_output,channel
-  integer :: error,rank_chi_qw
+  integer :: err,rank_chi_qw
   integer :: iwb,iqx,iqy,iqz,i1,i2,i3,i4
   integer(kind=8),dimension(:),allocatable :: dims_chi_qw,dims_chi_slice,offset_chi_slice,stride,block
   integer(hid_t) :: file_id,grp_id_chi_qw
@@ -762,22 +764,22 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
   block=(/1,1,1,1,1,1,1,1/)
   chi_slice=1.d0
 
-  call h5open_f(error)
-  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,error)
-  call h5gopen_f(file_id,'chi_qw',grp_id_chi_qw,error)
+  call h5open_f(err)
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+  call h5gopen_f(file_id,'chi_qw',grp_id_chi_qw,err)
 
-  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_qw,error)
-  call h5sset_extent_simple_f(dspace_id_chi_qw,rank_chi_qw,dims_chi_qw,dims_chi_qw,error)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_qw,err)
+  call h5sset_extent_simple_f(dspace_id_chi_qw,rank_chi_qw,dims_chi_qw,dims_chi_qw,err)
 
-  call h5dcreate_f(grp_id_chi_qw,channel,compound_id,dspace_id_chi_qw,dset_id_chi_qw,error)
-  call h5dwrite_f(dset_id_chi_qw,type_r_id,real(chi_qw),dims_chi_qw,error) ! this is overwritten anyway
-  call h5dwrite_f(dset_id_chi_qw,type_i_id,aimag(chi_qw),dims_chi_qw,error)
-  call h5dclose_f(dset_id_chi_qw,error)
+  call h5dcreate_f(grp_id_chi_qw,channel,compound_id,dspace_id_chi_qw,dset_id_chi_qw,err)
+  call h5dwrite_f(dset_id_chi_qw,type_r_id,real(chi_qw),dims_chi_qw,err) ! this is overwritten anyway
+  call h5dwrite_f(dset_id_chi_qw,type_i_id,aimag(chi_qw),dims_chi_qw,err)
+  call h5dclose_f(dset_id_chi_qw,err)
 
-  call h5gclose_f(grp_id_chi_qw,error)
+  call h5gclose_f(grp_id_chi_qw,err)
 
   ! re-open group
-  call h5gopen_f(file_id,'chi_qw',grp_id_chi_qw,error)
+  call h5gopen_f(file_id,'chi_qw',grp_id_chi_qw,err)
 
   ! since fortran knows only 7-dimensional arrays, we cannot write the 8-dimensional chi directly
   ! instead it is written slice-by-slice in a loop over omega
@@ -801,26 +803,138 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
       end do ! nqpy
     end do ! nqpz
     ! re-open dataset
-    call h5dopen_f(grp_id_chi_qw,channel,dset_id_chi_qw,error)
+    call h5dopen_f(grp_id_chi_qw,channel,dset_id_chi_qw,err)
     offset_chi_slice=(/0,0,0,0,0,0,0,iwb-1/)
     
     ! select hyperslab
-    call h5sselect_hyperslab_f(dspace_id_chi_qw,H5S_SELECT_SET_F,offset_chi_slice,dims_chi_slice,error,stride,block)
+    call h5sselect_hyperslab_f(dspace_id_chi_qw,H5S_SELECT_SET_F,offset_chi_slice,dims_chi_slice,err,stride,block)
     ! create data space for subset
-    call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_slice,error)
-    call h5sset_extent_simple_f(dspace_id_chi_slice,rank_chi_qw,dims_chi_slice,dims_chi_slice,error)
+    call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_slice,err)
+    call h5sset_extent_simple_f(dspace_id_chi_slice,rank_chi_qw,dims_chi_slice,dims_chi_slice,err)
 
-    call h5dwrite_f(dset_id_chi_qw,type_r_id,real(chi_slice),dims_chi_slice,error,dspace_id_chi_slice,dspace_id_chi_qw)
-    call h5dwrite_f(dset_id_chi_qw,type_i_id,aimag(chi_slice),dims_chi_slice,error,dspace_id_chi_slice,dspace_id_chi_qw)
-    call h5dclose_f(dset_id_chi_qw,error)
+    call h5dwrite_f(dset_id_chi_qw,type_r_id,real(chi_slice),dims_chi_slice,err,dspace_id_chi_slice,dspace_id_chi_qw)
+    call h5dwrite_f(dset_id_chi_qw,type_i_id,aimag(chi_slice),dims_chi_slice,err,dspace_id_chi_slice,dspace_id_chi_qw)
+    call h5dclose_f(dset_id_chi_qw,err)
   end do ! iwb
 
-  call h5gclose_f(grp_id_chi_qw,error)
-  call h5close_f(error)
+  call h5gclose_f(grp_id_chi_qw,err)
+  call h5close_f(err)
  
   write(*,*) 'chi_qw ',channel,' written to h5'
 end subroutine output_chi_qw_h5
 
 
+subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+  use parameters_module
+  implicit none
+  character(len=*) :: filename_output
+  integer(hid_t) :: file_id,grp_id_siwk,dset_id_sigmasum,dspace_id_sigmasum,dset_id_sigmasumhf
+  integer(hid_t) :: dspace_id_siw,dset_id_siwloc,dset_id_siwdmft
+  integer :: rank_siwk,rank_siw
+  integer(hsize_t),dimension(:),allocatable :: dims_siwk,dims_siw
+  complex(kind=8),dimension(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp) :: sigma_sum,sigma_sum_hf
+  complex(kind=8),dimension(ndim,ndim,-iwfmax_small:iwfmax_small-1) :: sigma_loc,sigma_sum_dmft
+  complex(kind=8),dimension(ndim,ndim,nkpz,nkpy,nkpx,2*iwfmax_small) :: siwk_outputarray
+  complex(kind=8),dimension(ndim,ndim,2*iwfmax_small) :: siw_outputarray
+
+  integer :: i1,i2,ikx,iky,ikz,iw
+
+
+  call h5open_f(err)
+
+
+  ! create outputarray (essentially just reshape the original array)
+  ! doing this in-place would be much more memory-efficient!
+  do i1=1,ndim
+    do i2=1,ndim
+      do ikz=1,nkpz
+        do iky=1,nkpy
+          do ikx=1,nkpx
+            do iw=1,2*iwfmax_small
+              siwk_outputarray(i2,i1,ikz,iky,ikx,iw) = sigma_sum(i1,i2,iw-iwfmax_small-1,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
+            end do
+          end do
+        end do
+      end do
+    end do
+  end do
+
+  rank_siwk=6
+  allocate(dims_siwk(rank_siwk))
+  dims_siwk=(/ndim,ndim,nkpz,nkpy,nkpx,2*iwfmax_small/)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_sigmasum,err)
+  call h5sset_extent_simple_f(dspace_id_sigmasum,rank_siwk,dims_siwk,dims_siwk,err)
+
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+  call h5gopen_f(file_id,'siwk',grp_id_siwk,err)
+  call h5dcreate_f(grp_id_siwk,'sigma_sum',compound_id,dspace_id_sigmasum,dset_id_sigmasum,err)
+  call h5dwrite_f(dset_id_sigmasum,type_r_id,real(siwk_outputarray),dims_siwk,err)
+  call h5dwrite_f(dset_id_sigmasum,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
+  call h5dclose_f(dset_id_sigmasum,err)
+
+  ! in order to save memory, the same array is used again, now for the Hartree-Fock contribution.
+  do i1=1,ndim
+    do i2=1,ndim
+      do ikz=1,nkpz
+        do iky=1,nkpy
+          do ikx=1,nkpx
+            do iw=1,2*iwfmax_small
+              siwk_outputarray(i2,i1,ikz,iky,ikx,iw) = sigma_sum_hf(i1,i2,iw-iwfmax_small-1,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
+            end do
+          end do
+        end do
+      end do
+    end do
+  end do
+
+  ! the dimensions are the same, so we can use the same data space
+  call h5dcreate_f(grp_id_siwk,'sigma_sum_hf',compound_id,dspace_id_sigmasum,dset_id_sigmasumhf,err)
+  call h5dwrite_f(dset_id_sigmasumhf,type_r_id,real(siwk_outputarray),dims_siwk,err)
+  call h5dwrite_f(dset_id_sigmasumhf,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
+  call h5dclose_f(dset_id_sigmasumhf,err)
+
+
+  deallocate(dims_siwk)
+
+  rank_siw=3
+  allocate(dims_siw(rank_siw))
+  dims_siw=(/ndim,ndim,2*iwfmax_small/)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_siw,err)
+  call h5sset_extent_simple_f(dspace_id_siw,rank_siw,dims_siw,dims_siw,err)
+
+  do i1=1,ndim
+    do i2=1,ndim
+      do iw=1,2*iwfmax_small
+        siw_outputarray(i2,i1,iw) = sigma_loc(i1,i2,iw-iwfmax_small-1)
+      end do
+    end do
+  end do
+
+  call h5dcreate_f(grp_id_siwk,'sigma_loc',compound_id,dspace_id_siw,dset_id_siwloc,err)
+  call h5dwrite_f(dset_id_siwloc,type_r_id,real(siw_outputarray),dims_siw,err)
+  call h5dwrite_f(dset_id_siwloc,type_i_id,aimag(siw_outputarray),dims_siw,err)
+  call h5dclose_f(dset_id_siwloc,err)
+
+
+  do i1=1,ndim
+    do i2=1,ndim
+      do iw=1,2*iwfmax_small
+        siw_outputarray(i2,i1,iw) = sigma_sum_dmft(i1,i2,iw-iwfmax_small-1)
+      end do
+    end do
+  end do
+
+  call h5dcreate_f(grp_id_siwk,'sigma_sum_dmft',compound_id,dspace_id_siw,dset_id_siwdmft,err)
+  call h5dwrite_f(dset_id_siwdmft,type_r_id,real(siw_outputarray),dims_siw,err)
+  call h5dwrite_f(dset_id_siwdmft,type_i_id,aimag(siw_outputarray),dims_siw,err)
+  call h5dclose_f(dset_id_siwdmft,err)
+
+  deallocate(dims_siw)
+
+  call h5gclose_f(grp_id_siwk,err)
+  call h5fclose_f(file_id,err)
+  call h5close_f(err)
+
+end subroutine output_eom_hdf5
 
 end module hdf5_module

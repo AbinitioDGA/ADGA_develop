@@ -77,6 +77,14 @@ if (mpi_wrank .eq. master) then
   write(*,*)
 end if
 
+if (mpi_wrank .eq. master) then
+  ! generate a date-time string for output file name
+  call date_and_time(date,time,zone,time_date_values)
+  output_filename=trim(output_dir)//'adga-'//trim(date)//'-'//trim(time)//'-output.hdf5'
+  write(*,*) 'writing output to ',output_filename
+  call init_h5_output(output_filename)
+end if
+
   !THE FOLLOWING PARAMETERS ARE READ FROM THE W2DYNAMICS OUTPUT-FILE:
   !iwmax or iw_dims(1)/2    number of fermionic Matsubara frequencies for single particle quantities
   !nkp or hk_dims(3)    number of k-points in H(k)
@@ -109,7 +117,7 @@ end if
     endif
   endif
 
-  if (iwbmax_small .le. 0 .or. iwbmax_small .gt. iwbmax) then
+  if (iwbmax_small .lt. 0 .or. iwbmax_small .gt. iwbmax) then
     iwbmax_small = iwbmax
     if (mpi_wrank .eq. master) then
       write(*,*) 'Error: Wrong input for bosonic frequencies'
@@ -141,26 +149,15 @@ end if
   end if
 
 
-  call init()
 
   if (.not. do_vq .and. mpi_wrank .eq. master) then
     write(*,*) 'Main: Run without V(q)'
   end if
 
-  if (mpi_wrank .eq. master) then
-    ! generate a date-time string for output file name
-    call date_and_time(date,time,zone,time_date_values)
-    output_filename=trim(output_dir)//'adga-'//trim(date)//'-'//trim(time)//'-output.hdf5'
-    write(*,*) 'writing output to ',output_filename
-    call init_h5_output(output_filename)
-  end if
+  call read_mu()   ! chemical potential
+  call read_beta() ! inverse temperature
+  call read_dc()   ! double counting
 
-  call read_mu()
-  call read_beta()
-  call read_dc()
-
-
-! read double counting:
 
 
   call finalize_h5() ! close the hdf5-fortran interface
@@ -171,6 +168,7 @@ end if
     write(*,*) 'dc=', dc
   end if
 
+  call init() ! this requires beta, so it has to be called after read_beta()
 
   !read umatrix from separate file:
   call read_u(u,u_tilde)
@@ -183,11 +181,11 @@ end if
   call get_giw()
 
 ! test giw:
-!   open(35, file=trim(output_dir)//"giw_calc.dat", status='unknown')
-!   do iw=-iwmax,iwmax-1
-!      write(35,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
-!   enddo
-!   close(35)
+   open(35, file=trim(output_dir)//"giw_calc.dat", status='unknown')
+   do iw=-iwmax,iwmax-1
+      write(35,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
+   enddo
+   close(35)
 
   !compute DMFT filling n_dmft
   allocate(gloc(-iwmax:iwmax-1,ndim,ndim), gkiw(ndim,ndim))
@@ -418,6 +416,11 @@ end if
 
 
         call read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
+        !do i=1,maxdim
+        !  do j=1,maxdim
+        !    write(*,*) i,j,chi_loc_magn_full(i,j),chi_loc_dens_full(i,j)
+        !  end do
+        !end do
 
         !time reversal symmetry (which is simply a transpose in our compound index)
         do i1=1,maxdim
@@ -671,9 +674,8 @@ end if
   ! MPI reduction and output
   write(*,*)'nkp=', nkp
   if (do_eom) then
-     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp), sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1))
-     allocate(sigma_sum_hf(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
-     allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1))
+     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp),sigma_sum_hf(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
+     allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1),sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1))
      call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      call MPI_reduce(sigma_hf, sigma_sum_hf, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      call MPI_reduce(sigma_dmft, sigma_sum_dmft, ndim*ndim*2*iwfmax_small, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
@@ -684,6 +686,7 @@ end if
      call get_sigma_g_loc(iw_data, sigma_sum, sigma_loc, gloc, n_dga)
      if (mpi_wrank .eq. master) then
        call output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, n_dga)
+       call output_eom_hdf5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
      end if
      deallocate(sigma, sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc)
   end if
