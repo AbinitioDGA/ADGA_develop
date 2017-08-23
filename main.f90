@@ -769,14 +769,19 @@ end if
                               endif
                             endif
 
+                            if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
+                              if(.not. index2ineq(nineq,ndims,i,j,k,l)) then
+                                chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
+                                chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
+                              endif
+                            endif
+
                           else if (vertex_type .eq. connected_g4) then
                             !G_conn:
                             !bubble term -G(\nu)G(\nu-\omega) is added in both channels
                             if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
-                              if(index2ineq(nineq,ndims,i,j,k,l)) then
-                                chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
-                                chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
-                              endif
+                              chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
+                              chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
                             endif
                           end if
 

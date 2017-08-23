@@ -145,9 +145,7 @@ subroutine get_chi0_loc(iwf, iwb, giw, chi0_loc)
            do k=1,ndim
               i2=i2+1
               if(i==l .and. j==k)then
-                if(index2ineq(nineq,ndims,i,j,k,l)) then
-                  chi0_loc(i1,i2) = - beta*giw(iwf,i)*giw(iwf-iwb,j)
-                endif
+                chi0_loc(i1,i2) = - beta*giw(iwf,i)*giw(iwf-iwb,j)
               endif
            enddo
         enddo
@@ -175,9 +173,7 @@ subroutine get_chi0_loc_inv(iwf, iwb, giw, chi0_loc)
            do k=1,ndim
               i2=i2+1
               if(i==l .and. j==k)then
-                if(index2ineq(nineq,ndims,i,j,k,l)) then
-                  chi0_loc(i1,i2) = -1.d0/(beta*giw(iwf,i)*giw(iwf-iwb,j))
-                endif
+                chi0_loc(i1,i2) = -1.d0/(beta*giw(iwf,i)*giw(iwf-iwb,j))
               endif
            enddo
         enddo
