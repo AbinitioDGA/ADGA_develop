@@ -246,9 +246,8 @@ subroutine get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
         do l=1,ndim
            do k=1,ndim
               i2=i2+1
-                if(index2ineq(nineq,ndims,i,j,k,l)) then
-                  chi0(i1,i2) = - beta*g1(i,l)*g2(k,j)
-                endif
+                ! this is not ineq diagonal due to the k dependency
+                chi0(i1,i2) = - beta*g1(i,l)*g2(k,j)
            enddo
         enddo
      enddo

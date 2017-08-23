@@ -185,7 +185,7 @@ program main
   if (iwfmax_small .le. 0 .or. iwfmax_small .gt. iwfmax) then
     iwfmax_small = iwfmax
     if (mpi_wrank .eq. master) then
-      write(*,*) 'Error: Wrong input for fermionic frequencies'
+      write(*,*) 'Warning: Wrong input for fermionic frequencies'
       write(*,*) 'Calculating with maximum number of fermionic frequencies &
                   =', iwfmax
     endif
@@ -194,7 +194,7 @@ program main
   if (iwbmax_small .le. 0 .or. iwbmax_small .gt. iwbmax) then
     iwbmax_small = iwbmax
     if (mpi_wrank .eq. master) then
-      write(*,*) 'Error: Wrong input for bosonic frequencies'
+      write(*,*) 'Warning: Wrong input for bosonic frequencies'
       write(*,*) 'Calculating with maximum number of bosonic frequencies &
                   =', iwbmax
     endif
@@ -393,25 +393,25 @@ program main
   ! dc for noninteracting bands set to 0
   dc = 0.d0
 
-!  do ineq=1,nineq
-!    dimstart=1
-!    do i=2,ineq
-!      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
-!    enddo
-!    dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
-!    write(name_buffer,'("ineq-",I3.3)') ineq
-!    call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/dc/value", dc_id, error)
-!    call h5dget_space_f(dc_id, dc_space_id, error)
-!    call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
-!    allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
-!    call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, error)
-!    call h5dclose_f(dc_id, error)
-!
-!    do iband=dimstart,dimend
-!      dc(:,iband) = dc_data(:,iband-dimstart+1)
-!    enddo
-!    deallocate(dc_data)
-!  enddo
+  do ineq=1,nineq
+    dimstart=1
+    do i=2,ineq
+      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+    enddo
+    dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
+    write(name_buffer,'("ineq-",I3.3)') ineq
+    call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/dc/value", dc_id, error)
+    call h5dget_space_f(dc_id, dc_space_id, error)
+    call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, error)
+    allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
+    call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, error)
+    call h5dclose_f(dc_id, error)
+
+    do iband=dimstart,dimend
+      dc(:,iband) = dc_data(:,iband-dimstart+1)
+    enddo
+    deallocate(dc_data)
+  enddo
 
 
 ! read inverse temperature beta:
@@ -979,7 +979,6 @@ end if
      !construct quantity that is inverted right afterwards:
      interm2_dens = chi_loc_dens_full-interm2_dens
      interm2_magn = chi_loc_magn_full-interm2_magn
-
 
      call inverse_matrix(interm2_dens)
      call inverse_matrix(interm2_magn)
