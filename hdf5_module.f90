@@ -548,6 +548,7 @@ module hdf5_module
 
  subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
      use parameters_module
+     use indexutils
      implicit none
      integer :: ineq,dimstart,dimend,imembers,ind_grp,b1,b2,b3,b4,ind_iwb
      integer :: i1,i2,iwf1,iwf2,i,j,k,l
@@ -678,26 +679,140 @@ subroutine init_h5_output(filename_output)
 
   implicit none
 
-  integer :: err
-  integer(hid_t) :: file_id,grp_id_chi_qw,grp_id_chi_loc,grp_id_siwk
+  integer :: err,i1,i2,ikx,iky,ikz
+  integer(hid_t) :: file_id,grp_id_chi_qw,grp_id_chi_loc,grp_id_siwk,grp_id_input,grp_id_susc,grp_id_se
   character(len=*) :: filename_output
   integer(kind=8) :: chi_qw_dims(3),chi_loc_dims(3)
-  
+  integer(hid_t) :: dspace_scalar_id,dset_id_mu,dset_id_beta,dset_id_1,dspace_vec_id
+  integer(hid_t) :: dspace_dc_id,dset_dc_id,dspace_id_g,dspace_id_s,dset_id_g,dset_id_s,dset_id_hk,dspace_id_hk
+  integer(hsize_t),dimension(0) :: dims_scalar
+  integer(hsize_t),dimension(1) :: dims_vec
+  integer(hsize_t),dimension(2) :: dims_dc,dims_g
+  integer(hsize_t),dimension(5) :: dims_hk_arr
+  complex(kind=8), dimension(:,:,:,:,:),allocatable :: hk_arr
   write(*,*) 'initialize output file'
 
   call h5open_f(err)
   call h5fcreate_f(filename_output, h5f_acc_trunc_f, file_id, err)
 
-  call h5gcreate_f(file_id,'chi_qw',grp_id_chi_qw,err)
-  call h5gclose_f(grp_id_chi_qw,err)
+! create the groups for the ADGA results
+  if (do_chi) then
+    call h5gcreate_f(file_id,'susceptibility',grp_id_susc,err)
+    call h5gcreate_f(grp_id_susc,'nonloc',grp_id_chi_qw,err)
+    call h5gclose_f(grp_id_chi_qw,err)
+    call h5gcreate_f(grp_id_susc,'loc',grp_id_chi_loc,err)
+    call h5gclose_f(grp_id_chi_loc,err)
+    call h5gclose_f(grp_id_susc,err)
+  end if
+  
+  if (do_eom) then
+    call h5gcreate_f(file_id,'selfenergy',grp_id_se,err)
+    call h5gclose_f(grp_id_se,err)
+  end if
 
-  call h5gcreate_f(file_id,'chi_loc',grp_id_chi_loc,err)
-  call h5gclose_f(grp_id_chi_loc,err)
+! create the group for parameters and input
+  call h5gcreate_f(file_id,'input',grp_id_input,err)
 
-  call h5gcreate_f(file_id,'siwk',grp_id_siwk,err)
-  call h5gclose_f(grp_id_siwk,err)
+! create dataspace for scalar quantities
+  call h5screate_simple_f(0,dims_scalar,dspace_scalar_id,err)
+  
+! write chemical potential
+  call h5dcreate_f(grp_id_input,'mu',H5T_NATIVE_DOUBLE,dspace_scalar_id,dset_id_mu,err)
+  call h5dwrite_f(dset_id_mu,H5T_NATIVE_DOUBLE,mu,dims_scalar,err)
+  call h5dclose_f(dset_id_mu,err)
+
+! write inverse temperature
+  call h5dcreate_f(grp_id_input,'beta',H5T_NATIVE_DOUBLE,dspace_scalar_id,dset_id_beta,err)
+  call h5dwrite_f(dset_id_beta,H5T_NATIVE_DOUBLE,beta,dims_scalar,err)
+  call h5dclose_f(dset_id_beta,err)
+  
+! create dataspace for double counting
+  dims_dc=(/2,ndim/)
+  call h5screate_simple_f(2,dims_dc,dspace_dc_id,err)
+
+! write double counting
+  call h5dcreate_f(grp_id_input,'dc',compound_id,dspace_dc_id,dset_dc_id,err)
+  call h5dwrite_f(dset_dc_id,type_r_id,real(dc),dims_dc,err)
+  call h5dwrite_f(dset_dc_id,type_i_id,aimag(dc),dims_dc,err)
+  call h5dclose_f(dset_dc_id,err)
+
+! create dataspace for siw and giw
+  dims_g=(/2*iwmax,ndim/)
+  call h5screate_simple_f(2,dims_g,dspace_id_g,err)
+
+! write DMFT one-particle Green's function
+  call h5dcreate_f(grp_id_input,'giw',compound_id,dspace_id_g,dset_id_g,err)
+  call h5dwrite_f(dset_id_g,type_r_id,real(giw),dims_g,err)
+  call h5dwrite_f(dset_id_g,type_i_id,aimag(giw),dims_g,err)
+  call h5dclose_f(dset_id_g,err)
+
+! write DMFT self-energy
+  call h5dcreate_f(grp_id_input,'siw',compound_id,dspace_id_g,dset_id_s,err)
+  call h5dwrite_f(dset_id_s,type_r_id,real(siw),dims_g,err)
+  call h5dwrite_f(dset_id_s,type_i_id,aimag(siw),dims_g,err)
+  call h5dclose_f(dset_id_s,err)
+
+! create dataspace for hamiltonian
+  dims_hk_arr=(/ ndim,ndim,nkpz,nkpy,nkpx /)
+  allocate(hk_arr(ndim,ndim,nkpz,nkpy,nkpx))
+  do ikx=1,nkpx
+    do iky=1,nkpy
+      do ikz=1,nkpz
+        do i1=1,ndim
+          do i2=1,ndim
+            hk_arr(i2,i1,ikz,iky,ikx)=hk(i1,i2,1+ikz+iky*nkpz+ikx*nkpy*nkpz)
+          end do
+        end do
+      end do
+    end do
+  end do
+  call h5screate_simple_f(5,dims_hk_arr,dspace_id_hk,err)
+
+! write hamiltonian
+  call h5dcreate_f(grp_id_input,'hk',compound_id,dspace_id_hk,dset_id_hk,err)
+  call h5dwrite_f(dset_id_hk,type_r_id,real(hk_arr),dims_hk_arr,err)
+  call h5dwrite_f(dset_id_hk,type_i_id,aimag(hk_arr),dims_hk_arr,err)
+  call h5dclose_f(dset_id_hk,err)
+  
 
 
+
+! write iw,iwfmax,iwbmax,nkp,nqp etc.
+  call h5dcreate_f(grp_id_input,'iwmax',H5T_NATIVE_INTEGER,dspace_scalar_id,dset_id_1,err)
+  call h5dwrite_f(dset_id_1,H5T_NATIVE_INTEGER,iwmax,dims_scalar,err)
+  call h5dclose_f(dset_id_1,err)
+  call h5dcreate_f(grp_id_input,'iwfmax',H5T_NATIVE_INTEGER,dspace_scalar_id,dset_id_1,err)
+  call h5dwrite_f(dset_id_1,H5T_NATIVE_INTEGER,iwfmax,dims_scalar,err)
+  call h5dclose_f(dset_id_1,err)
+  call h5dcreate_f(grp_id_input,'iwbmax',H5T_NATIVE_INTEGER,dspace_scalar_id,dset_id_1,err)
+  call h5dwrite_f(dset_id_1,H5T_NATIVE_INTEGER,iwbmax,dims_scalar,err)
+  call h5dclose_f(dset_id_1,err)
+  call h5dcreate_f(grp_id_input,'iwfmax_small',H5T_NATIVE_INTEGER,dspace_scalar_id,dset_id_1,err)
+  call h5dwrite_f(dset_id_1,H5T_NATIVE_INTEGER,iwfmax_small,dims_scalar,err)
+  call h5dclose_f(dset_id_1,err)
+  call h5dcreate_f(grp_id_input,'iwbmax_small',H5T_NATIVE_INTEGER,dspace_scalar_id,dset_id_1,err)
+  call h5dwrite_f(dset_id_1,H5T_NATIVE_INTEGER,iwbmax_small,dims_scalar,err)
+  call h5dclose_f(dset_id_1,err)
+
+  call h5dcreate_f(grp_id_input,'nkp',H5T_NATIVE_INTEGER,dspace_scalar_id,dset_id_1,err)
+  call h5dwrite_f(dset_id_1,H5T_NATIVE_INTEGER,nkp,dims_scalar,err)
+  call h5dclose_f(dset_id_1,err)
+  call h5dcreate_f(grp_id_input,'nqp',H5T_NATIVE_INTEGER,dspace_scalar_id,dset_id_1,err)
+  call h5dwrite_f(dset_id_1,H5T_NATIVE_INTEGER,nqp,dims_scalar,err)
+  call h5dclose_f(dset_id_1,err)
+  
+  dims_vec=(/ 3 /)
+  call h5screate_simple_f(1,dims_vec,dspace_vec_id,err)
+  call h5dcreate_f(grp_id_input,'nkpxyz',H5T_NATIVE_INTEGER,dspace_vec_id,dset_id_1,err)
+  call h5dwrite_f(dset_id_1,H5T_NATIVE_INTEGER,(/nkpx,nkpy,nkpz/),dims_vec,err)
+  call h5dclose_f(dset_id_1,err)
+  call h5dcreate_f(grp_id_input,'nqpxyz',H5T_NATIVE_INTEGER,dspace_vec_id,dset_id_1,err)
+  call h5dwrite_f(dset_id_1,H5T_NATIVE_INTEGER,(/nqpx,nqpy,nqpz/),dims_vec,err)
+  call h5dclose_f(dset_id_1,err)
+
+
+! close the group and the file
+  call h5gclose_f(grp_id_input,err)
   call h5fclose_f(file_id,err)
 
   write(*,*) 'hdf5 output initialized'
@@ -722,7 +837,7 @@ subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
 
   call h5open_f(err)
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
-  call h5gopen_f(file_id,'chi_loc',grp_id_chi_loc,err)
+  call h5gopen_f(file_id,'susceptibility/loc',grp_id_chi_loc,err)
 
   call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_loc,err)
   call h5sset_extent_simple_f(dspace_id_chi_loc,rank_chi_loc,dims_chi_loc,dims_chi_loc,err)
@@ -735,7 +850,7 @@ subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
   call h5gclose_f(grp_id_chi_loc,err)
   call h5close_f(err)
  
-  write(*,*) 'chi_loc ',channel,' written to h5'
+  write(*,*) 'local susceptibility ',channel,' written to h5'
 end subroutine output_chi_loc_h5
 
 
@@ -766,7 +881,7 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
 
   call h5open_f(err)
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
-  call h5gopen_f(file_id,'chi_qw',grp_id_chi_qw,err)
+  call h5gopen_f(file_id,'susceptibility/nonloc',grp_id_chi_qw,err)
 
   call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_qw,err)
   call h5sset_extent_simple_f(dspace_id_chi_qw,rank_chi_qw,dims_chi_qw,dims_chi_qw,err)
@@ -779,7 +894,7 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
   call h5gclose_f(grp_id_chi_qw,err)
 
   ! re-open group
-  call h5gopen_f(file_id,'chi_qw',grp_id_chi_qw,err)
+  call h5gopen_f(file_id,'susceptibility/nonloc',grp_id_chi_qw,err)
 
   ! since fortran knows only 7-dimensional arrays, we cannot write the 8-dimensional chi directly
   ! instead it is written slice-by-slice in a loop over omega
@@ -820,7 +935,7 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
   call h5gclose_f(grp_id_chi_qw,err)
   call h5close_f(err)
  
-  write(*,*) 'chi_qw ',channel,' written to h5'
+  write(*,*) 'nonlocal susceptibility ',channel,' written to h5'
 end subroutine output_chi_qw_h5
 
 
@@ -866,8 +981,8 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   call h5sset_extent_simple_f(dspace_id_sigmasum,rank_siwk,dims_siwk,dims_siwk,err)
 
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
-  call h5gopen_f(file_id,'siwk',grp_id_siwk,err)
-  call h5dcreate_f(grp_id_siwk,'sigma_sum',compound_id,dspace_id_sigmasum,dset_id_sigmasum,err)
+  call h5gopen_f(file_id,'selfenergy',grp_id_siwk,err)
+  call h5dcreate_f(grp_id_siwk,'dga',compound_id,dspace_id_sigmasum,dset_id_sigmasum,err)
   call h5dwrite_f(dset_id_sigmasum,type_r_id,real(siwk_outputarray),dims_siwk,err)
   call h5dwrite_f(dset_id_sigmasum,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
   call h5dclose_f(dset_id_sigmasum,err)
@@ -888,7 +1003,7 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   end do
 
   ! the dimensions are the same, so we can use the same data space
-  call h5dcreate_f(grp_id_siwk,'sigma_sum_hf',compound_id,dspace_id_sigmasum,dset_id_sigmasumhf,err)
+  call h5dcreate_f(grp_id_siwk,'hartree_fock_nonloc',compound_id,dspace_id_sigmasum,dset_id_sigmasumhf,err)
   call h5dwrite_f(dset_id_sigmasumhf,type_r_id,real(siwk_outputarray),dims_siwk,err)
   call h5dwrite_f(dset_id_sigmasumhf,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
   call h5dclose_f(dset_id_sigmasumhf,err)
@@ -910,7 +1025,7 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
     end do
   end do
 
-  call h5dcreate_f(grp_id_siwk,'sigma_loc',compound_id,dspace_id_siw,dset_id_siwloc,err)
+  call h5dcreate_f(grp_id_siwk,'dga_loc',compound_id,dspace_id_siw,dset_id_siwloc,err)
   call h5dwrite_f(dset_id_siwloc,type_r_id,real(siw_outputarray),dims_siw,err)
   call h5dwrite_f(dset_id_siwloc,type_i_id,aimag(siw_outputarray),dims_siw,err)
   call h5dclose_f(dset_id_siwloc,err)
@@ -924,7 +1039,7 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
     end do
   end do
 
-  call h5dcreate_f(grp_id_siwk,'sigma_sum_dmft',compound_id,dspace_id_siw,dset_id_siwdmft,err)
+  call h5dcreate_f(grp_id_siwk,'dmft',compound_id,dspace_id_siw,dset_id_siwdmft,err)
   call h5dwrite_f(dset_id_siwdmft,type_r_id,real(siw_outputarray),dims_siw,err)
   call h5dwrite_f(dset_id_siwdmft,type_i_id,aimag(siw_outputarray),dims_siw,err)
   call h5dclose_f(dset_id_siwdmft,err)

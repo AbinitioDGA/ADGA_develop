@@ -81,8 +81,9 @@ if (mpi_wrank .eq. master) then
   ! generate a date-time string for output file name
   call date_and_time(date,time,zone,time_date_values)
   output_filename=trim(output_dir)//'adga-'//trim(date)//'-'//trim(time)//'-output.hdf5'
-  write(*,*) 'writing output to ',output_filename
-  call init_h5_output(output_filename)
+  ! while the name is generated here to get the correct starting time, 
+  ! the file is created later, just before the beginning of the parallel loop.
+  ! Thus, the parameters can be written immediately.
 end if
 
   !THE FOLLOWING PARAMETERS ARE READ FROM THE W2DYNAMICS OUTPUT-FILE:
@@ -106,25 +107,9 @@ end if
 
 ! read bosonic and fermionic Matsubara axes iwf-g4,iwb-g4:
   call get_freq_range()
+  call check_freq_range(mpi_wrank,master)
 
 
-  if (iwfmax_small .le. 0 .or. iwfmax_small .gt. iwfmax) then
-    iwfmax_small = iwfmax
-    if (mpi_wrank .eq. master) then
-      write(*,*) 'Error: Wrong input for fermionic frequencies'
-      write(*,*) 'Calculating with maximum number of fermionic frequencies &
-                  =', iwfmax
-    endif
-  endif
-
-  if (iwbmax_small .lt. 0 .or. iwbmax_small .gt. iwbmax) then
-    iwbmax_small = iwbmax
-    if (mpi_wrank .eq. master) then
-      write(*,*) 'Error: Wrong input for bosonic frequencies'
-      write(*,*) 'Calculating with maximum number of bosonic frequencies &
-                  =', iwbmax
-    endif
-  endif
 
   if (mpi_wrank .eq. master) then
     write(*,*) 'iwmax=', iwmax, ' (number of fermionic matsubara frequencies of one-particle quantities)'
@@ -383,6 +368,14 @@ if (mpi_wrank.eq.0) then
 end if
 
 
+
+if (mpi_wrank .eq. master) then
+  write(*,*) 'writing output to ',output_filename
+  call init_h5_output(output_filename)
+end if
+
+
+
   iwb = iwbmax_small+3
   do iqw=qwstart,qwstop
      call cpu_time(start)
@@ -416,11 +409,6 @@ end if
 
 
         call read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
-        !do i=1,maxdim
-        !  do j=1,maxdim
-        !    write(*,*) i,j,chi_loc_magn_full(i,j),chi_loc_dens_full(i,j)
-        !  end do
-        !end do
 
         !time reversal symmetry (which is simply a transpose in our compound index)
         do i1=1,maxdim
@@ -447,7 +435,7 @@ end if
         enddo
 
         !sum up the left fermionic frequency of chi_loc (quantity needed afterwards)
-        chi_loc_magn_sum_left = 0.d0!von rechts mit chi0_loc mutliplizieren
+        chi_loc_magn_sum_left = 0.d0
         chi_loc_dens_sum_left = 0.d0
 
         do i1=1,ndim2
@@ -754,41 +742,3 @@ end if
 deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,qw)
 write(*,*) 'end of program'
 end program main
-
-
-
-
-subroutine component2index_band(Nbands, ind, b1, b2, b3, b4)
-  implicit none
-  integer,intent(in) :: Nbands
-  integer,intent(in) :: b1, b2, b3, b4
-  integer,intent(out) :: ind
-
-  ind =  Nbands**3*(b1-1) + Nbands**2*(b2-1) + Nbands*(b3-1) + b4
-
-end subroutine component2index_band
-
-
-
-! converting an index into a band pattern
-subroutine index2component_band(Nbands, ind, b1, b2, b3, b4)
-  implicit none
-  integer,intent(in) :: Nbands,ind
-  integer,intent(out) :: b1, b2, b3, b4
-  integer :: tmp1,tmp2,tmp3,ind_tmp
-  integer :: g1,g2,g3,g4
-
-  ! the proposed back conversion assumes the indices are
-  ! given form 0 to max-1
-  ind_tmp = ind - 1
-  tmp1 = Nbands**3
-  tmp2 = Nbands**2
-  tmp3 = Nbands
-
-  b1 = ind_tmp/tmp1 + 1
-  b2 = (ind_tmp-tmp1*(b1-1))/tmp2 + 1
-  b3 = (ind_tmp-tmp1*(b1-1)-tmp2*(b2-1))/tmp3 + 1
-  b4 = (ind_tmp-tmp1*(b1-1)-tmp2*(b2-1)-tmp3*(b3-1)) + 1
-
-end subroutine index2component_band
-

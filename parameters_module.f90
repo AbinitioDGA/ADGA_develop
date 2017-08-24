@@ -202,4 +202,47 @@ subroutine finalize()
   deallocate(iw_data,iwf_data,iwb_data)
 end subroutine finalize
 
+
+subroutine check_freq_range(mpi_wrank,master)
+  implicit none
+  integer :: mpi_wrank,master
+
+
+  if (iwfmax_small .le. 0) then
+    iwfmax_small = iwfmax
+    if (mpi_wrank .eq. master) then
+      write(*,*) 'Calculating with maximum number of fermionic frequencies &
+                  =', iwfmax
+    endif
+  endif
+
+  if (iwbmax_small .lt. 0) then
+    iwbmax_small = iwbmax
+    if (mpi_wrank .eq. master) then
+      write(*,*) 'Calculating with maximum number of bosonic frequencies &
+                  =', iwbmax
+    endif
+  endif
+
+  if (iwfmax_small .gt. iwfmax) then
+    iwfmax_small = iwfmax
+    if (mpi_wrank .eq. master) then
+      write(*,*) 'Error: Wrong input for fermionic frequencies'
+      write(*,*) 'Calculating with maximum number of fermionic frequencies &
+                  =', iwfmax
+    endif
+  endif
+
+  if (iwbmax_small .gt. iwbmax) then
+    iwbmax_small = iwbmax
+    if (mpi_wrank .eq. master) then
+      write(*,*) 'Error: Wrong input for bosonic frequencies'
+      write(*,*) 'Calculating with maximum number of bosonic frequencies &
+                  =', iwbmax
+    endif
+  endif
+
+end subroutine check_freq_range
+
+
 end module parameters_module
