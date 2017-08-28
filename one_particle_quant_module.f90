@@ -6,18 +6,12 @@ module one_particle_quant_module
 
   contains
 
-subroutine get_giw(iw_data, hk, siw, dc, giw)
+subroutine get_giw()
   use lapack_module
   use parameters_module
   implicit none
-
-  double precision :: iw_data(-iwmax:iwmax-1)
-  complex(kind=8) :: hk(ndim,ndim,nkp)
-  complex(kind=8) :: siw(-iwmax:iwmax-1,ndim)
-  double precision :: dc(2,ndim)
   integer :: ik, iw, i
   complex(kind=8) :: g(ndim,ndim), g2(ndim,ndim)
-  complex(kind=8), intent (out) :: giw(-iwmax:iwmax-1,ndim)
 
   giw = 0.d0
   do ik=1,nkp
@@ -49,16 +43,12 @@ end subroutine get_giw
 
 
 
-subroutine get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
+subroutine get_gkiw(ikq, iwf, iwb, gkiw)
   use lapack_module
   use parameters_module
   implicit none
   integer :: i
   integer :: iwf, iwb, ikq
-  double precision :: iw_data(-iwmax:iwmax-1)
-  complex(kind=8) :: hk(ndim,ndim,nkp)
-  complex(kind=8) :: siw(-iwmax:iwmax-1,ndim)
-  double precision :: dc(2,ndim)
   complex(kind=8), intent(out) :: gkiw(ndim,ndim)
 
 
@@ -75,16 +65,12 @@ subroutine get_gkiw(ikq, iwf, iwb, iw_data, siw, hk, dc, gkiw)
 end subroutine get_gkiw
 
 
-subroutine get_gloc(iw_data, hk, siw, sigma_sum, dc, gloc)
+subroutine get_gloc(sigma_sum, gloc)
   use lapack_module
   use parameters_module
   implicit none
 
-  double precision :: iw_data(-iwmax:iwmax-1)
-  complex(kind=8) :: hk(ndim,ndim,nkp)
-  complex(kind=8) :: siw(-iwmax:iwmax-1,ndim)
   complex(kind=8) :: sigma_sum(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
-  double precision :: dc(2,ndim)
   integer :: ik, iw, i
   complex(kind=8) :: g(ndim,ndim), g2(ndim,ndim)
   complex(kind=8), intent (out) :: gloc(-iwmax:iwmax-1,ndim,ndim)
@@ -127,12 +113,11 @@ end subroutine get_gloc
 
 
 
-subroutine get_chi0_loc(iwf, iwb, giw, chi0_loc)
+subroutine get_chi0_loc(iwf, iwb, chi0_loc)
   use parameters_module
   implicit none
   integer :: i, j, k, l, i1, i2
   integer :: iwf, iwb
-  complex(kind=8) :: giw(-iwmax:iwmax-1,ndim)
   complex(kind=8), intent(out) :: chi0_loc(ndim*ndim,ndim*ndim)
 
   chi0_loc = 0.d0
@@ -157,12 +142,13 @@ subroutine get_chi0_loc(iwf, iwb, giw, chi0_loc)
 end subroutine get_chi0_loc
 
 
-subroutine get_chi0_loc_inv(iwf, iwb, giw, chi0_loc)
+
+
+subroutine get_chi0_loc_inv(iwf, iwb, chi0_loc)
   use parameters_module
   implicit none
   integer :: i, j, k, l, i1, i2
   integer :: iwf, iwb
-  complex(kind=8) :: giw(-iwmax:iwmax-1,ndim)
   complex(kind=8), intent(out) :: chi0_loc(ndim*ndim,ndim*ndim)
 
   chi0_loc = 0.d0
@@ -187,17 +173,13 @@ subroutine get_chi0_loc_inv(iwf, iwb, giw, chi0_loc)
 end subroutine get_chi0_loc_inv
 
 
-subroutine get_chi0(ik, ikq, iwf, iwb, iw_data, siw, hk, dc, chi0)
+subroutine get_chi0(ik, ikq, iwf, iwb, chi0)
   use lapack_module
   use parameters_module
   implicit none
   integer :: i, j, k, l, i1, i2
   integer :: iwf, iwb, ik, ikq
   complex(kind=8) :: g1(ndim,ndim), g2(ndim,ndim)
-  double precision :: iw_data(-iwmax:iwmax-1)
-  complex(kind=8) :: hk(ndim,ndim,nkp)
-  complex(kind=8) :: siw(-iwmax:iwmax-1,ndim)
-  double precision :: dc(2,ndim)
   complex(kind=8), intent(out) :: chi0(ndim*ndim,ndim*ndim)
 
   g1(:,:) = -hk(:,:,ik)

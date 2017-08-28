@@ -9,6 +9,7 @@ contains
 
 !===============================================================================================================================
 subroutine read_vq(iq, v)
+  use indexutils
   implicit none
   integer, intent(in) :: iq
   complex(kind=8), intent(out) :: v(ndim2,ndim2)
@@ -39,7 +40,6 @@ subroutine read_vq(iq, v)
 
      read(name_buffer,'(I5.5)') ind
      call index2component_band(ndim,ind,i,j,k,l)
-
      call h5dopen_f(vq_file_id, name_buffer, grp_id, err)
      call h5dread_f(grp_id, type_r_id, vq_tmp_r, vq_dims, err)
      call h5dread_f(grp_id, type_i_id, vq_tmp_i, vq_dims, err)
