@@ -7,7 +7,7 @@ LDINCLUDE += -L/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/l
 
 # get source files
 F90_MAIN_SOURCES := main.f90 parameters_module.f90 vq_module.f90 kq_tools.f90 lapack_module.f90 one_particle_quant_module.f90 susc_module.f90 eom_module.f90 hdf5_module.f90 aux.f90
-F90_SOURCES := vertex_chann_sym.f90 hdf5_module.f90 parameters_module.f90
+F90_SOURCES := vertex_chann_sym.f90 hdf5_module.f90 parameters_module.f90 aux.f90
 #F90_VQ_SOURCES := vq_check.f90 vq_module.f90 parameters_module.f90 kq_tools.f90 hdf5_module.f90
 MAIN_OBJECTS := $(patsubst %.f90,%.o,$(F90_MAIN_SOURCES))
 OBJECTS := $(patsubst %.f90,%.o,$(F90_SOURCES))
@@ -27,13 +27,14 @@ vertex_chann_sym: $(OBJECTS)
 #	$(LD) $(VQ_OBJECTS) -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
 
 main.o: parameters_module.o aux.o kq_tools.o lapack_module.o one_particle_quant_module.o susc_module.o eom_module.o vq_module.o hdf5_module.o
-vertex_chann_sym.o: hdf5_module.o parameters_module.f90
+vertex_chann_sym.o: hdf5_module.o parameters_module.f90 aux.o
 #vq_check.o: parameters_module.o vq_module.o kq_tools.o
 eom_module.o: parameters_module.o one_particle_quant_module.o
 susc_module.o: parameters_module.o hdf5_module.o
 one_particle_quant_module.o: aux.o lapack_module.o parameters_module.o
 kq_tools.o: parameters_module.o
 vq_module.o: parameters_module.o hdf5_module.o aux.o
+hdf5_module.o: parameters_module.o aux.o
 
 %.o: %.f90
 	$(F90) $(FFLAGS) $(FINCLUDE) -c $< -o $@

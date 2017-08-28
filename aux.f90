@@ -3,6 +3,127 @@ module aux
 
   contains
 
+!==============================================================================
+subroutine get_channel(s1, s2, s3, s4, ichannel)
+  implicit none
+
+  integer, intent(in) :: s1, s2, s3, s4
+  integer, intent(out) :: ichannel
+
+  if ((s1==s4) .and. (s2==s3) .and. (s1 .ne. s2)) then
+     ichannel = 1
+  else
+     ichannel = 2
+  endif
+
+end subroutine get_channel
+!================================================================================
+
+
+!================================================================================
+subroutine get_orb_sym(b1, b2, b3, b4, nbands, ntot, ind_band_list)
+  implicit none
+  
+  integer, intent(in) :: b1, b2, b3, b4, nbands
+  integer,intent(out) :: ntot
+  integer,intent(out) :: ind_band_list(:)
+  integer :: i, j, icount, ind_band
+
+  if ((b1==b2) .and. (b2==b3) .and. (b3==b4)) then
+     ntot = nbands
+     
+     do i=1,nbands
+        call component2index_band(nbands, ind_band, i, i, i, i)
+        ind_band_list(i) = ind_band
+     enddo
+
+  else
+     ntot = nbands**2-nbands
+     icount = 1
+     do i=1,nbands
+        do j=1,nbands
+           if (i .ne. j) then
+              ind_band = -1
+        
+              if((b1==b2) .and. (b3==b4) .and. (b1 .ne. b3)) then
+                 call component2index_band(nbands, ind_band, i, i, j, j)
+                 
+              else if((b1==b3) .and. (b2==b4) .and. (b1 .ne. b2)) then
+                 call component2index_band(nbands, ind_band, i, j, i, j)
+
+              else if((b1==b4) .and. (b2==b3) .and. (b1 .ne. b2)) then
+                 call component2index_band(nbands, ind_band, i, j, j, i)
+
+              endif
+
+              ind_band_list(icount) = ind_band
+              icount = icount+1
+           endif
+        enddo
+     enddo
+
+  endif
+
+end subroutine get_orb_sym
+!================================================================================
+
+
+!================================================================================
+! converting a band-spin pattern into an index
+subroutine component2index(Nbands, ind, b1, s1, b2, s2, b3, s3, b4, s4)
+  implicit none
+
+  integer,intent(in) :: Nbands
+  integer,intent(in) :: b1, s1, b2, s2, b3, s3, b4, s4
+  integer,intent(inout) :: ind
+  integer :: g1, g2, g3, g4
+
+  g1=2*(b1-1) + s1
+  g2=2*(b2-1) + s2
+  g3=2*(b3-1) + s3
+  g4=2*(b4-1) + s4
+
+  ind =  8*Nbands**3*(g1-1) + 4*Nbands**2*(g2-1) + 2*Nbands*(g3-1) + g4
+
+end subroutine component2index
+!=================================================================================
+
+!================================================================================
+! converting an index into a band-spin pattern
+subroutine index2component(Nbands, ind, b1, s1, b2, s2, b3, s3, b4, s4)
+
+  implicit none
+  integer,intent(in) :: Nbands,ind
+  integer,intent(inout) :: b1, s1, b2, s2, b3, s3, b4, s4
+  integer :: tmp1,tmp2,tmp3,ind_tmp
+  integer :: g1,g2,g3,g4
+
+  ! the proposed back conversion assumes the indices are
+  ! given form 0 to max-1  
+  ind_tmp = ind - 1
+  tmp1 = 8*Nbands**3
+  tmp2 = 4*Nbands**2
+  tmp3 = 2*Nbands
+
+  g1 = ind_tmp/tmp1 + 1
+  g2 = (ind_tmp-tmp1*(g1-1))/tmp2 + 1
+  g3 = (ind_tmp-tmp1*(g1-1)-tmp2*(g2-1))/tmp3 + 1
+  g4 = (ind_tmp-tmp1*(g1-1)-tmp2*(g2-1)-tmp3*(g3-1)) + 1
+
+  s1=mod(g1-1,2)+1
+  b1=(g1-s1)/2+1
+
+  s2=mod(g2-1,2)+1
+  b2=(g2-s2)/2+1
+
+  s3=mod(g3-1,2)+1
+  b3=(g3-s3)/2+1
+
+  s4=mod(g4-1,2)+1
+  b4=(g4-s4)/2+1
+
+end subroutine index2component
+!============================================================================
   subroutine component2index_band(Nbands, ind, b1, b2, b3, b4)
     implicit none
     integer,intent(in) :: Nbands
@@ -64,7 +185,8 @@ module aux
 
     ! checking if everything is on the same atom
     ! AND on correlated bands (non correlated lines would have ineq=0)
-    if ( (a .eqv. b) .and. (c .eqv. d) .and. (a .eqv. d) .and. (a .neqv. 0)) then
+    !if ( (a .eqv. b) .and. (c .eqv. d) .and. (a .eqv. d) .and. (a .neqv. 0)) then
+    if ( (a .eq. b) .and. (c .eq. d) .and. (a .eq. d) .and. (a .ne. 0)) then
       index2ineq = .true.
     else
       index2ineq = .false.
