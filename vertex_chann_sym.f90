@@ -4,7 +4,7 @@
 program symmetrize_vertex
 !====================================
   use parameters_module
-  use indexutils
+  use aux
   use hdf5
   use hdf5_module
   implicit none

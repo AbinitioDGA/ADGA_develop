@@ -548,7 +548,7 @@ module hdf5_module
 
  subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
      use parameters_module
-     use indexutils
+     use aux
      implicit none
      integer :: ineq,dimstart,dimend,imembers,ind_grp,b1,b2,b3,b4,ind_iwb
      integer :: i1,i2,iwf1,iwf2,i,j,k,l

@@ -9,7 +9,7 @@ contains
 
 !===============================================================================================================================
 subroutine read_vq(iq, v)
-  use indexutils
+  use aux
   implicit none
   integer, intent(in) :: iq
   complex(kind=8), intent(out) :: v(ndim2,ndim2)
