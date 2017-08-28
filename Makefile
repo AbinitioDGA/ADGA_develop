@@ -7,21 +7,30 @@ LDINCLUDE += -L/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/l
 
 # get source files
 F90_MAIN_SOURCES := main.f90 parameters_module.f90 vq_module.f90 kq_tools.f90 lapack_module.f90 one_particle_quant_module.f90 susc_module.f90 eom_module.f90 hdf5_module.f90 aux.f90
-F90_SOURCES := vertex_chann_sym.f90 hdf5_module.f90 parameters_module.f90 aux.f90
+F90_VERTEX_SOURCES := vertex_chann_sym.f90 hdf5_module.f90 parameters_module.f90 aux.f90
 #F90_VQ_SOURCES := vq_check.f90 vq_module.f90 parameters_module.f90 kq_tools.f90 hdf5_module.f90
 MAIN_OBJECTS := $(patsubst %.f90,%.o,$(F90_MAIN_SOURCES))
-OBJECTS := $(patsubst %.f90,%.o,$(F90_SOURCES))
+VERTEX_OBJECTS := $(patsubst %.f90,%.o,$(F90_VERTEX_SOURCES))
 VQ_OBJECTS := $(patsubst %.f90,%.o,$(F90_VQ_SOURCES))
 
+# define all objects
+ALL_OBJECTS := $(MAIN_OBJECTS)
+ALL_OBJECTS += $(VERTEX_OBJECTS)
+ALL_OBJECTS += $(VQ_OBJECTS)
 
+# remove duplicates
+OBJECTS := $(sort $(ALL_OBJECTS))
+
+
+.PHONY: all
 all: main vertex_chann_sym
 #vq_check
 
 main: $(MAIN_OBJECTS)
-	$(LD) $(MAIN_OBJECTS) -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
+	$(LD) $^ -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
 
-vertex_chann_sym: $(OBJECTS)
-	$(LD) $(OBJECTS) -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
+vertex_chann_sym: $(VERTEX_OBJECTS)
+	$(LD) $^ -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
 
 #vq_check: $(VQ_OBJECTS)
 #	$(LD) $(VQ_OBJECTS) -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
@@ -36,11 +45,9 @@ kq_tools.o: parameters_module.o
 vq_module.o: parameters_module.o hdf5_module.o aux.o
 hdf5_module.o: parameters_module.o aux.o
 
-%.o: %.f90
-	$(F90) $(FFLAGS) $(FINCLUDE) -c $< -o $@
+$(OBJECTS): %.o: %.f90
+	$(LD) $(FFLAGS) $(FINCLUDE) -c $< -o $@
 
-%.o: %.f
-	$(F90) $(FFLAGS) $(FINCLUDE) -c $< -o $@
-
+.PHONY: clean
 clean:
-	rm -f *.o *.mod $(PROG)
+	rm -f *.o *.mod main vertex_chann_sym
