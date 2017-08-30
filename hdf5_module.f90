@@ -221,15 +221,17 @@ module hdf5_module
 !===========================================================================================
 
 
- subroutine get_freq_range()
-     use parameters_module
+ subroutine get_freq_range(mpi_wrank,master)
      implicit none
+     integer :: mpi_wrank, master
      integer(hid_t) :: file_id
      integer(hsize_t), dimension(1) :: iw_dims,iw_maxdims,dim_iwb,dim_iwf,dim_iwf_max,dim_iwb_max
      integer(hid_t) :: iw_id,iwb_id,iwf_id,iw_space_id,dspace_iwb_id,dspace_iwf_id
  
      ! read frequency range of one-particle quantities
-     write(*,*) 'one particle quantities in ',filename
+     if (mpi_wrank .eq. master) then
+       write(*,*) 'one particle quantities in ',filename
+     endif
      call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
      call h5dopen_f(file_id, ".axes/iw", iw_id, err)
      call h5dget_space_f(iw_id, iw_space_id, err)
@@ -238,7 +240,9 @@ module hdf5_module
      call h5dclose_f(iw_id, err)
      call h5fclose_f(file_id,err)
 
-     write(*,*) 'two particle quantities in ',filename_vertex_sym
+     if (mpi_wrank .eq. master) then
+       write(*,*) 'two particle quantities in ',filename_vertex_sym
+     endif
      call h5fopen_f(filename_vertex_sym, h5f_acc_rdonly_f, file_id, err)
      ! read fermionic Matsubara frequencies iwf:
      call h5dopen_f(file_id, ".axes/iwf-g4", iwf_id, err)
@@ -260,14 +264,17 @@ module hdf5_module
 
 
  subroutine read_hk_w2w()
-     use parameters_module
      implicit none
      double precision, allocatable :: hr(:,:), hi(:,:)
      integer :: ik,i,j
+     integer :: ndim_test
      double precision :: kx, ky, kz
      
      open(21, file=filename_hk, status='unknown') ! the filename_hk is taken from parameters_module
-     read(21,*) nkp,ndim
+     read(21,*) nkp,ndim_test
+     if (ndim .ne. ndim_test) then
+       stop "Error: number of dimensions in input file do not coincide with Hamiltonian file"
+     endif
      allocate(hr(ndim,ndim),hi(ndim,ndim))
      allocate(hk(ndim,ndim,nkp))
      allocate(k_data(3,nkp))
@@ -288,7 +295,6 @@ module hdf5_module
  end subroutine read_hk_w2w
 
  subroutine read_siw()
-     use parameters_module
      implicit none
      integer :: i,iw,ineq,iband,dimstart, dimend
      integer(hid_t) :: file_id,siw_id, siw_space_id
@@ -297,7 +303,6 @@ module hdf5_module
      double precision :: siw_r, siw_i
      character(len=200) :: name_buffer
 
-     allocate(siw(-iwmax:iwmax-1,ndim))
      siw=0.d0
    
      do ineq=1,nineq
@@ -351,7 +356,6 @@ module hdf5_module
  end subroutine read_siw
 
  subroutine read_giw()
-     use parameters_module
      implicit none
      integer :: i,iw,ineq,iband,dimstart, dimend
      integer(hid_t) :: file_id,giw_id, giw_space_id
@@ -360,9 +364,6 @@ module hdf5_module
      double precision :: giw_r, giw_i
      character(len=200) :: name_buffer
 
-
-! read in all inequivalent atoms
-     allocate(giw(-iwmax:iwmax-1,ndim))
      giw=0.d0
    
      do ineq=1,nineq
@@ -431,8 +432,8 @@ module hdf5_module
  end subroutine read_giw
 
  subroutine read_hk_w2dyn()
-     use parameters_module
      implicit none
+     integer :: ndim_test
      integer :: i,ik
      integer(hid_t) :: file_id,k_id,k_space_id,hk_id,hk_space_id
      integer(hsize_t), dimension(2) :: k_dims, k_maxdims
@@ -459,7 +460,10 @@ module hdf5_module
     call h5dopen_f(file_id, "start/hk/value", hk_id, err)
     call h5dget_space_f(hk_id, hk_space_id, err)
     call h5sget_simple_extent_dims_f(hk_space_id, hk_dims, hk_maxdims, err)
-    ndim = hk_dims(1)
+    ndim_test = hk_dims(1)
+    if (ndim .ne. ndim_test) then
+      stop "Error: number of dimensions in input file do not coincide with Hamiltonian file"
+    endif
     allocate(hk_data(2,hk_dims(1),hk_dims(2),hk_dims(3)))
     call h5dread_f(hk_id, compound_id, hk_data, hk_dims, err)
     allocate(hk(hk_dims(1),hk_dims(2),hk_dims(3))) !indices: band band ik
@@ -482,7 +486,6 @@ module hdf5_module
  end subroutine read_hk_w2dyn
 
  subroutine read_beta()
-     use parameters_module
      implicit none
      integer(hid_t) :: file_id,config_id,beta_id
      integer(hsize_t),dimension(0) :: beta_dims
@@ -497,7 +500,6 @@ module hdf5_module
  end subroutine read_beta
 
  subroutine read_mu()
-     use parameters_module
      implicit none
      integer(hid_t) :: mu_id,file_id,mu_space_id
      integer(hsize_t),dimension(0) :: mu_dims
@@ -511,7 +513,6 @@ module hdf5_module
 
 
  subroutine read_dc()
-     use parameters_module
      implicit none
      integer :: ineq,i,iband,dimstart,dimend
      integer(hid_t) :: file_id,dc_id, dc_space_id
@@ -519,7 +520,6 @@ module hdf5_module
      double precision, allocatable :: dc_data(:,:)
      character(len=200) :: name_buffer
 
-     allocate(dc(2,ndim)) ! indices: spin band
      ! dc for noninteracting bands set to 0
      dc = 0.d0
 
@@ -547,7 +547,6 @@ module hdf5_module
  end subroutine read_dc
 
  subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
-     use parameters_module
      use aux
      implicit none
      integer :: ineq,dimstart,dimend,imembers,ind_grp,b1,b2,b3,b4,ind_iwb
@@ -693,8 +692,6 @@ module hdf5_module
 
 ! This subroutine creates the HDF5 output file and initializes its structure
 subroutine init_h5_output(filename_output)
-  use parameters_module
-
   implicit none
 
   integer :: err,i1,i2,ikx,iky,ikz
@@ -838,7 +835,6 @@ end subroutine init_h5_output
 
 
 subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
-  use parameters_module
   implicit none
   character(len=*) :: filename_output,channel
   integer :: err,rank_chi_loc
@@ -873,8 +869,6 @@ end subroutine output_chi_loc_h5
 
 
 subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
-  use hdf5
-  use parameters_module
 
   implicit none
   character(len=*) :: filename_output,channel
@@ -958,7 +952,6 @@ end subroutine output_chi_qw_h5
 
 
 subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
-  use parameters_module
   implicit none
   character(len=*) :: filename_output
   integer(hid_t) :: file_id,grp_id_siwk,dset_id_sigmasum,dspace_id_sigmasum,dset_id_sigmasumhf

@@ -42,7 +42,6 @@ subroutine read_config()
 
   call getarg(1,cmd_arg)
   config_file=trim(cmd_arg)
-  write(*,*) 'Reading config: ',config_file
 
   open(unit=1,file=config_file)
   read(1,*)
@@ -205,8 +204,7 @@ end subroutine finalize
 
 subroutine check_freq_range(mpi_wrank,master)
   implicit none
-  integer :: mpi_wrank,master
-
+  integer :: mpi_wrank, master
 
   if (iwfmax_small .le. 0) then
     iwfmax_small = iwfmax
@@ -243,6 +241,5 @@ subroutine check_freq_range(mpi_wrank,master)
   endif
 
 end subroutine check_freq_range
-
 
 end module parameters_module

@@ -13,9 +13,9 @@ program main
   use kq_tools
   use vq_module
   use aux
+  use mpi_org
 
   implicit none
-  integer ::  ierr
   integer :: iw, ik, iq, ikq, iwf, iwb, iv, dum, dum1, iwf1, iwf2
   integer :: i, j, k, l, n, i1, i2, i3, i4
   complex(kind=8), allocatable :: gloc(:,:,:), gkiw(:,:)
@@ -41,13 +41,6 @@ program main
   character(200) :: output_filename
   integer,dimension(8) :: time_date_values
 
-#ifdef MPI
-  integer :: mpi_wrank
-  integer :: mpi_wsize
-  integer :: master
-  integer,allocatable :: rct(:),disp(:)
-#endif
-
 
   ! read command line argument -> file name of config file
   if (iargc() .ne. 1) then
@@ -55,23 +48,17 @@ program main
     stop
   end if
 
-
-#ifdef MPI
-  call MPI_init(ierr)
-  call MPI_comm_rank(MPI_COMM_WORLD,mpi_wrank,ierr)
-  call MPI_comm_size(MPI_COMM_WORLD,mpi_wsize,ierr)
-  master = 0
-  allocate(rct(mpi_wsize),disp(mpi_wsize))
-#endif
-
+  ! read config settings
   call read_config()
-  if (mpi_wrank .eq. master) write(*,*) 'Config file: ',trim(config_file)
 
-  ! master id creates output folder if necessary
+  ! mpi initialization
+  call mpi_initialize()
+
+  ! create output folder if not yet existing
   if (mpi_wrank .eq. master) call system('mkdir -p ' // adjustl(trim(output_dir)))
-  ! this barrier is necessary to avoid file writing before folder creation
   call mpi_barrier(mpi_comm_world,ierr)
 
+  ! program introduction
   if (mpi_wrank .eq. master) then
     write(*,*)
     write(*,*) '/-----------------------------------------------------------\'
@@ -81,37 +68,22 @@ program main
     write(*,*)
   end if
 
-
-if (mpi_wrank .eq. master) then
-  ! generate a date-time string for output file name
-  call date_and_time(date,time,zone,time_date_values)
-  output_filename=trim(output_dir)//'adga-'//trim(date)//'-'//trim(time)//'-output.hdf5'
-  ! while the name is generated here to get the correct starting time, 
-  ! the file is created later, just before the beginning of the parallel loop.
-  ! Thus, the parameters can be written immediately.
-end if
-
-  !THE FOLLOWING PARAMETERS ARE READ FROM THE W2DYNAMICS OUTPUT-FILE:
-  !iwmax or iw_dims(1)/2    number of fermionic Matsubara frequencies for single particle quantities
-  !nkp or hk_dims(3)    number of k-points in H(k)
-  !ndim or hk_dims(1(2)) total number of bands in H(k) (d+p)
-  !ndims or siw_dims(3)   number of d-bands
-
-!#################################################################
-
-
-! read  external w2wannier Hamitonian:
-  if(read_ext_hk) then
-    call read_hk_w2w()
+  ! creation of hdf5 output file
+  if (mpi_wrank .eq. master) then
+    ! generate a date-time string for output file name
+    call date_and_time(date,time,zone,time_date_values)
+    output_filename=trim(output_dir)//'adga-'//trim(date)//'-'//trim(time)//'-output.hdf5'
+    ! while the name is generated here to get the correct starting time, 
+    ! the file is created later, just before the beginning of the parallel loop.
+    ! Thus, the parameters can be written immediately.
   end if
 
-
-!##################  READ W2DYNAMICS HDF5 OUTPUT FILE  #####################################
-
-  call init_h5() ! open the hdf5-fortran interface
+!##################  READ W2DYNAMICS HDF5 OUTPUT FILE ##################
+! open the hdf5-fortran interface
+  call init_h5()
 
 ! read bosonic and fermionic Matsubara axes iwf-g4,iwb-g4:
-  call get_freq_range()
+  call get_freq_range(mpi_wrank,master)
   call check_freq_range(mpi_wrank,master)
 
   if (mpi_wrank .eq. master) then
@@ -120,35 +92,34 @@ end if
     write(*,*)'iwbmax=',iwbmax, 'iwbmax_small=', iwbmax_small, ' (number of bosonic matsubara frequencies of two-particle quantities)'
   end if
 
-! read in all inequivalent atoms
-  ! siw from DMFT contains all possible bands
-  ! siw at p (non-interacting bands) is set to 0
-  call read_siw()
+! after frequencies and dimensions are obtained, arrays can be allocated 
+  allocate(siw(-iwmax:iwmax-1,ndim))
+  allocate(giw(-iwmax:iwmax-1,ndim))
+  allocate(dc(2,ndim)) ! indices: spin band
 
-  call read_giw()
+! read Hamiltonian
+  if(read_ext_hk) then
+    call read_hk_w2w()
+  else
+    call read_hk_w2dyn()
+  end if
+
+  call read_siw()  ! w2d self energy
+  call read_giw()  ! w2d greens function G_dmft
+
+  call read_mu()   ! w2d chemical potential
+  call read_beta() ! w2d inverse temperature
+  call read_dc()   ! w2d double counting
+
+  call finalize_h5() ! close the hdf5-fortran interface
 
   if (mpi_wrank .eq. master) then
     write(*,*) 'orb_symmetry = ', orb_sym
   end if
 
-
-  if(.not. read_ext_hk) then
-    call read_hk_w2dyn()
-  end if
-
-
-
   if (.not. do_vq .and. mpi_wrank .eq. master) then
     write(*,*) 'Main: Run without V(q)'
   end if
-
-  call read_mu()   ! chemical potential
-  call read_beta() ! inverse temperature
-  call read_dc()   ! double counting
-
-
-
-  call finalize_h5() ! close the hdf5-fortran interface
 
   if (mpi_wrank .eq. master) then
     write(*,*) 'beta=', beta
@@ -164,8 +135,8 @@ end if
 
 !################################################################################################
 
-! compute local single-particle Greens function:
-! allocate(giw(-iwmax:iwmax-1,ndim))
+! COMPUTE local single-particle Greens function -- this overwrites the readin from w2d above
+! This calculation is necessary if one wants to do calculations with p-bands
   call get_giw()
 
 ! test giw:
@@ -247,6 +218,7 @@ end if
   end if
 
 
+
   if (mpi_wrank .eq. master) then
     write(*,*) nkp1,'k points in one direction'
     write(*,*) nkp,'k points total'
@@ -290,7 +262,9 @@ end if
   end if
 
 
-!define qw compound index for mpi:
+! define qw compound index for mpi:
+  call mpi_distribute()
+
   allocate(qw(2,nqp*(2*iwbmax+1)))
   i1=0
   do iwb=-iwbmax_small,iwbmax_small
@@ -302,33 +276,6 @@ end if
   enddo
 
 !distribute the qw compound index:
-#ifdef MPI
-  rct=0
-  disp=0
-  qwstop = 0
-  do i=0,mpi_wrank
-     j = (nqp*(2*iwbmax_small+1) - qwstop)/(mpi_wsize-i)
-     qwstart = qwstop + 1
-     qwstop = qwstop + j
-  enddo
-  rct(mpi_wrank+1)=(qwstop-qwstart+1)*ndim2**2
-  if (mpi_wrank .eq. master) then
-    call MPI_reduce(MPI_IN_PLACE,rct,mpi_wsize,MPI_INTEGER,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-  else
-    call MPI_reduce(rct,rct,mpi_wsize,MPI_INTEGER,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-  end if
-  if (mpi_wrank .eq. master) then
-    do i=2,mpi_wsize
-      disp(i)=sum(rct(1:i-1))! the first displacing has to be 0
-    end do
-    write(*,*) 'receive ct',rct
-    write(*,*) 'displacing',disp
-  end if
-#else
-  qwstart = 1
-  qwstop = nqp*(2*iwbmax_small+1)
-#endif
-
 if (do_chi) then
   allocate(chi_qw_dens(ndim2,ndim2,qwstart:qwstop),chi_qw_magn(ndim2,ndim2,qwstart:qwstop))
   allocate(bubble(ndim2,ndim2,qwstart:qwstop))
@@ -342,10 +289,6 @@ if (do_chi) then
   bubble_loc=0.d0
 end if
 
-#ifdef MPI
-write(*,*)'rank=',mpi_wrank, 'qwstart=', qwstart, 'qwstop=', qwstop
-start = mpi_wtime()
-#endif
 
 
 if (do_eom) then
