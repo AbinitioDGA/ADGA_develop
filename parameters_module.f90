@@ -242,4 +242,68 @@ subroutine check_freq_range(mpi_wrank,master)
 
 end subroutine check_freq_range
 
+
+subroutine check_config()
+  implicit none
+  logical :: there
+
+  if (do_eom .lt. 0 .or. do_eom .gt. 1 .or. do_chi .lt. 0 .or. do_chi .gt. 1) then
+    stop "Error: Choose appropriate calculation mode (config line 5)"
+  endif
+
+  inquire (file=trim(filename_hk), exist=there)
+  if (.not. there) then
+    stop "Error: Hamiltonian file does not exist"
+  endif
+
+  if (q_vol .lt. 0 .or. q_vol .gt. 1 .or. &
+    k_path_eom .lt. 0 .or. k_path_eom .gt. 1 .or. &
+    q_path_susc .lt. 0 .or. q_path_susc .gt. 1 .or. &
+    read_ext_hk .lt. 0 .or. read_ext_hk .gt. 1 ) then
+    stop "Error: Choose appropriate settings (config line 20)"
+  endif
+
+  if (q_vol .eq. 0) then
+    inquire (file=trim(filename_q_path), exist=there)
+    if (.not. there) then
+      stop "Error: Q-Path file does not exist"
+    endif
+  endif
+
+  if (do_vq .lt. 0 .or. do_vq .gt. 1) then
+    stop "Error: Choose appropriate V(q) mode (config line 29)"
+  endif
+
+  if (do_vq .eq. 1) then
+    inquire (file=trim(filename_vq), exist=there)
+    if (.not. there) then
+      stop "Error: V(Q) file does not exist"
+    endif
+  endif
+
+  inquire (file=trim(filename_vertex), exist=there)
+  if (.not. there) then
+    stop "Error: One-Particle data file does not exist"
+  endif
+
+  inquire (file=trim(filename_umatrix), exist=there)
+  if (.not. there) then
+    stop "Error: Umatrix file does not exist"
+  endif
+
+  if (orb_sym .lt. 0 .or. orb_sym .gt. 1) then
+    stop "Error: Choose appropriate symmetrization mode (config line 38)"
+  endif
+
+  if (vertex_type .lt. 0 .or. vertex_type .gt. 2) then
+    stop "Error: Choose appropriate vertex type (config line 41)"
+  endif
+
+  inquire (file=trim(filename_vertex_sym), exist=there)
+  if (.not. there) then
+    stop "Error: Two-Particle data file does not exist"
+  endif
+
+  end subroutine check_config
+
 end module parameters_module

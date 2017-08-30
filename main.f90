@@ -44,15 +44,19 @@ program main
 
   ! read command line argument -> file name of config file
   if (iargc() .ne. 1) then
-    write(*,*) 'The program has to be executed with exactly one argument. (Name of config file)'
-    stop
+    stop 'The program has to be executed with exactly one argument. (Name of config file)'
   end if
-
-  ! read config settings
-  call read_config()
 
   ! mpi initialization
   call mpi_initialize()
+
+  ! read config settings
+  if (mpi_wrank .eq. master) write(*,*) 'Reading config file'
+  call read_config()
+
+  ! check config settings
+  if (mpi_wrank .eq. master) write(*,*) 'Checking config file'
+  call check_config() 
 
   ! create output folder if not yet existing
   if (mpi_wrank .eq. master) call system('mkdir -p ' // adjustl(trim(output_dir)))
@@ -680,9 +684,8 @@ end if
      end if
   endif
 
-  call MPI_finalize(ierr)
-
 #endif
-deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,qw)
-write(*,*) 'end of program'
+  deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,qw)
+  if (mpi_wrank .eq. master) write(*,*) 'end of program'
+  call mpi_close()
 end program main
