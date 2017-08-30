@@ -838,15 +838,32 @@ subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
   implicit none
   character(len=*) :: filename_output,channel
   integer :: err,rank_chi_loc
+  integer :: i1,i2,i3,i4,iwb
   integer(kind=8),dimension(:),allocatable :: dims_chi_loc
   integer(hid_t) :: file_id,grp_id_chi_loc
   integer(hid_t) :: dspace_id_chi_loc
   integer(hid_t) :: dset_id_chi_loc
   complex(kind=8),dimension(ndim**2,ndim**2,2*iwbmax_small+1) :: chi_loc
+  complex(kind=8),dimension(ndim,ndim,ndim,ndim,2*iwbmax_small+1) :: chi_loc_outputarray
 
   rank_chi_loc=5
   allocate(dims_chi_loc(rank_chi_loc))
   dims_chi_loc=(/ ndim,ndim,ndim,ndim,2*iwbmax_small+1 /)
+
+
+  ! reshape and transpose the array, i.e. break up the compound index
+  do i1=1,ndim
+    do i2=1,ndim
+      do i3=1,ndim
+        do i4=1,ndim
+          do iwb=1,2*iwbmax_small+1
+            chi_loc_outputarray(i4,i3,i2,i1,iwb) = chi_loc(ndim*(i1-1)+i2,ndim*(i4-1)+i3,iwb)
+          end do
+        end do
+      end do
+    end do
+  end do
+
 
 
   call h5open_f(err)
@@ -857,8 +874,8 @@ subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
   call h5sset_extent_simple_f(dspace_id_chi_loc,rank_chi_loc,dims_chi_loc,dims_chi_loc,err)
 
   call h5dcreate_f(grp_id_chi_loc,channel,compound_id,dspace_id_chi_loc,dset_id_chi_loc,err)
-  call h5dwrite_f(dset_id_chi_loc,type_r_id,real(chi_loc),dims_chi_loc,err)
-  call h5dwrite_f(dset_id_chi_loc,type_i_id,aimag(chi_loc),dims_chi_loc,err)
+  call h5dwrite_f(dset_id_chi_loc,type_r_id,real(chi_loc_outputarray),dims_chi_loc,err)
+  call h5dwrite_f(dset_id_chi_loc,type_i_id,aimag(chi_loc_outputarray),dims_chi_loc,err)
 
   call h5dclose_f(dset_id_chi_loc,err)
   call h5gclose_f(grp_id_chi_loc,err)
@@ -911,7 +928,7 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
   ! since fortran knows only 7-dimensional arrays, we cannot write the 8-dimensional chi directly
   ! instead it is written slice-by-slice in a loop over omega
   ! additionally, the order of the indices is reversed here, because fortran uses column-major memory layout
-  ! Furthermore, the last two band indices are swapped back here.
+  ! Furthermore, the last two band indices are swapped back here to break up the compound index correctly.
   ! TODO: check, if really everything is ok with the indices!
   do iwb=1,2*iwbmax_small+1
     do iqz=1,nqpz
