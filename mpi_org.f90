@@ -12,6 +12,7 @@ module mpi_org
   integer :: master
   integer, allocatable :: rct(:),disp(:)
   integer :: ierr
+  integer :: qwstart,qwstop
 
   contains
 
@@ -33,7 +34,6 @@ module mpi_org
 
   subroutine mpi_distribute()
     implicit none
-    integer :: qwstart,qwstop
     integer :: i,j
 #ifdef MPI
       rct=0

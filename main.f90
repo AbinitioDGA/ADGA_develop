@@ -30,7 +30,7 @@ program main
   complex(kind=8), allocatable :: interm1(:,:), interm1_v(:,:), interm2_dens(:,:)
   real(kind=8 ):: start, finish, start1, finish1
   complex(kind=8) :: alpha, delta
-  integer :: iqw, qwstart, qwstop
+  integer :: iqw
   logical :: update_chi_loc_flag
   complex(kind=8), allocatable :: gamma_loc(:,:), gamma_loc_sum_left(:,:), v(:,:)
   complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_hf(:,:,:,:), sigma_dmft(:,:,:)
@@ -133,6 +133,7 @@ program main
 
   call init() ! this requires beta, so it has to be called after read_beta()
 
+
   !read umatrix from separate file:
   call read_u(u,u_tilde)
 
@@ -142,6 +143,7 @@ program main
 ! COMPUTE local single-particle Greens function -- this overwrites the readin from w2d above
 ! This calculation is necessary if one wants to do calculations with p-bands
   call get_giw()
+
 
 ! test giw:
    open(35, file=trim(output_dir)//"giw_calc.dat", status='unknown')
@@ -269,6 +271,8 @@ program main
 ! define qw compound index for mpi:
   call mpi_distribute()
 
+
+
   allocate(qw(2,nqp*(2*iwbmax+1)))
   i1=0
   do iwb=-iwbmax_small,iwbmax_small
@@ -292,7 +296,6 @@ if (do_chi) then
   chi_loc_magn=0.d0
   bubble_loc=0.d0
 end if
-
 
 
 if (do_eom) then
@@ -608,7 +611,6 @@ end if
 
 #ifdef MPI
   ! MPI reduction and output
-  write(*,*)'nkp=', nkp
   if (do_eom) then
      allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp),sigma_sum_hf(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
      allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1),sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1))
