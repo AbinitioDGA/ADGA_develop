@@ -19,7 +19,6 @@ module parameters_module
   complex(kind=8), allocatable :: giw_sum(:), n_dga(:), n_dmft(:), n_fock(:,:,:)
   integer :: nqp,nkp_eom, idp
   integer,allocatable :: q_data(:),k_data_eom(:)
-  character(len=150) :: filename, filename_umatrix, filename_vq, filename_hk, output_dir, filename_q_path
   logical :: orb_sym,full_chi0
   logical :: do_eom,do_chi,do_vq
   logical :: q_path_susc,k_path_eom,q_vol,read_ext_hk
@@ -27,9 +26,11 @@ module parameters_module
   logical :: exist_p
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
   integer :: nr ! number of r-points in extrapolated V(r)
-  character(len=150) filename_vr ! filename of extrapolated V(r)
   real(kind=8) :: a,b,c ! lattice spacing
-  character(len=150) ::  filename_vertex, filename_vertex_sym
+  character(len=150) filename_vr ! filename of extrapolated V(r)
+  character(len=150) :: filename_vertex, filename_vertex_sym
+  character(len=150) :: filename, filename_umatrix, filename_vq
+  character(len=150) :: filename_hk, output_dir, filename_q_path
   character(len=100) :: config_file
 
 
@@ -150,7 +151,7 @@ end subroutine read_config
 
 subroutine init()
   implicit none
-  integer :: i,j,k,l,n
+  integer :: i
   maxdim = ndim*ndim*2*iwfmax_small
   ndim2 = ndim*ndim
   if (full_chi0) then

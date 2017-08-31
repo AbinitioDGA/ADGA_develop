@@ -8,14 +8,13 @@ module eom_module
 contains
 
 !================================================================================================
-  subroutine calc_eom(interm3_dens, interm3_magn, gamma_dmft_dens, gamma_dmft_magn, gamma_loc_sum_left, sigma, sigma_dmft, sigma_hf, kq_ind, iwb, iq, iw_data, u, v, u_tilde, n_dmft, n_fock)
+  subroutine calc_eom(interm3_dens, interm3_magn, gamma_dmft_dens, gamma_dmft_magn, gamma_loc_sum_left, sigma, sigma_dmft, sigma_hf, kq_ind, iwb, iq, v)
   implicit none
 
   integer :: dum,i,j,iw,iwf,iwf2,l,k,ik,ikq
   integer :: i1,i2,i3,i4
   integer,intent(in) :: kq_ind(nkp,nqp),iwb,iq
-  real*8,intent(in) :: iw_data(-iwmax:iwmax-1)
-  complex(kind=8),intent(in) :: u(ndim2,ndim2),u_tilde(ndim2,ndim2),v(ndim2,ndim2)
+  complex(kind=8),intent(in) :: v(ndim2,ndim2)
   complex(kind=8),intent(in) :: gamma_dmft_dens(ndim2,maxdim), gamma_dmft_magn(ndim2,maxdim)
   complex(kind=8) :: gamma_dmft(ndim2,maxdim)
   complex(kind=8) :: interm3_dens(ndim2,maxdim),interm3_magn(ndim2,maxdim)
@@ -27,7 +26,7 @@ contains
   complex(kind=8) :: u_work(ndim2,ndim2), m_work(ndim2,maxdim)
   complex(kind=8) :: gkiw(ndim,ndim)
   complex(kind=8) :: alpha, delta
-  complex(kind=8) :: n_fock(nkp,ndim,ndim), n_dmft(ndim), sigma_fock(ndim,ndim)
+  complex(kind=8) :: sigma_fock(ndim,ndim)
   complex(kind=8) :: vq(ndim,ndim,ndim,ndim), u_arr(ndim,ndim,ndim,ndim)
   complex(kind=8) :: sigma_hf_0(ndim,ndim)
 
@@ -230,13 +229,11 @@ subroutine add_siw_dmft(sigma_sum)
 
 
 
-subroutine get_sigma_g_loc(iw_data, sigma_sum, sigma_loc, gloc, n_dga)
+subroutine get_sigma_g_loc(sigma_sum, sigma_loc, gloc)
   implicit none
   complex(kind=8), intent(out) :: sigma_loc(ndim, ndim,-iwfmax_small:iwfmax_small-1)
   complex(kind=8), intent(out) :: gloc(-iwmax:iwmax-1,ndim,ndim)
-  complex(kind=8), intent(out) :: n_dga(ndim)
   complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
-  double precision, intent(in) :: iw_data(-iwmax:iwmax-1)
   integer :: ik, iband, iw
 
   sigma_loc = 0.d0
@@ -263,16 +260,13 @@ end subroutine get_sigma_g_loc
 
 
 !==============================================================================================
-subroutine output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, n_sum)
+subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc)
   implicit none
 
-  real*8, intent(in) :: iw_data(-iwmax:iwmax-1)
-  real*8, intent(in) :: k_data(3,nkp)
   complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp), sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1)
   complex(kind=8), intent(in) :: sigma_sum_hf(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
   complex(kind=8), intent(in) :: sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1)
   complex(kind=8) :: sigma_tmp(ndim*(ndim+1)/2)
-  complex(kind=8), intent(in) :: n_sum(ndim)
   complex(kind=8), intent(in) :: gloc(-iwmax:iwmax-1,ndim,ndim)
   integer :: ik, iwf, i, j, iband,nkp_eom,ii, i1, i2, i3, i4
   character(len=50) :: eom_format
@@ -344,7 +338,7 @@ subroutine output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_sum_hf, 
        enddo
     enddo
 
-   write(49,'(100F12.6)')  (real(n_sum(i)), i=1,ndim)
+   write(49,'(100F12.6)')  (real(n_dga(i)), i=1,ndim)
 
   close(34)
   close(35)

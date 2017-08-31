@@ -559,7 +559,7 @@ end if
      end if
      if (do_eom) then
         !equation of motion
-        call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,sigma_dmft,sigma_hf,kq_ind,iwb,iq,iw_data,u,v,u_tilde,n_dmft,n_fock)
+        call calc_eom(interm3_dens,interm3_magn,gamma_dmft_dens,gamma_dmft_magn,gamma_loc_sum_left,sigma,sigma_dmft,sigma_hf,kq_ind,iwb,iq,v)
      end if
      call cpu_time(finish)
 
@@ -590,9 +590,9 @@ end if
      sigma_sum_hf = -sigma_sum_hf/(beta*nqp)
      sigma_sum_dmft = -sigma_sum_dmft/(beta*nqp)
      call add_siw_dmft(sigma_sum)
-     call get_sigma_g_loc(iw_data, sigma_sum, sigma_loc, gloc, n_dga)
+     call get_sigma_g_loc(sigma_sum, sigma_loc, gloc)
      if (mpi_wrank .eq. master) then
-       call output_eom(iw_data, k_data, sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, n_dga)
+       call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc)
        call output_eom_hdf5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
      end if
      deallocate(sigma, sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc)

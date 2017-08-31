@@ -300,7 +300,6 @@ module hdf5_module
      integer(hid_t) :: file_id,siw_id, siw_space_id
      integer(hsize_t), dimension(3) :: siw_dims, siw_maxdims
      double precision, allocatable :: siw_data(:,:,:,:)
-     double precision :: siw_r, siw_i
      character(len=200) :: name_buffer
 
      siw=0.d0
@@ -361,7 +360,6 @@ module hdf5_module
      integer(hid_t) :: file_id,giw_id, giw_space_id
      integer(hsize_t), dimension(3) :: giw_dims, giw_maxdims
      double precision, allocatable :: giw_data(:,:,:,:)
-     double precision :: giw_r, giw_i
      character(len=200) :: name_buffer
 
      giw=0.d0
@@ -621,8 +619,6 @@ module hdf5_module
           call h5close_f(err)
 
         enddo ! loop for inequivalent atoms
-
-        write(*,*) "Reading Vertex complete"
 
         !compute chi_loc (go into compound index and subtract straight term):
         chi_loc_magn_full = 0.d0

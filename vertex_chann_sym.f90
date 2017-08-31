@@ -9,7 +9,6 @@ program symmetrize_vertex
   use hdf5_module
   implicit none
 
-  character(len=150) :: cmd_arg
   integer(hid_t) :: file_id, new_file_id
   character(len=40) :: grpname, name_buffer, name_buffer_value, name_buffer_error
   integer(hid_t) :: nmembers, imembers, itype, grp_id, g4iw_id, g4err_id
@@ -60,31 +59,6 @@ program symmetrize_vertex
     write(*,*) 'Wrong input - Using only SU2 symmetry.'
   endif
 
-
-! read command line arguments -> number ineq atoms, input filenames and output filename, number of bands.
-  ! call getarg(1,cmd_arg)
-  ! read(cmd_arg,'(I1)') nineq
-
-  ! if (.not. iargc() .eq. 2*nineq+2 ) then
-  !   write(*,*) 'The program has to be executed with the following arguments'
-  !   write(*,*) 'number of inequivalent atoms, names of input files (as many as inequivalent atoms)'
-  !   write(*,*) 'name of output file, number of correlated (d) bands for each input file'
-  !   stop
-  ! endif
-
-  ! allocate(filename_vertex_ineq(nineq))
-  ! allocate(Nbands(nineq))
-  
-  ! do ineq=1,nineq
-  !   call getarg(1+ineq,cmd_arg)
-  !   filename_vertex_ineq(ineq)=trim(cmd_arg)
-  ! enddo
-  ! call getarg(2+nineq,cmd_arg)
-  ! filename_vertex_sym = trim(cmd_arg)
-  ! do ineq=1,nineq
-  !   call getarg(2+nineq+ineq,cmd_arg)
-  !   read(cmd_arg,'(I1)') Nbands(ineq)
-  ! enddo
 
 !================================================================
 !Define orbital symmetry here:

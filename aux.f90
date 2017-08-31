@@ -141,7 +141,6 @@ end subroutine index2component
     integer,intent(in) :: Nbands,ind
     integer,intent(out) :: b1, b2, b3, b4
     integer :: tmp1,tmp2,tmp3,ind_tmp
-    integer :: g1,g2,g3,g4
 
     ! the proposed back conversion assumes the indices are
     ! given form 0 to max-1
