@@ -2,13 +2,12 @@ module one_particle_quant_module
   use lapack_module
   use parameters_module
   use aux
+  use mpi_org, only: mpi_wrank,master
   implicit none
 
   contains
 
 subroutine get_giw()
-  use lapack_module
-  use parameters_module
   implicit none
   integer :: ik, iw, i
   complex(kind=8) :: g(ndim,ndim), g2(ndim,ndim)
@@ -39,13 +38,18 @@ subroutine get_giw()
 
   giw = giw/dble(nkp)
 
+  if(mpi_wrank .eq. master) then
+    open(35, file=trim(output_dir)//"giw_calc.dat", status='unknown')
+    do iw=-iwmax,iwmax-1
+      write(35,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
+    enddo
+    close(35)
+  endif
+
 end subroutine get_giw
 
 
-
 subroutine get_gkiw(ikq, iwf, iwb, gkiw)
-  use lapack_module
-  use parameters_module
   implicit none
   integer :: i
   integer :: iwf, iwb, ikq
@@ -66,8 +70,6 @@ end subroutine get_gkiw
 
 
 subroutine get_gloc(sigma_sum, gloc)
-  use lapack_module
-  use parameters_module
   implicit none
 
   complex(kind=8) :: sigma_sum(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
@@ -112,9 +114,7 @@ subroutine get_gloc(sigma_sum, gloc)
 end subroutine get_gloc
 
 
-
 subroutine get_chi0_loc(iwf, iwb, chi0_loc)
-  use parameters_module
   implicit none
   integer :: i, j, k, l, i1, i2
   integer :: iwf, iwb
@@ -140,10 +140,7 @@ subroutine get_chi0_loc(iwf, iwb, chi0_loc)
 end subroutine get_chi0_loc
 
 
-
-
 subroutine get_chi0_loc_inv(iwf, iwb, chi0_loc)
-  use parameters_module
   implicit none
   integer :: i, j, k, l, i1, i2
   integer :: iwf, iwb
@@ -170,8 +167,6 @@ end subroutine get_chi0_loc_inv
 
 
 subroutine get_chi0(ik, ikq, iwf, iwb, chi0)
-  use lapack_module
-  use parameters_module
   implicit none
   integer :: i, j, k, l, i1, i2
   integer :: iwf, iwb, ik, ikq
@@ -232,5 +227,51 @@ subroutine get_chi0(ik, ikq, iwf, iwb, chi0)
   enddo
 
 end subroutine get_chi0
+
+
+subroutine get_ndmft()
+  implicit none
+  integer :: iw,i
+
+  giw_sum = 0.d0
+  n_dmft = 0.d0
+  do iw=0,iwmax-1
+    giw_sum(:) = giw_sum(:)+giw(iw,:)
+  enddo
+  n_dmft = 0.d0
+  n_dmft(:) = 2.d0*real(giw_sum(:))/beta+0.5d0
+
+  if (mpi_wrank .eq. master) then
+    open(56, file=trim(output_dir)//"n_dmft.dat", status='unknown')
+    write(56,'(100F12.6)') (real(n_dmft(i)),i=1,ndim)
+    close(56)
+  endif
+end subroutine get_ndmft
+
+
+subroutine get_nfock()
+  implicit none
+  integer :: ik,iw,i
+  complex(kind=8)  :: gkiw(ndim,ndim)
+
+  n_fock = 0.d0
+  gkiw = 0.d0
+  do ik=1,nkp
+     do iw=0,iwmax-1
+        call get_gkiw(ik, iw, 0, gkiw)
+        n_fock(ik,:,:) = n_fock(ik,:,:)+real(gkiw(:,:))
+     enddo
+     n_fock = 2.d0*n_fock/beta
+     do i=1,ndim
+        n_fock(ik,i,i) = n_fock(ik,i,i)+0.5d0
+     enddo
+  enddo
+
+  if (mpi_wrank .eq. master) then
+    open(110, file=trim(output_dir)//"n_fock.dat", status='unknown')
+    write(110,'(100F12.6)') k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_fock(ik,i,i)),i=1,ndim)
+    close(110)
+  endif
+end subroutine get_nfock
 
 end module

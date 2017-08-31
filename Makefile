@@ -42,7 +42,7 @@ vertex_chann_sym.o: hdf5_module.o parameters_module.f90 aux.o
 #vq_check.o: parameters_module.o vq_module.o kq_tools.o
 eom_module.o: parameters_module.o one_particle_quant_module.o
 susc_module.o: parameters_module.o hdf5_module.o
-one_particle_quant_module.o: aux.o lapack_module.o parameters_module.o
+one_particle_quant_module.o: aux.o lapack_module.o parameters_module.o mpi_org.o
 kq_tools.o: parameters_module.o
 vq_module.o: parameters_module.o hdf5_module.o aux.o
 hdf5_module.o: parameters_module.o aux.o

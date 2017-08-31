@@ -35,7 +35,6 @@ program main
   complex(kind=8), allocatable :: gamma_loc(:,:), gamma_loc_sum_left(:,:), v(:,:)
   complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_hf(:,:,:,:), sigma_dmft(:,:,:)
   complex(kind=8), allocatable :: sigma_sum(:,:,:,:), sigma_sum_hf(:,:,:,:), sigma_sum_dmft(:,:,:), sigma_loc(:,:,:)
-  complex(kind=8), allocatable :: giw_sum(:), n_dga(:), n_dmft(:), n_fock(:,:,:)
 ! variables for date-time string
   character(20) :: date,time,zone
   character(200) :: output_filename
@@ -137,54 +136,20 @@ program main
 
   call init() ! this requires beta, so it has to be called after read_beta()
 
-
   !read umatrix from separate file:
   call read_u(u,u_tilde)
 
-
-!################################################################################################
-
 ! COMPUTE local single-particle Greens function -- this overwrites the readin from w2d above
 ! This calculation is necessary if one wants to do calculations with p-bands
-  call get_giw()
+  call get_giw() ! writes giw_calc.dat
 
-
-! test giw:
-   open(35, file=trim(output_dir)//"giw_calc.dat", status='unknown')
-   do iw=-iwmax,iwmax-1
-      write(35,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
-   enddo
-   close(35)
-
-  !compute DMFT filling n_dmft
   allocate(gloc(-iwmax:iwmax-1,ndim,ndim), gkiw(ndim,ndim))
   allocate(giw_sum(ndim), n_dmft(ndim), n_fock(nkp,ndim,ndim), n_dga(ndim))
-  giw_sum = 0.d0
-  n_dmft = 0.d0
-  do iw=0,iwmax-1
-      giw_sum(:) = giw_sum(:)+giw(iw,:)
-  enddo
 
-  n_dmft = 0.d0
-  n_dmft(:) = 2.d0*real(giw_sum(:))/beta+0.5d0
-  open(56, file=trim(output_dir)//"n_dmft.dat", status='unknown')
-  write(56,'(100F12.6)') (real(n_dmft(i)),i=1,ndim)
-
-  !compute k-dependent filling for Fock-term (computed in the EOM):
-  n_fock = 0.d0
-  gkiw = 0.d0
-  open(110, file=trim(output_dir)//"n_fock.dat", status='unknown')
-  do ik=1,nkp
-     do iw=0,iwmax-1
-        call get_gkiw(ik, iw, 0,gkiw)
-        n_fock(ik,:,:) = n_fock(ik,:,:)+real(gkiw(:,:))
-     enddo
-     n_fock = 2.d0*n_fock/beta
-     do i=1,ndim
-        n_fock(ik,i,i) = n_fock(ik,i,i)+0.5d0
-     enddo
-     write(110,'(100F12.6)') k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_fock(ik,i,i)),i=1,ndim)
-  enddo
+!compute DMFT filling n_dmft
+  call get_ndmft() ! writes n_dmft.dat
+!compute k-dependent filling for Fock-term (computed in the EOM):
+  call get_nfock() ! write n_fock.dat
 
 
   allocate(chi0_loc(ndim2,ndim2,iwstart:iwstop))

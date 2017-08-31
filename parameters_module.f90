@@ -16,6 +16,7 @@ module parameters_module
   double precision, allocatable :: k_data(:,:), r_data(:,:)
   complex(kind=8), allocatable :: hk(:,:,:),dc(:,:)
   complex(kind=8), allocatable :: siw(:,:),giw(:,:) 
+  complex(kind=8), allocatable :: giw_sum(:), n_dga(:), n_dmft(:), n_fock(:,:,:)
   integer :: nqp,nkp_eom, idp
   integer,allocatable :: q_data(:),k_data_eom(:)
   character(len=150) :: filename, filename_umatrix, filename_vq, filename_hk, output_dir, filename_q_path
