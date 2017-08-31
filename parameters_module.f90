@@ -23,6 +23,7 @@ module parameters_module
   logical :: do_eom,do_chi,do_vq
   logical :: q_path_susc,k_path_eom,q_vol,read_ext_hk
   integer :: vertex_type
+  logical :: exist_p
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
   integer :: nr ! number of r-points in extrapolated V(r)
   character(len=150) filename_vr ! filename of extrapolated V(r)
@@ -246,10 +247,16 @@ end subroutine check_freq_range
 subroutine check_config()
   implicit none
   logical :: there
+  integer :: ineq
 
   if (do_eom .lt. 0 .or. do_eom .gt. 1 .or. do_chi .lt. 0 .or. do_chi .gt. 1) then
     stop "Error: Choose appropriate calculation mode (config line 5)"
   endif
+
+  exist_p = .false.
+  do ineq=1,nineq
+    if(ndims(ineq,2) .ne. 0) exist_p=.true.
+  enddo
 
   inquire (file=trim(filename_hk), exist=there)
   if (.not. there) then

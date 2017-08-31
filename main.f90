@@ -109,7 +109,11 @@ program main
   end if
 
   call read_siw()  ! w2d self energy
-  call read_giw()  ! w2d greens function G_dmft
+! this only works for no p-bands since read_giw reads the giw array which only
+! contains correlated bands
+  if(.not. exist_p) then
+    call read_giw()  ! w2d greens function G_dmft
+  endif
 
   call read_mu()   ! w2d chemical potential
   call read_beta() ! w2d inverse temperature
