@@ -232,13 +232,13 @@ end subroutine get_chi0
 subroutine get_ndmft()
   implicit none
   integer :: iw,i
+  complex(kind=8) :: giw_sum(ndim)
 
   giw_sum = 0.d0
   n_dmft = 0.d0
   do iw=0,iwmax-1
     giw_sum(:) = giw_sum(:)+giw(iw,:)
   enddo
-  n_dmft = 0.d0
   n_dmft(:) = 2.d0*real(giw_sum(:))/beta+0.5d0
 
   if (mpi_wrank .eq. master) then
@@ -261,7 +261,7 @@ subroutine get_nfock()
         call get_gkiw(ik, iw, 0, gkiw)
         n_fock(ik,:,:) = n_fock(ik,:,:)+real(gkiw(:,:))
      enddo
-     n_fock = 2.d0*n_fock/beta
+     n_fock(ik,:,:) = 2.d0*n_fock(ik,:,:)/beta
      do i=1,ndim
         n_fock(ik,i,i) = n_fock(ik,i,i)+0.5d0
      enddo
@@ -269,7 +269,10 @@ subroutine get_nfock()
 
   if (mpi_wrank .eq. master) then
     open(110, file=trim(output_dir)//"n_fock.dat", status='unknown')
-    write(110,'(100F12.6)') k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_fock(ik,i,i)),i=1,ndim)
+    write(110,*) '### kx, ky, kz, n_fock(k,i,i)'
+    do ik=1,nkp
+      write(110,'(100F12.6)') k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_fock(ik,i,i)),i=1,ndim)
+    enddo
     close(110)
   endif
 end subroutine get_nfock

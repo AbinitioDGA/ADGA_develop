@@ -18,7 +18,7 @@ program main
   implicit none
   integer :: iw, ik, iq, ikq, iwf, iwb, iv, dum, dum1, iwf1, iwf2
   integer :: i, j, k, l, n, i1, i2, i3, i4
-  complex(kind=8), allocatable :: gloc(:,:,:), gkiw(:,:)
+  complex(kind=8), allocatable :: gloc(:,:,:)
   complex(kind=8), allocatable :: chi0_loc(:,:,:), chi0_loc_inv(:,:,:), chi0(:,:), chi0_sum(:,:,:)
   complex(kind=8), allocatable :: chi_loc_slice_dens(:,:), sum_chi0_loc(:,:)
   complex(kind=8), allocatable ::  chi_loc_slice_magn(:,:), chi_loc_dens_full(:,:), chi_loc_magn_full(:,:), chi_loc(:,:)
@@ -143,13 +143,13 @@ program main
 ! This calculation is necessary if one wants to do calculations with p-bands
   call get_giw() ! writes giw_calc.dat
 
-  allocate(gloc(-iwmax:iwmax-1,ndim,ndim), gkiw(ndim,ndim))
-  allocate(giw_sum(ndim), n_dmft(ndim), n_fock(nkp,ndim,ndim), n_dga(ndim))
+  allocate(gloc(-iwmax:iwmax-1,ndim,ndim))
+  allocate(n_dmft(ndim), n_fock(nkp,ndim,ndim), n_dga(ndim))
 
 !compute DMFT filling n_dmft
   call get_ndmft() ! writes n_dmft.dat
 !compute k-dependent filling for Fock-term (computed in the EOM):
-  call get_nfock() ! write n_fock.dat
+  call get_nfock() ! writes n_fock.dat
 
 
   allocate(chi0_loc(ndim2,ndim2,iwstart:iwstop))
@@ -564,9 +564,10 @@ end if
      call cpu_time(finish)
 
      !Output the calculation progress
-!     if (mpi_wrank .eq. master) then
-       write(*,'((A),I5,2X,I6,2X,I6,2X,I6,2X,(A),F8.4)') 'iqw/qwstart/qwstop on rank',mpi_wrank,iqw,qwstart,qwstop,'time ',finish-start
-!     end if
+     write(*,'("Core:",I4,"  Progress:",I7,"  of",I7,"  Time: ",F8.4,"  (working area:",I7,"  -",I7,")")') &
+      mpi_wrank, iqw-qwstart+1, qwstop-qwstart+1, finish-start, qwstart, qwstop
+       ! write(*,'((A),I5,2X,I6,2X,I6,2X,I6,2X,F8.4,(A),F8.4)') 'mpi_rank || qwstart -- iqw -- qwstop || % : ',&
+                            ! mpi_wrank,qwstart,iqw,qwstop, (iqw-qwstart)/dble(qwstart-qwstop+1), 'time: ',finish-start
   enddo !iqw
 
 

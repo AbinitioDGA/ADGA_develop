@@ -14,6 +14,9 @@
 *.hdf5
 *.hk
 
+#ctags
+tags
+
 # configfiles
 config*
 # except config_template which is maintained by hand

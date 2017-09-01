@@ -16,7 +16,7 @@ module parameters_module
   double precision, allocatable :: k_data(:,:), r_data(:,:)
   complex(kind=8), allocatable :: hk(:,:,:),dc(:,:)
   complex(kind=8), allocatable :: siw(:,:),giw(:,:) 
-  complex(kind=8), allocatable :: giw_sum(:), n_dga(:), n_dmft(:), n_fock(:,:,:)
+  complex(kind=8), allocatable :: n_dga(:), n_dmft(:), n_fock(:,:,:)
   integer :: nqp,nkp_eom, idp
   integer,allocatable :: q_data(:),k_data_eom(:)
   logical :: orb_sym,full_chi0
