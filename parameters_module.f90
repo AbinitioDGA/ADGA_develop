@@ -40,7 +40,6 @@ subroutine read_config()
   implicit none
   character(len=100) :: cmd_arg
   character(len=150) :: str_tmp
-  integer :: int_tmp_1,int_tmp_2,int_tmp_3,int_tmp_4
   integer :: ineq
 
   call getarg(1,cmd_arg)
@@ -51,14 +50,11 @@ subroutine read_config()
   read(1,*)
   read(1,*)
   read(1,*)
-  read(1,*) int_tmp_1,int_tmp_2
-  do_chi=int_tmp_1
-  do_eom=int_tmp_2
+  read(1,*) do_chi, do_eom
 
   read(1,*)
   read(1,*)
-  read(1,*) int_tmp_1
-  nineq=int_tmp_1
+  read(1,*) nineq
   allocate(ndims(nineq,2))
 
   read(1,*)
@@ -77,11 +73,7 @@ subroutine read_config()
 
   read(1,*)
   read(1,*)
-  read(1,*) int_tmp_1,int_tmp_2,int_tmp_3,int_tmp_4
-  q_vol=int_tmp_1
-  k_path_eom=int_tmp_2
-  q_path_susc=int_tmp_3
-  read_ext_hk=int_tmp_4
+  read(1,*) q_vol, k_path_eom, q_path_susc, read_ext_hk 
 
   read(1,*)
   read(1,*)
@@ -90,8 +82,7 @@ subroutine read_config()
 
   read(1,*)
   read(1,*)
-  read(1,*) int_tmp_1
-  do_vq = int_tmp_1
+  read(1,*) do_vq
 
   read(1,*)
   read(1,*)
@@ -110,8 +101,7 @@ subroutine read_config()
 
   read(1,*)
   read(1,*)
-  read(1,*) int_tmp_1
-  orb_sym=int_tmp_1
+  read(1,*) orb_sym
 
   read(1,*)
   read(1,*)
@@ -124,10 +114,7 @@ subroutine read_config()
 
   read(1,*)
   read(1,*)
-  read(1,*) int_tmp_1,int_tmp_2
-  iwfmax_small=int_tmp_1
-  iwbmax_small=int_tmp_2
-
+  read(1,*) iwfmax_small, iwbmax_small
   read(1,*)
   read(1,*)
   read(1,'(A)') str_tmp
@@ -251,10 +238,6 @@ subroutine check_config()
   logical :: there
   integer :: ineq
 
-  if (do_eom .lt. 0 .or. do_eom .gt. 1 .or. do_chi .lt. 0 .or. do_chi .gt. 1) then
-    stop "Error: Choose appropriate calculation mode (config line 5)"
-  endif
-
   exist_p = .false.
   do ineq=1,nineq
     if(ndims(ineq,2) .ne. 0) exist_p=.true.
@@ -265,32 +248,21 @@ subroutine check_config()
     stop "Error: Hamiltonian file does not exist"
   endif
 
-  if (q_vol .lt. 0 .or. q_vol .gt. 1 .or. &
-    k_path_eom .lt. 0 .or. k_path_eom .gt. 1 .or. &
-    q_path_susc .lt. 0 .or. q_path_susc .gt. 1 .or. &
-    read_ext_hk .lt. 0 .or. read_ext_hk .gt. 1 ) then
-    stop "Error: Choose appropriate settings (config line 20)"
-  endif
-
-  if (q_vol .eq. 0) then
+  if (q_vol .eqv. .false.) then
     inquire (file=trim(filename_q_path), exist=there)
     if (.not. there) then
       stop "Error: Q-Path file does not exist"
     endif
   endif
 
-  if (do_vq .lt. 0 .or. do_vq .gt. 1) then
-    stop "Error: Choose appropriate V(q) mode (config line 29)"
-  endif
-
-  if (do_vq .eq. 1) then
+  if (do_vq .eqv. .true.) then
     inquire (file=trim(filename_vq), exist=there)
     if (.not. there) then
       stop "Error: V(Q) file does not exist"
     endif
   endif
 
-  inquire (file=trim(filename_vertex), exist=there)
+  inquire (file=trim(filename), exist=there)
   if (.not. there) then
     stop "Error: One-Particle data file does not exist"
   endif
@@ -298,10 +270,6 @@ subroutine check_config()
   inquire (file=trim(filename_umatrix), exist=there)
   if (.not. there) then
     stop "Error: Umatrix file does not exist"
-  endif
-
-  if (orb_sym .lt. 0 .or. orb_sym .gt. 1) then
-    stop "Error: Choose appropriate symmetrization mode (config line 38)"
   endif
 
   if (vertex_type .lt. 0 .or. vertex_type .gt. 2) then

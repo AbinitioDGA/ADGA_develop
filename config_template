@@ -1,8 +1,8 @@
 # Abinitio_DGA config file.
 # Never change lines or order! Only change values!
 
-# Decide, whether to calculate susceptibilities (1) and/or the equation of motion (2). (0==.false., 1==.true.)
-0 1
+# Decide, whether to calculate susceptibilities (1) and/or the equation of motion (2).
+F T
 
 # number of inequivalent atoms
 1
@@ -17,13 +17,13 @@ ham.1000
 10 10 10            1 1 1
 
 # q_vol,k_path_eom,q_path_susc, read ext hamiltonian
-1 0 0 1
+T F F T
 
 # file name of q path file (ignored for q_vol)
 path.qp
 
-# computation with V^q (0==.false., 1==.true.)
-0
+# computation with V^q
+F
 
 # file name of V^q
 Vq.file
@@ -34,8 +34,8 @@ umatrix.dat
 # file name for one-particle data
 PAM-2PG-2017-08-01-Tue-12-30-25.hdf5
 
-# decide if you use orbital symmetrization (0==.false., 1==.true.)
-1
+# decide if you use orbital symmetrization
+T
 
 # vertex type (0: 2P GF, 1: chi_conn, 2: chi)
 0
