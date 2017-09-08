@@ -1,8 +1,240 @@
-program umatrix
+module global
   implicit none
-  integer :: i,j,k,l
-  integer :: ineq, nineq, ndim
-  integer :: lines, stat
+  public
+  integer :: lines
+  character(len=1), parameter :: cmnt = '#'
+  character(len=1), parameter :: seperator = '='
+  character(len=150), allocatable :: file_temp(:), file_save(:)
+end module
+
+module subspaces
+  implicit none
+
+  contains
+
+  ! return true if all 4 legs are in the same correlated subspace
+  logical function index2cor(nineq,ndims,m,n,o,p)
+    implicit none
+    integer, intent(in) :: nineq
+    integer, intent(in) :: ndims(nineq,2)
+    ! band indices from specific beginning or end point of a 1PG
+    integer, intent(in) :: m,n,o,p
+    ! inequivalent atom number for specific index
+    integer :: a,b,c,d
+    integer :: dimstart,dimend,ineq, i
+
+    a=0;b=0;c=0;d=0
+
+    do ineq=1,nineq
+      dimstart=1
+      do i=2,ineq
+        dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+      enddo
+      dimend=dimstart+ndims(ineq,1)-1 ! only in correlated sub space
+      if ( m .ge. dimstart .and. m .le. dimend ) a=ineq
+      if ( n .ge. dimstart .and. n .le. dimend ) b=ineq
+      if ( o .ge. dimstart .and. o .le. dimend ) c=ineq
+      if ( p .ge. dimstart .and. p .le. dimend ) d=ineq
+    enddo
+
+    ! checking if everything is on the same atom
+    ! AND on correlated bands (non correlated lines would have ineq=0)
+    if ( (a .eq. b) .and. (c .eq. d) .and. (a .eq. d) .and. (a .ne. 0)) then
+      index2cor = .true.
+    else
+      index2cor = .false.
+    endif
+  end function index2cor
+
+  ! return true if all 4 legs are in the same uncorrelated subspace
+  logical function index2uncor(nineq,ndims,m,n,o,p)
+    implicit none
+    integer, intent(in) :: nineq
+    integer, intent(in) :: ndims(nineq,2)
+    ! band indices from specific beginning or end point of a 1PG
+    integer, intent(in) :: m,n,o,p
+    ! inequivalent atom number for specific index
+    integer :: a,b,c,d
+    integer :: dimstart,dimend,ineq, i
+
+    a=0;b=0;c=0;d=0
+
+    do ineq=1,nineq
+      dimstart=ndims(1,1)+1
+      do i=2,ineq
+        dimstart=dimstart+ndims(i,1)+ndims(i-1,2)
+      enddo
+      dimend=dimstart+ndims(ineq,2)-1
+      if ( m .ge. dimstart .and. m .le. dimend ) a=ineq
+      if ( n .ge. dimstart .and. n .le. dimend ) b=ineq
+      if ( o .ge. dimstart .and. o .le. dimend ) c=ineq
+      if ( p .ge. dimstart .and. p .le. dimend ) d=ineq
+    enddo
+
+    if ( (a .eq. b) .and. (c .eq. d) .and. (a .eq. d) .and. (a .ne. 0)) then
+      index2uncor = .true.
+    else
+      index2uncor = .false.
+    endif
+  end function index2uncor
+
+  ! returns number of impurity if all 4 legs on the same
+  ! otherwise returns 0
+  integer function index2ineq(nineq,ndims,m,n,o,p)
+    implicit none
+    integer, intent(in) :: nineq
+    integer, intent(in) :: ndims(nineq,2)
+    ! band indices from specific beginning or end point of a 1PG
+    integer, intent(in) :: m,n,o,p
+    ! inequivalent atom number for specific index
+    integer :: a,b,c,d
+    integer :: dimstart,dimend,ineq, i
+
+    a=0;b=0;c=0;d=0
+
+    do ineq=1,nineq
+      dimstart=1
+      do i=2,ineq
+        dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+      enddo
+      dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1
+      if ( m .ge. dimstart .and. m .le. dimend ) a=ineq
+      if ( n .ge. dimstart .and. n .le. dimend ) b=ineq
+      if ( o .ge. dimstart .and. o .le. dimend ) c=ineq
+      if ( p .ge. dimstart .and. p .le. dimend ) d=ineq
+    enddo
+
+    if ( (a .eq. b) .and. (c .eq. d) .and. (a .eq. d) ) then
+      index2ineq = a
+    else
+      index2ineq = 0
+    endif
+  end function index2ineq
+
+end module subspaces
+
+module lookup
+  use global
+  implicit none
+  private
+  integer :: i, pst
+  character(len=150) :: str_temp
+  public :: string_find, int_find, float_find, group_find, subgroup_find
+
+  contains
+
+  subroutine string_find(search_string, save_string, search_start, search_end)
+    character(*), intent(in)  :: search_string
+    character(len=150), intent(inout) :: save_string ! keep default string
+    integer, intent(in) :: search_start, search_end
+
+    do i=search_start,search_end
+      if (index(trim(file_save(i)),trim(search_string)) .ne. 0) then
+        str_temp=file_save(i)
+        pst=scan(str_temp,seperator)
+        save_string=adjustl(trim(str_temp(pst+1:)))
+      endif
+    enddo
+  end subroutine string_find
+
+  subroutine int_find(search_string, save_int, search_start, search_end)
+    character(*), intent(in)  :: search_string
+    integer, intent(inout) :: save_int ! keep default values
+    integer, intent(in) :: search_start, search_end
+
+    do i=search_start,search_end
+      if (index(trim(file_save(i)),trim(search_string)) .ne. 0) then
+        str_temp=file_save(i)
+        pst=scan(str_temp,seperator)
+        str_temp=adjustl(trim(str_temp(pst+1:)))
+        read(str_temp,'(I5)') save_int
+      endif
+    enddo
+  end subroutine int_find
+
+  subroutine float_find(search_string, save_float, search_start, search_end)
+    character(*), intent(in)  :: search_string
+    real(8), intent(inout) :: save_float ! keep default values
+    integer, intent(in) :: search_start, search_end
+
+    do i=search_start,search_end
+      if (index(trim(file_save(i)),trim(search_string)) .ne. 0) then
+        str_temp=file_save(i)
+        pst=scan(str_temp,seperator)
+        str_temp=adjustl(trim(str_temp(pst+1:)))
+        read(str_temp,'(F13.8)') save_float
+      endif
+    enddo
+  end subroutine float_find
+
+  subroutine group_find(search_string, save_start, save_end)
+    character(*), intent(in) :: search_string
+    integer, intent(out) :: save_start, save_end
+    save_start=0
+    save_end=0
+
+    do i=1,lines
+      if (index(trim(file_save(i)),trim(search_string)) .ne. 0) then
+        save_start=i+1
+        exit
+      endif
+    enddo
+
+    do i=save_start, lines
+      if (index(trim(file_save(i)),'[') .eq. 1) then
+        if (index(trim(file_save(i)),'[[') .eq. 1) then ! skip subgroups
+          cycle
+        endif
+        save_end=i-1 ! one above the next session
+        exit
+      endif
+    enddo
+
+    if(save_end .eq. 0) then
+      save_end = lines ! if nothing else is found, until the end of the file
+    endif
+  end subroutine group_find
+
+  subroutine subgroup_find(search_string, search_start, search_end, save_start, save_end)
+    character(*), intent(in) :: search_string
+    integer, intent(in) :: search_start, search_end
+    integer, intent(out) :: save_start, save_end
+    save_start=0
+    save_end=0
+
+    do i=search_start, search_end
+      if (index(trim(file_save(i)),trim(search_string)) .ne. 0) then
+        save_start=i+1
+        exit
+      endif
+    enddo
+
+    do i=save_start, search_end
+      if (index(trim(file_save(i)),'[') .eq. 1) then
+        save_end=i-1 ! one above the next session
+        exit
+      endif
+    enddo
+
+    if(save_end .eq. 0) then
+      save_end = lines ! if nothing else is found, until the end of the file
+    endif
+  end subroutine subgroup_find
+
+end module lookup
+
+
+program umatrix
+  use global
+  use subspaces
+  use lookup
+
+  implicit none
+  integer :: i,j,k,l,ineq,stat
+  integer :: int_temp
+  character(len=150) :: str_temp, str_ineq
+
+  integer :: nineq, ndim
   integer, allocatable :: ndims(:,:)
   real(8), allocatable :: Umat(:,:,:,:)
   real(8), allocatable :: Udd(:),Vdd(:),Jdd(:)
@@ -11,15 +243,9 @@ program umatrix
   character(len=150), allocatable :: hamiltonian(:)
   integer,allocatable :: mode_ineq(:)
 
-  character(len=150), allocatable :: file_temp(:), file_save(:)
-  integer, allocatable :: pos_ineq_start(:), pos_ineq_end(:)
-  character(len=150) :: str_temp, str_ineq
-  character(len=150) :: config_file
-  character(len=150) :: output
-  integer :: int_temp
-  integer :: index2ineq
-  logical :: index2cor, index2uncor
-  character(len=1) :: cmnt, seperator
+  integer :: search_start, search_end
+  integer :: subsearch_start, subsearch_end
+  character(len=150) :: config_file, output
   integer :: pst, empty
 
   ! Config File checks
@@ -30,10 +256,12 @@ program umatrix
 
   open(unit=10,file=trim(config_file),action='read',iostat=stat)
     if (stat .ne. 0) then
-      write(*,*) 'input file cannot be opened'
+      write(*,'(A)') 'Input file cannot be opened'
+      close(10)
       goto 99
     endif
 
+    ! line counting
     lines=0
     read_count: do
       read(10,'(A)',END=200) str_temp ! read whole line as string, doesnt skip empty lines
@@ -45,8 +273,7 @@ program umatrix
 
     allocate(file_temp(lines))
 
-    cmnt = '#'
-
+    ! remove empty lines and comment strings
     empty=0
     read_temp: do i=1,lines
       read(10,'(A)') str_temp
@@ -65,6 +292,7 @@ program umatrix
         endif
     enddo read_temp
 
+    ! rewrite everything to a new clean string array
     allocate(file_save(lines-empty))
     j=1
     read_save: do i=1,lines
@@ -77,168 +305,63 @@ program umatrix
 
     lines=lines-empty
 
-    ! file save now contains all the information without comments 
-    ! or break lines
-
-    ! free format detection
-
-    seperator='='
-    
-    ! search for General stuff + Allocation of values
-    do i=1,lines
-      if (index(trim(file_save(i)),'Output') .ne. 0) then
-        str_temp=file_save(i)
-        pst=scan(str_temp,seperator)
-        output=adjustl(trim(str_temp(pst+1:)))
-      endif
-
-      if (index(trim(file_save(i)),'NAt') .ne. 0) then
-        str_temp=file_save(i)
-        pst=scan(str_temp,seperator)
-        str_temp=adjustl(trim(str_temp(pst+1:)))
-        read(str_temp,'(I1)') nineq
-      endif
-    enddo
-
-    allocate(hamiltonian(nineq))
-    allocate(mode_ineq(nineq))
-    allocate(pos_ineq_start(nineq),pos_ineq_end(nineq))
-    allocate(ndims(nineq,2))
-    allocate(Udd(nineq),Vdd(nineq),Jdd(nineq))
-    allocate(Udp(nineq),Vdp(nineq),Jdp(nineq))
-    allocate(Upp(nineq),Vpp(nineq),Jpp(nineq))
-    hamiltonian=''
-    mode_ineq=0
-    ndims=0
-    Udd=0.d0; Vdd=0.d0; Jdd=0.d0
-    Udp=0.d0; Vdp=0.d0; Jdp=0.d0
-    Upp=0.d0; Vpp=0.d0; Jpp=0.d0
-    pos_ineq_start=0; pos_ineq_end=0
-
-    ! search for [[i]] positions
-    do ineq=1,nineq
-      write(str_ineq,'(A2,I1,A2)') '[[',ineq,']]'
-      do i=1,lines
-        if (index(trim(file_save(i)),trim(str_ineq)) .ne. 0) then
-          pos_ineq_start(ineq)=i+1 ! one below that sign
-          exit
-        endif
-      enddo
-    enddo
-
-    ! search for areas of ineq definitions
-    do ineq=1,nineq
-      do i=pos_ineq_start(ineq)+1, lines
-        if (index(trim(file_save(i)),'[') .eq. 1) then
-          pos_ineq_end(ineq)=i-1 ! one above the next session
-          exit
-        endif
-      enddo
-      if(pos_ineq_end(ineq) .eq. 0) then
-        pos_ineq_end(ineq) = lines ! if nothing is found, until the end of the file
-      endif
-    enddo
-
-    
-    do ineq=1,nineq
-      do i=pos_ineq_start(ineq), pos_ineq_end(ineq)
-        if (index(trim(file_save(i)),'Hamiltonian') .ne. 0) then
-          str_temp=file_save(i)
-          pst=scan(str_temp,seperator)
-          hamiltonian(ineq)=adjustl(trim(str_temp(pst+1:)))
-          cycle
-        endif
-        if (index(trim(file_save(i)),'Nd') .ne. 0) then
-          str_temp=file_save(i)
-          pst=scan(str_temp,seperator)
-          str_temp=adjustl(trim(str_temp(pst+1:)))
-          read(str_temp,'(I1)') ndims(ineq,1)
-          cycle
-        endif
-        if (index(trim(file_save(i)),'Np') .ne. 0) then
-          str_temp=file_save(i)
-          pst=scan(str_temp,seperator)
-          str_temp=adjustl(trim(str_temp(pst+1:)))
-          read(str_temp,'(I1)') ndims(ineq,2)
-          cycle
-        endif
-        if (index(trim(file_save(i)),'Udd') .ne. 0) then
-          str_temp=file_save(i)
-          pst=scan(str_temp,seperator)
-          str_temp=adjustl(trim(str_temp(pst+1:)))
-          read(str_temp,'(F13.8)') Udd(ineq)
-          cycle
-        endif
-        if (index(trim(file_save(i)),'Vdd') .ne. 0) then
-          str_temp=file_save(i)
-          pst=scan(str_temp,seperator)
-          str_temp=adjustl(trim(str_temp(pst+1:)))
-          read(str_temp,'(F13.8)') Vdd(ineq)
-          cycle
-        endif
-        if (index(trim(file_save(i)),'Jdd') .ne. 0) then
-          str_temp=file_save(i)
-          pst=scan(str_temp,seperator)
-          str_temp=adjustl(trim(str_temp(pst+1:)))
-          read(str_temp,'(F13.8)') Jdd(ineq)
-          cycle
-        endif
-        if (index(trim(file_save(i)),'Upp') .ne. 0) then
-          str_temp=file_save(i)
-          pst=scan(str_temp,seperator)
-          str_temp=adjustl(trim(str_temp(pst+1:)))
-          read(str_temp,'(F13.8)') Upp(ineq)
-          cycle
-        endif
-        if (index(trim(file_save(i)),'Vpp') .ne. 0) then
-          str_temp=file_save(i)
-          pst=scan(str_temp,seperator)
-          str_temp=adjustl(trim(str_temp(pst+1:)))
-          read(str_temp,'(F13.8)') Vpp(ineq)
-          cycle
-        endif
-        if (index(trim(file_save(i)),'Jpp') .ne. 0) then
-          str_temp=file_save(i)
-          pst=scan(str_temp,seperator)
-          str_temp=adjustl(trim(str_temp(pst+1:)))
-          read(str_temp,'(F13.8)') Jpp(ineq)
-          cycle
-        endif
-        if (index(trim(file_save(i)),'Udp') .ne. 0) then
-          str_temp=file_save(i)
-          pst=scan(str_temp,seperator)
-          str_temp=adjustl(trim(str_temp(pst+1:)))
-          read(str_temp,'(F13.8)') Udp(ineq)
-          cycle
-        endif
-        if (index(trim(file_save(i)),'Vdp') .ne. 0) then
-          str_temp=file_save(i)
-          pst=scan(str_temp,seperator)
-          str_temp=adjustl(trim(str_temp(pst+1:)))
-          read(str_temp,'(F13.8)') Vdp(ineq)
-          cycle
-        endif
-        if (index(trim(file_save(i)),'Jdp') .ne. 0) then
-          str_temp=file_save(i)
-          pst=scan(str_temp,seperator)
-          str_temp=adjustl(trim(str_temp(pst+1:)))
-          read(str_temp,'(F13.8)') Jdp(ineq)
-          cycle
-        endif
-      enddo
-    enddo
+  close(unit=10)
 
 
-    do ineq=1,nineq
-      select case (hamiltonian(ineq))
-        case ('Kanamori')
-          mode_ineq(ineq) = 1
-        case default
-          mode_ineq(ineq) = 0
-      end select
-    enddo
+  ! FREE FORMAT LOOKUP
+  ! defining default values
+  output='umatrix.dat'
+  nineq=1
 
+  ! search for General stuff + Allocation of values
 
+  call group_find('[General]', search_start, search_end)
+  call string_find('Output', output, search_start, search_end)
+  call int_find('NAt', nineq, search_start, search_end)
+
+  allocate(hamiltonian(nineq))
+  allocate(mode_ineq(nineq))
+  allocate(ndims(nineq,2))
+  allocate(Udd(nineq),Vdd(nineq),Jdd(nineq))
+  allocate(Udp(nineq),Vdp(nineq),Jdp(nineq))
+  allocate(Upp(nineq),Vpp(nineq),Jpp(nineq))
+  hamiltonian=''
+  mode_ineq=0; ndims=0
+  Udd=0.d0; Vdd=0.d0; Jdd=0.d0
+  Udp=0.d0; Vdp=0.d0; Jdp=0.d0
+  Upp=0.d0; Vpp=0.d0; Jpp=0.d0
+
+  call group_find('[Atoms]', search_start, search_end)
+  if (search_start .eq. 0) then ! group was not found
+    stop 'Group not found'
+  endif
+  do ineq=1,nineq
+    write(str_ineq,'(A2,I1,A2)') '[[',ineq,']]'
+    call subgroup_find(str_ineq, search_start, search_end, subsearch_start, subsearch_end)
+    if (subsearch_start .eq. 0) then ! group was not found
+      stop 'Subgroup not found'
+    endif
+
+    call string_find('Hamiltonian',hamiltonian(ineq),subsearch_start,subsearch_end)
+    call int_find('Nd',ndims(ineq,1),subsearch_start,subsearch_end)
+    call int_find('Np',ndims(ineq,2),subsearch_start,subsearch_end)
+    call float_find('Udd',Udd(ineq),subsearch_start,subsearch_end)
+    call float_find('Vdd',Vdd(ineq),subsearch_start,subsearch_end)
+    call float_find('Jdd',Jdd(ineq),subsearch_start,subsearch_end)
+    call float_find('Upp',Upp(ineq),subsearch_start,subsearch_end)
+    call float_find('Vpp',Vpp(ineq),subsearch_start,subsearch_end)
+    call float_find('Jpp',Jpp(ineq),subsearch_start,subsearch_end)
+    call float_find('Udp',Udp(ineq),subsearch_start,subsearch_end)
+    call float_find('Vdp',Vdp(ineq),subsearch_start,subsearch_end)
+    call float_find('Jdp',Jdp(ineq),subsearch_start,subsearch_end)
+
+    select case (hamiltonian(ineq))
+      case ('Kanamori')
+        mode_ineq(ineq) = 1
+      case default
+        mode_ineq(ineq) = 0
+    end select
+  enddo
 
 
   ! creating umatrix file
@@ -336,112 +459,10 @@ program umatrix
   enddo
   enddo
 
-  deallocate(file_save,hamiltonian,mode_ineq,pos_ineq_end,pos_ineq_start)
+  deallocate(file_save,hamiltonian,mode_ineq)
   deallocate(Udd,Vdd,Jdd,Upp,Vpp,Jpp,Udp,Vdp,Jdp)
+
   99 continue
-  close(10)
   write(*,'(A)') 'Done.'
 
-
 end program
-
-
-
-! return true if all 4 legs are in the same correlated subspace
-logical function index2cor(nineq,ndims,m,n,o,p)
-  implicit none
-  integer, intent(in) :: nineq
-  integer, intent(in) :: ndims(nineq,2)
-  ! band indices from specific beginning or end point of a 1PG
-  integer, intent(in) :: m,n,o,p
-  ! inequivalent atom number for specific index
-  integer :: a,b,c,d
-  integer :: dimstart,dimend,ineq, i
-
-  a=0;b=0;c=0;d=0
-
-  do ineq=1,nineq
-    dimstart=1
-    do i=2,ineq
-      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
-    enddo
-    dimend=dimstart+ndims(ineq,1)-1 ! only in correlated sub space
-    if ( m .ge. dimstart .and. m .le. dimend ) a=ineq
-    if ( n .ge. dimstart .and. n .le. dimend ) b=ineq
-    if ( o .ge. dimstart .and. o .le. dimend ) c=ineq
-    if ( p .ge. dimstart .and. p .le. dimend ) d=ineq
-  enddo
-
-  ! checking if everything is on the same atom
-  ! AND on correlated bands (non correlated lines would have ineq=0)
-  if ( (a .eq. b) .and. (c .eq. d) .and. (a .eq. d) .and. (a .ne. 0)) then
-    index2cor = .true.
-  else
-    index2cor = .false.
-  endif
-end function index2cor
-
-! return true if all 4 legs are in the same uncorrelated subspace
-logical function index2uncor(nineq,ndims,m,n,o,p)
-  implicit none
-  integer, intent(in) :: nineq
-  integer, intent(in) :: ndims(nineq,2)
-  ! band indices from specific beginning or end point of a 1PG
-  integer, intent(in) :: m,n,o,p
-  ! inequivalent atom number for specific index
-  integer :: a,b,c,d
-  integer :: dimstart,dimend,ineq, i
-
-  a=0;b=0;c=0;d=0
-
-  do ineq=1,nineq
-    dimstart=ndims(1,1)+1
-    do i=2,ineq
-      dimstart=dimstart+ndims(i,1)+ndims(i-1,2)
-    enddo
-    dimend=dimstart+ndims(ineq,2)-1
-    if ( m .ge. dimstart .and. m .le. dimend ) a=ineq
-    if ( n .ge. dimstart .and. n .le. dimend ) b=ineq
-    if ( o .ge. dimstart .and. o .le. dimend ) c=ineq
-    if ( p .ge. dimstart .and. p .le. dimend ) d=ineq
-  enddo
-
-  if ( (a .eq. b) .and. (c .eq. d) .and. (a .eq. d) .and. (a .ne. 0)) then
-    index2uncor = .true.
-  else
-    index2uncor = .false.
-  endif
-end function index2uncor
-
-! returns number of impurity if all 4 legs on the same
-! otherwise returns 0
-integer function index2ineq(nineq,ndims,m,n,o,p)
-  implicit none
-  integer, intent(in) :: nineq
-  integer, intent(in) :: ndims(nineq,2)
-  ! band indices from specific beginning or end point of a 1PG
-  integer, intent(in) :: m,n,o,p
-  ! inequivalent atom number for specific index
-  integer :: a,b,c,d
-  integer :: dimstart,dimend,ineq, i
-
-  a=0;b=0;c=0;d=0
-
-  do ineq=1,nineq
-    dimstart=1
-    do i=2,ineq
-      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
-    enddo
-    dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1
-    if ( m .ge. dimstart .and. m .le. dimend ) a=ineq
-    if ( n .ge. dimstart .and. n .le. dimend ) b=ineq
-    if ( o .ge. dimstart .and. o .le. dimend ) c=ineq
-    if ( p .ge. dimstart .and. p .le. dimend ) d=ineq
-  enddo
-
-  if ( (a .eq. b) .and. (c .eq. d) .and. (a .eq. d) ) then
-    index2ineq = a
-  else
-    index2ineq = 0
-  endif
-end function index2ineq

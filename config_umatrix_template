@@ -2,8 +2,8 @@
 # use integers for dimensions
 # use floats for U values
 [General]
-Output = umatrix.dat
-NAt = 2
+output=umatrix.dat
+NAt     = 1
 [Atoms]
 [[1]]
 Hamiltonian = Kanamori # oder Density
@@ -19,15 +19,3 @@ Upp = 1.0
 Vpp = 0.3
 Jpp=0.1
 Jdp = 89.0
-[[2]]
-Hamiltonian = Kanamori
-Nd = 3
-Udd = 4.5
-Vdd = 2.28288
-Jdd = 0.75
-#Udp=
-#Vdp=
-#Jdp=
-#Upp=
-#Vpp=
-#Jpp=
