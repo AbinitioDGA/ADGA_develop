@@ -14,8 +14,8 @@ HkFile = input-SrVO3_2layer/2SVO_t2g.hk
 VqFile =  # if empty or commented dont calculate with V(q)
 QpathFile = path.qp
 
-k-grid = 80; 80; 1
-q-grid = 1; 1; 1
+k-grid = 80 80 1
+q-grid = 1 1 1
 
 qvol = T
 

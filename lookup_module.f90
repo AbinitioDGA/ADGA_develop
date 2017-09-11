@@ -32,7 +32,7 @@ module lookup_module
         str_temp=file_save(i)
         pst=scan(str_temp,seperator)
         str_temp=trim(adjustl(str_temp(pst+1:)))
-        read(str_temp,'(I5)') save_int
+        read(str_temp,'(I)') save_int
       endif
     enddo
   end subroutine int_find
@@ -85,7 +85,7 @@ module lookup_module
         str_temp=file_save(i)
         pst=scan(str_temp,seperator)
         str_temp=trim(adjustl(str_temp(pst+1:)))
-        read(str_temp,'(L1)') save_bool
+        read(str_temp,'(L)') save_bool
       endif
     enddo
   end subroutine bool_find

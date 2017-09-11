@@ -36,7 +36,7 @@ module parameters_module
   integer :: lines
   character(len=1), parameter :: cmnt = '#'
   character(len=1), parameter :: seperator = '='
-  character(len=1), parameter :: multseperator = ';'
+  character(len=1), parameter :: multseperator = ' ' ! space
   character(len=150), allocatable :: file_temp(:), file_save(:)
 
   real(8), allocatable :: Umat(:,:,:,:)
