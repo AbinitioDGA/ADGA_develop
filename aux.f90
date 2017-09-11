@@ -156,9 +156,8 @@ end subroutine index2component
   end subroutine index2component_band
 
 
-
-  ! function which checks blockdiagonality of 1PG functions
-  logical function index2ineq(nineq,ndims,m,n,o,p)
+  ! return true if all 4 legs are in the same correlated subspace
+  logical function index2cor(nineq,ndims,m,n,o,p)
     implicit none
     integer, intent(in) :: nineq
     integer, intent(in) :: ndims(nineq,2)
@@ -184,11 +183,75 @@ end subroutine index2component
 
     ! checking if everything is on the same atom
     ! AND on correlated bands (non correlated lines would have ineq=0)
-    !if ( (a .eqv. b) .and. (c .eqv. d) .and. (a .eqv. d) .and. (a .neqv. 0)) then
     if ( (a .eq. b) .and. (c .eq. d) .and. (a .eq. d) .and. (a .ne. 0)) then
-      index2ineq = .true.
+      index2cor = .true.
     else
-      index2ineq = .false.
+      index2cor = .false.
+    endif
+  end function index2cor
+
+  ! return true if all 4 legs are in the same uncorrelated subspace
+  logical function index2uncor(nineq,ndims,m,n,o,p)
+    implicit none
+    integer, intent(in) :: nineq
+    integer, intent(in) :: ndims(nineq,2)
+    ! band indices from specific beginning or end point of a 1PG
+    integer, intent(in) :: m,n,o,p
+    ! inequivalent atom number for specific index
+    integer :: a,b,c,d
+    integer :: dimstart,dimend,ineq, i
+
+    a=0;b=0;c=0;d=0
+
+    do ineq=1,nineq
+      dimstart=ndims(1,1)+1
+      do i=2,ineq
+        dimstart=dimstart+ndims(i,1)+ndims(i-1,2)
+      enddo
+      dimend=dimstart+ndims(ineq,2)-1
+      if ( m .ge. dimstart .and. m .le. dimend ) a=ineq
+      if ( n .ge. dimstart .and. n .le. dimend ) b=ineq
+      if ( o .ge. dimstart .and. o .le. dimend ) c=ineq
+      if ( p .ge. dimstart .and. p .le. dimend ) d=ineq
+    enddo
+
+    if ( (a .eq. b) .and. (c .eq. d) .and. (a .eq. d) .and. (a .ne. 0)) then
+      index2uncor = .true.
+    else
+      index2uncor = .false.
+    endif
+  end function index2uncor
+
+  ! returns number of impurity if all 4 legs on the same
+  ! otherwise returns 0
+  integer function index2ineq(nineq,ndims,m,n,o,p)
+    implicit none
+    integer, intent(in) :: nineq
+    integer, intent(in) :: ndims(nineq,2)
+    ! band indices from specific beginning or end point of a 1PG
+    integer, intent(in) :: m,n,o,p
+    ! inequivalent atom number for specific index
+    integer :: a,b,c,d
+    integer :: dimstart,dimend,ineq, i
+
+    a=0;b=0;c=0;d=0
+
+    do ineq=1,nineq
+      dimstart=1
+      do i=2,ineq
+        dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+      enddo
+      dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1
+      if ( m .ge. dimstart .and. m .le. dimend ) a=ineq
+      if ( n .ge. dimstart .and. n .le. dimend ) b=ineq
+      if ( o .ge. dimstart .and. o .le. dimend ) c=ineq
+      if ( p .ge. dimstart .and. p .le. dimend ) d=ineq
+    enddo
+
+    if ( (a .eq. b) .and. (c .eq. d) .and. (a .eq. d) ) then
+      index2ineq = a
+    else
+      index2ineq = 0
     endif
   end function index2ineq
 

@@ -132,7 +132,7 @@ module lookup
       if (index(trim(file_save(i)),trim(search_string)) .ne. 0) then
         str_temp=file_save(i)
         pst=scan(str_temp,seperator)
-        save_string=adjustl(trim(str_temp(pst+1:)))
+        save_string=trim(adjustl(str_temp(pst+1:)))
       endif
     enddo
   end subroutine string_find
@@ -146,11 +146,26 @@ module lookup
       if (index(trim(file_save(i)),trim(search_string)) .ne. 0) then
         str_temp=file_save(i)
         pst=scan(str_temp,seperator)
-        str_temp=adjustl(trim(str_temp(pst+1:)))
+        str_temp=trim(adjustl(str_temp(pst+1:)))
         read(str_temp,'(I5)') save_int
       endif
     enddo
   end subroutine int_find
+
+  subroutine int3_find(search_string, save_int1, save_int2, save_int3, search_start, search_end)
+    character(*), intent(in)  :: search_string
+    integer, intent(inout) :: save_int1, save_int2, save_int3 ! keep default values
+    integer, intent(in) :: search_start, search_end
+
+    do i=search_start,search_end
+      if (index(trim(file_save(i)),trim(search_string)) .ne. 0) then
+        str_temp=file_save(i)
+        pst=scan(str_temp,seperator)
+        str_temp=trim(adjustl(str_temp(pst+1:)))
+        read(str_temp,'(3I5)') save_int1, save_int2, save_int3
+      endif
+    enddo
+  end subroutine int3_find
 
   subroutine float_find(search_string, save_float, search_start, search_end)
     character(*), intent(in)  :: search_string
@@ -161,7 +176,7 @@ module lookup
       if (index(trim(file_save(i)),trim(search_string)) .ne. 0) then
         str_temp=file_save(i)
         pst=scan(str_temp,seperator)
-        str_temp=adjustl(trim(str_temp(pst+1:)))
+        str_temp=trim(adjustl(str_temp(pst+1:)))
         read(str_temp,'(F13.8)') save_float
       endif
     enddo

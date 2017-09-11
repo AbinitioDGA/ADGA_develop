@@ -22,6 +22,7 @@ config*
 # except config_template which is maintained by hand
 !config_template
 !config_umatrix_template
+!config_template_new
 
 # all possible output folder and everything inside
 Output*/**

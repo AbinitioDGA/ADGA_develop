@@ -77,6 +77,7 @@ subroutine read_u(u, u_tilde)
   complex(kind=8), intent(out) :: u(ndim**2, ndim**2), u_tilde(ndim**2, ndim**2)
   integer :: n,i,j,k,l,i1,i2
 
+
   open(21,file=filename_umatrix,status='old')
   read(21,*)
   do n=1,ndim**4
@@ -105,6 +106,122 @@ subroutine read_u(u, u_tilde)
   enddo
 
 end subroutine read_u
+
+
+subroutine create_u(u, u_tilde)
+  implicit none
+  real(kind=8) :: u_tmp(ndim,ndim,ndim,ndim), u_tilde_tmp(ndim,ndim,ndim,ndim)
+  real(kind=8) :: u_value
+  complex(kind=8), intent(out) :: u(ndim**2, ndim**2), u_tilde(ndim**2, ndim**2)
+  integer :: n,i,j,k,l,i1,i2,ineq
+
+  allocate(Umat(ndim,ndim,ndim,ndim))
+  Umat=0.d0
+
+  do i=1,ndim
+  do j=1,ndim
+  do k=1,ndim
+  do l=1,ndim
+
+    ineq=index2ineq(nineq,ndims,i,j,k,l) 
+    if (ineq .eq. 0) then ! not on the same impurity
+      goto 100
+    endif
+  
+    ! DD - VALUES
+    if (index2cor(nineq,ndims,i,j,k,l)) then
+      if (i .eq. j .and. k .eq. l)  then
+        if (i .eq. k) then
+          Umat(i,j,k,l) = Udd(ineq) ! onsite density-density -- 1 1 1 1
+          goto 100
+        else if (interaction_mode(ineq) .eq. 1) then
+          Umat(i,j,k,l) = Jdd(ineq) ! kanamori double hopping -- 1 1 2 2
+          goto 100
+        endif
+      endif
+
+      if (i .eq. k .and. j .eq. l) then
+        Umat(i,j,k,l) = Vdd(ineq) ! screened density density -- 1 2 1 2
+        goto 100
+      endif
+      if (i .eq. l .and. j .eq. k .and. interaction_mode(ineq) .eq. 1) then
+        Umat(i,j,k,l) = Jdd(ineq) ! kanamori spin flip -- 1 2 2 1
+        goto 100
+      endif
+
+    ! PP - VALUES
+    else if(index2uncor(nineq,ndims,i,j,k,l)) then
+      if (i .eq. j .and. k .eq. l)  then
+        if (i .eq. k) then
+          Umat(i,j,k,l) = Upp(ineq) ! onsite density-density -- 1 1 1 1
+          goto 100
+        else if (interaction_mode(ineq) .eq. 1) then
+          Umat(i,j,k,l) = Jpp(ineq) ! kanamori double hopping -- 1 1 2 2
+          goto 100
+        endif
+      endif
+
+      if (i .eq. k .and. j .eq. l) then
+        Umat(i,j,k,l) = Vpp(ineq) ! screened density density -- 1 2 1 2
+        goto 100
+      endif
+      if (i .eq. l .and. j .eq. k .and. interaction_mode(ineq) .eq. 1) then
+        Umat(i,j,k,l) = Jpp(ineq) ! kanamori spin flip -- 1 2 2 1
+        goto 100
+      endif
+
+    ! DP - VALUES
+    else
+      if (i .eq. j .and. k .eq. l)  then
+        if (i .eq. k) then
+          Umat(i,j,k,l) = Udp(ineq) ! onsite density-density -- 1 1 1 1
+          goto 100
+        else if (interaction_mode(ineq) .eq. 1) then
+          Umat(i,j,k,l) = Jdp(ineq) ! kanamori double hopping -- 1 1 2 2
+          goto 100
+        endif
+      endif
+
+      if (i .eq. k .and. j .eq. l) then
+        Umat(i,j,k,l) = Vdp(ineq) ! screened density density -- 1 2 1 2
+        goto 100
+      endif
+      if (i .eq. l .and. j .eq. k .and. interaction_mode(ineq) .eq. 1) then
+        Umat(i,j,k,l) = Jdp(ineq) ! kanamori spin flip -- 1 2 2 1
+        goto 100
+      endif
+    endif
+
+  100 continue
+  ! 100 WRITE(10,'(4I10,F15.8)') I,J,K,L,UMAT(I,J,K,L)
+
+  enddo
+  enddo
+  enddo
+  enddo
+
+  deallocate(interaction_mode)
+  deallocate(Udd,Vdd,Jdd,Upp,Vpp,Jpp,Udp,Vdp,Jdp)
+
+  !go into compound index:
+  u = 0.d0
+  u_tilde = 0.d0
+  i2 = 0
+  do l=1,ndim
+     do j=1,ndim
+        i2 = i2+1
+        i1 = 0
+        do i=1,ndim
+           do k=1,ndim
+              i1 = i1+1
+              u(i1,i2) = Umat(i,j,k,l)
+              u_tilde(i1,i2) = Umat(i,j,k,l)
+           enddo
+        enddo
+     enddo
+  enddo
+
+end subroutine create_u
 !======================================================================================================
 
 

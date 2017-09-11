@@ -7,6 +7,7 @@ program main
   use hdf5_module
   use lapack_module
   use parameters_module
+  use config_module
   use one_particle_quant_module
   use eom_module
   use susc_module
@@ -58,8 +59,27 @@ program main
   call check_config() 
 
   ! create output folder if not yet existing
-  if (mpi_wrank .eq. master) call system('mkdir -p ' // adjustl(trim(output_dir)))
+  if (mpi_wrank .eq. master) call system('mkdir -p ' // trim(adjustl(output_dir)))
   call mpi_barrier(mpi_comm_world,ierr)
+
+  ! create u matrix
+  if (mpi_wrank .eq. master) write(*,*) 'Creating u matrix'
+  call create_u(u,u_tilde)
+
+  ! test umatrix
+  if (mpi_wrank .eq. master) then
+    open(unit=10,file=trim(output_dir)//"umatrix.dat")
+    write(10,*) 'Umatrix File for the ADGA code : band,band,band,band,Uvalue'
+    do i=1,ndim
+    do j=1,ndim
+    do k=1,ndim
+    do l=1,ndim
+      write(10,'(4I10,F15.8)') i,j,k,l,Umat(i,j,k,l)
+    enddo
+    enddo
+    enddo
+    enddo
+  endif
 
   ! program introduction
   if (mpi_wrank .eq. master) then
@@ -137,7 +157,7 @@ program main
   call init() ! this requires beta, so it has to be called after read_beta()
 
   !read umatrix from separate file:
-  call read_u(u,u_tilde)
+  ! call read_u(u,u_tilde)
 
 ! COMPUTE local single-particle Greens function -- this overwrites the readin from w2d above
 ! This calculation is necessary if one wants to do calculations with p-bands

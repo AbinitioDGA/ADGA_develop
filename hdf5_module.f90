@@ -643,13 +643,13 @@ module hdf5_module
                             !full 2-particle GF:
                             !straight term G(\nu)G(\nu') is subtracted (twice) only in the dens channel and only for iw=0:
                             if((iwb .eq. 0) .and. i==j .and. k==l)then
-                              if(index2ineq(nineq,ndims,i,j,k,l)) then ! substracted in the correlated subspace
+                              if(index2ineq(nineq,ndims,i,j,k,l) .gt. 0) then ! substracted in the correlated subspace
                                 chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l)
                               endif
                             endif
 
                             if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
-                              if(.not. index2ineq(nineq,ndims,i,j,k,l)) then ! add bubble term only if not in the same correlated subspace
+                              if(index2ineq(nineq,ndims,i,j,k,l) .eq. 0) then ! add bubble term only if not in the same correlated subspace
                                 chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
                                 chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
                               endif
@@ -665,7 +665,7 @@ module hdf5_module
                           else if (vertex_type .eq. chi_g4) then
 
                             if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
-                              if(.not. index2ineq(nineq,ndims,i,j,k,l)) then ! add bubble term only if not in the same correlated subspace
+                              if(index2ineq(nineq,ndims,i,j,k,l) .eq. 0) then ! add bubble term only if not in the same correlated subspace
                                 chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
                                 chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
                               endif
