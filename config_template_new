@@ -13,6 +13,7 @@ iwb = 5
 HkFile = input-SrVO3_2layer/2SVO_t2g.hk
 VqFile =  # if empty or commented dont calculate with V(q)
 QpathFile = path.qp
+UFile = # use file instead of Atoms description
 
 k-grid = 80 80 1
 q-grid = 1 1 1

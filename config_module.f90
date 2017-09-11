@@ -113,6 +113,12 @@ subroutine read_config()
     call bool_find('k-path-eom', k_path_eom, search_start, search_end)
     call bool_find('q-path-susc', q_path_susc, search_start, search_end)
     call string_find('Output', output_dir, search_start, search_end)
+    call string_find('UFile', filename_umatrix, search_start, search_end)
+      if(trim(adjustl(filename_umatrix)) .eq. '') then
+        read_ext_u = .false.
+      else
+        read_ext_u = .true.
+      endif
 
 
   allocate(interaction(nineq))
@@ -293,6 +299,13 @@ subroutine check_config()
     inquire (file=trim(filename_hk), exist=there)
     if (.not. there) then
       stop "Error: Hamiltonian file does not exist"
+    endif
+  endif
+
+  if (read_ext_u .eqv. .true.) then
+    inquire (file=trim(filename_umatrix), exist=there)
+    if (.not. there) then
+      stop "Error: Umatrix file does not exist"
     endif
   endif
 

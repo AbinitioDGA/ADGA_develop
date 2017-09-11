@@ -21,7 +21,7 @@ module parameters_module
   integer,allocatable :: q_data(:),k_data_eom(:)
   logical :: orb_sym,full_chi0
   logical :: do_eom,do_chi,do_vq
-  logical :: q_path_susc,k_path_eom,q_vol,read_ext_hk
+  logical :: q_path_susc,k_path_eom,q_vol,read_ext_hk, read_ext_u
   integer :: vertex_type
   logical :: exist_p
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
