@@ -586,7 +586,7 @@ end if
      call cpu_time(finish)
 
      !Output the calculation progress
-     write(*,'("Core:",I4,"  Progress:",I7,"  of",I7,"  Time: ",F8.4,"  (working area:",I7,"  -",I7,")")') &
+     write(*,'("Core:",I5,"  Progress:",I7,"  of",I7,"  Time: ",F8.4,"  (working area:",I9,"  -",I9,")")') &
       mpi_wrank, iqw-qwstart+1, qwstop-qwstart+1, finish-start, qwstart, qwstop
        ! write(*,'((A),I5,2X,I6,2X,I6,2X,I6,2X,F8.4,(A),F8.4)') 'mpi_rank || qwstart -- iqw -- qwstop || % : ',&
                             ! mpi_wrank,qwstart,iqw,qwstop, (iqw-qwstart)/dble(qwstart-qwstop+1), 'time: ',finish-start

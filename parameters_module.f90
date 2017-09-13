@@ -27,7 +27,8 @@ module parameters_module
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
   integer :: nr ! number of r-points in extrapolated V(r)
   real(kind=8) :: a,b,c ! lattice spacing
-  character(len=150) filename_vr ! filename of extrapolated V(r)
+
+  character(len=150) :: filename_vr ! filename of extrapolated V(r)
   character(len=150) :: filename_vertex, filename_vertex_sym
   character(len=150) :: filename, filename_umatrix, filename_vq
   character(len=150) :: filename_hk, output_dir, filename_q_path

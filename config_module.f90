@@ -113,6 +113,10 @@ subroutine read_config()
     call bool_find('k-path-eom', k_path_eom, search_start, search_end)
     call bool_find('q-path-susc', q_path_susc, search_start, search_end)
     call string_find('Output', output_dir, search_start, search_end)
+      str_temp = trim(adjustl(output_dir))
+      if (scan(trim(str_temp),'/',.true.) .ne. len_trim(str_temp)) then   ! no / at the end
+        output_dir = trim(str_temp) // '/'  ! add it
+      endif
     call string_find('UFile', filename_umatrix, search_start, search_end)
       if(trim(adjustl(filename_umatrix)) .eq. '') then
         read_ext_u = .false.

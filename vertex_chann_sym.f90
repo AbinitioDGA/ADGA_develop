@@ -132,10 +132,10 @@ program symmetrize_vertex
        ! read the current group in the old vertex file:
        call h5gopen_f(file_id,name_buffer,grp_id,err)
 
-       write(name_buffer_value, '((I5.5),A6)'), ind, "/value"
+       write(name_buffer_value, '((I5.5),A16)') ind, "/value_transpose"
        call h5dopen_f(file_id, name_buffer_value, g4iw_id, err)
 
-       write(name_buffer_error, '((I5.5),A6)'), ind, "/error"
+       write(name_buffer_error, '((I5.5),A6)') ind, "/error"
        call h5dopen_f(file_id, name_buffer_error, g4err_id, err)
 
        call h5dread_f(g4iw_id, type_r_id, g4iw_r, g4iw_dims, err)

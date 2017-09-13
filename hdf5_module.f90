@@ -315,7 +315,7 @@ module hdf5_module
        ! read siw:
        ! local self energy - only for interacting orbitals == d
        call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
-       call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/siw/value", siw_id, err)
+       call h5dopen_f(file_id, "dmft-last/"//trim(name_buffer)//"/siw/value", siw_id, err)
        call h5dget_space_f(siw_id, siw_space_id, err)
        call h5sget_simple_extent_dims_f(siw_space_id, siw_dims, siw_maxdims, err)
        ! ndims = siw_dims(3)
@@ -374,7 +374,7 @@ module hdf5_module
        write(name_buffer,'("ineq-",I3.3)') ineq
        !read giw
        call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
-       call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/giw/value", giw_id, err)
+       call h5dopen_f(file_id, "dmft-last/"//trim(name_buffer)//"/giw/value", giw_id, err)
        call h5dget_space_f(giw_id, giw_space_id, err)
        call h5sget_simple_extent_dims_f(giw_space_id, giw_dims, giw_maxdims, err)
        allocate(giw_data(2,-iwmax:iwmax-1,giw_dims(2),giw_dims(3))) !indices: real/imag iw spin band
@@ -424,7 +424,7 @@ module hdf5_module
   ! test giw:
   open(54, file=trim(output_dir)//"giw.dat", status='unknown')
   do iw=-iwmax,iwmax-1
-     write(54,'(100F12.6)') (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
+     write(54,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
   enddo
   close(54)
  end subroutine read_giw
@@ -503,7 +503,7 @@ module hdf5_module
      integer(hsize_t),dimension(0) :: mu_dims
 
      call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
-     call h5dopen_f(file_id, "stat-001/mu/value", mu_id, err)
+     call h5dopen_f(file_id, "dmft-last/mu/value", mu_id, err)
      call h5dread_f(mu_id, h5t_native_double, mu, mu_dims, err)
      call h5dclose_f(mu_id, err)
      call h5fclose_f(file_id,err)
@@ -521,27 +521,27 @@ module hdf5_module
      ! dc for noninteracting bands set to 0
      dc = 0.d0
 
-!     do ineq=1,nineq
-!       dimstart=1
-!       do i=2,ineq
-!         dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
-!       enddo
-!       dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
-!       write(name_buffer,'("ineq-",I3.3)') ineq
-!       call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
-!       call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/dc/value", dc_id, err)
-!       call h5dget_space_f(dc_id, dc_space_id, err)
-!       call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, err)
-!       allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
-!       call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, err)
-!       call h5dclose_f(dc_id, err)
-!       call h5fclose_f(file_id,err)
-!
-!       do iband=dimstart,dimend
-!         dc(:,iband) = dc_data(:,iband-dimstart+1)
-!       enddo
-!       deallocate(dc_data)
-!     enddo
+      do ineq=1,nineq
+        dimstart=1
+        do i=2,ineq
+          dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+        enddo
+        dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
+        write(name_buffer,'("ineq-",I3.3)') ineq
+        call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
+        call h5dopen_f(file_id, "dmft-last/"//trim(name_buffer)//"/dc/value", dc_id, err)
+        call h5dget_space_f(dc_id, dc_space_id, err)
+        call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, err)
+        allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
+        call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, err)
+        call h5dclose_f(dc_id, err)
+        call h5fclose_f(file_id,err)
+
+        do iband=dimstart,dimend
+          dc(:,iband) = dc_data(:,iband-dimstart+1)
+        enddo
+        deallocate(dc_data)
+      enddo
  end subroutine read_dc
 
  subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
