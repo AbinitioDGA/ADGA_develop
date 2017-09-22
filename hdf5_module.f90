@@ -345,11 +345,11 @@ module hdf5_module
      enddo ! loop over inequivalent atoms
    
      ! test siw:
-     open(34, file=trim(output_dir)//"siw.dat", status='unknown')
-     do iw=-iwmax,iwmax-1
-        write(34,'(100F12.6)') (real(siw(iw,i)),aimag(siw(iw,i)), i=1,ndim)
-     enddo
-     close(34)
+     ! open(34, file=trim(output_dir)//"siw.dat", status='unknown')
+     ! do iw=-iwmax,iwmax-1
+     !    write(34,'(100F12.6)') iw_data(iw), (real(siw(iw,i)),aimag(siw(iw,i)), i=1,ndim)
+     ! enddo
+     ! close(34)
    
 
  end subroutine read_siw
@@ -422,11 +422,11 @@ module hdf5_module
      enddo ! inequivalent atom loop
 
   ! test giw:
-  open(54, file=trim(output_dir)//"giw.dat", status='unknown')
-  do iw=-iwmax,iwmax-1
-     write(54,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
-  enddo
-  close(54)
+  ! open(54, file=trim(output_dir)//"giw.dat", status='unknown')
+  ! do iw=-iwmax,iwmax-1
+  !    write(54,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
+  ! enddo
+  ! close(54)
  end subroutine read_giw
 
  subroutine read_hk_w2dyn()

@@ -10,7 +10,8 @@ program symmetrize_vertex
   implicit none
 
   integer(hid_t) :: file_id, new_file_id
-  character(len=40) :: grpname, name_buffer, name_buffer_value, name_buffer_error
+  character(len=80) :: grpname, name_buffer, name_buffer_value, name_buffer_error
+  character(len=80) :: name_buffer2, name_buffer3
   integer(hid_t) :: nmembers, imembers, itype, grp_id, g4iw_id, g4err_id
   integer(hid_t) :: dset_dens_id, dset_magn_id, dset_err_id
   integer(hid_t) :: dspace_iwb_id, dspace_iwf_id
@@ -40,8 +41,11 @@ program symmetrize_vertex
   allocate(filename_vertex_ineq(nineq))
   allocate(Nbands(nineq))
   do ineq=1,nineq
-    write(*,'(A,I1,A)',advance='no') 'Vertex of inequivalent atom ', ineq, ': '
-    read(*,*) filename_vertex_ineq(ineq)
+    if (ineq .eq. 1) then
+      write(*,'(A,I1,A)',advance='no') 'Vertex file :'  ! , ineq, ': '
+      read(*,*) filename_vertex_ineq(ineq)
+    endif
+    filename_vertex_ineq(ineq)=filename_vertex_ineq(1)
     write(*,'(A,I1,A)',advance='no') 'Number of correlated bands for inequivalent atom ', ineq, ': '
     read(*,*) Nbands(ineq)
   enddo
@@ -122,21 +126,26 @@ program symmetrize_vertex
  
 !============================================================================
 ! iterate over all groups(band-spin combinations) in the old vertex file:
-    call h5gn_members_f(file_id, "/", nmembers, err)
+    write(name_buffer2,'("/worm-001/ineq-",I3.3,"/g4iw-worm/")') ineq
+    call h5gn_members_f(file_id, trim(name_buffer2), nmembers, err)
 
-    do imembers = 1,nmembers - 1 
-       write(*,*) imembers
-       call h5gget_obj_info_idx_f(file_id, "/", imembers, name_buffer, itype, err)
+    do imembers = 0,nmembers-1
+       call h5gget_obj_info_idx_f(file_id, trim(name_buffer2), imembers, name_buffer, itype, err)
        read(name_buffer,'(I5.5)') ind
+       write(*,*) imembers, trim(name_buffer)
      
        ! read the current group in the old vertex file:
-       call h5gopen_f(file_id,name_buffer,grp_id,err)
+       ! call h5gopen_f(file_id,trim(nam_buffer2) // trim(name_buffer) // "value" ,grp_id,err)
 
-       write(name_buffer_value, '((I5.5),A16)') ind, "/value_transpose"
-       call h5dopen_f(file_id, name_buffer_value, g4iw_id, err)
+       ! write(name_buffer_value, '((I5.5),A6)') ind, "/value"
+       name_buffer_value = trim(name_buffer2) // trim(name_buffer) // "/value"
+       call h5dopen_f(file_id,name_buffer_value,g4iw_id,err)
+       ! call h5dopen_f(file_id, name_buffer_value, g4iw_id, err)
 
-       write(name_buffer_error, '((I5.5),A6)') ind, "/error"
-       call h5dopen_f(file_id, name_buffer_error, g4err_id, err)
+       ! write(name_buffer_error, '((I5.5),A6)') ind, "/error"
+       name_buffer_error = trim(name_buffer2) // trim(name_buffer) // "/error"
+       call h5dopen_f(file_id,name_buffer_error,g4err_id,err)
+       ! call h5dopen_f(file_id, name_buffer_error, g4err_id, err)
 
        call h5dread_f(g4iw_id, type_r_id, g4iw_r, g4iw_dims, err)
        call h5dread_f(g4iw_id, type_i_id, g4iw_i, g4iw_dims, err)
@@ -144,7 +153,7 @@ program symmetrize_vertex
 
        call h5dclose_f(g4iw_id, err)
        call h5dclose_f(g4err_id, err)
-       call h5gclose_f(grp_id, err)
+       ! call h5gclose_f(grp_id, err)
       
   ! get band and spin indices:
        call index2component(Nbands(ineq), ind, b1, s1, b2, s2, b3, s3, b4, s4)
