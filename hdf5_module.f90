@@ -129,7 +129,7 @@ module hdf5_module
 
      do iwb=0,2*iwbmax
 
-        write(name_buffer, '(I5.5)'), iwb
+        write(name_buffer, '(I5.5)') iwb
         call h5gcreate_f(grp_dens_id, name_buffer, iw_magn_id, err)
         call h5gcreate_f(grp_magn_id, name_buffer, iw_dens_id, err)
         call h5gclose_f(iw_magn_id, err)
@@ -569,8 +569,8 @@ module hdf5_module
         ind_iwb = iwb+iwbmax
 
         do ineq=1,nineq
-          write(grpname_magn, '("ineq-",I3.3,"/magn/",(I5.5))'), ineq, ind_iwb
-          write(grpname_dens, '("ineq-",I3.3,"/dens/",(I5.5))'), ineq, ind_iwb
+          write(grpname_magn, '("ineq-",I3.3,"/magn/",(I5.5))') ineq, ind_iwb
+          write(grpname_dens, '("ineq-",I3.3,"/dens/",(I5.5))') ineq, ind_iwb
 
           dimstart=1
           do i=2,ineq

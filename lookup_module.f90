@@ -32,7 +32,7 @@ module lookup_module
         str_temp=file_save(i)
         pst=scan(str_temp,seperator)
         str_temp=trim(adjustl(str_temp(pst+1:)))
-        read(str_temp,'(I)') save_int
+        read(str_temp,*) save_int
       endif
     enddo
   end subroutine int_find
@@ -49,13 +49,13 @@ module lookup_module
         str_temp=trim(adjustl(str_temp(pst+1:)))
         pst=scan(str_temp,multseperator)
         str_split=trim(adjustl(str_temp(:pst-1)))
-        read(str_split,'(I)') save_int1
+        read(str_split,*) save_int1
         str_temp=trim(adjustl(str_temp(pst+1:)))
         pst=scan(str_temp,multseperator)
         str_split=trim(adjustl(str_temp(:pst-1)))
         str_temp=trim(adjustl(str_temp(pst+1:)))
-        read(str_split,'(I)') save_int2
-        read(str_temp,'(I)') save_int3
+        read(str_split,*) save_int2
+        read(str_temp,*) save_int3
       endif
     enddo
   end subroutine int3_find
@@ -70,7 +70,7 @@ module lookup_module
         str_temp=file_save(i)
         pst=scan(str_temp,seperator)
         str_temp=trim(adjustl(str_temp(pst+1:)))
-        read(str_temp,'(F13.8)') save_float
+        read(str_temp,*) save_float
       endif
     enddo
   end subroutine float_find
@@ -85,7 +85,7 @@ module lookup_module
         str_temp=file_save(i)
         pst=scan(str_temp,seperator)
         str_temp=trim(adjustl(str_temp(pst+1:)))
-        read(str_temp,'(L)') save_bool
+        read(str_temp,*) save_bool
       endif
     enddo
   end subroutine bool_find

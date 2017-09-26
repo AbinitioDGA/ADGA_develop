@@ -54,6 +54,8 @@ program main
   if (mpi_wrank .eq. master) write(*,*) 'Reading config file'
   call read_config()
 
+  write(*,*) nkpx, nkpy, nkpz
+
   ! check config settings
   if (mpi_wrank .eq. master) write(*,*) 'Checking config file'
   call check_config() 
