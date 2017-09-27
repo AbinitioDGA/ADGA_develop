@@ -16,10 +16,11 @@ program symmetrize_vertex
   integer(hid_t) :: dset_dens_id, dset_magn_id, dset_err_id
   integer(hid_t) :: dspace_iwb_id, dspace_iwf_id
   integer(hsize_t), dimension(1) :: dim_iwb, dim_iwf
-  integer(hsize_t), dimension(3) :: g4iw_dims, g4iw_maxdims, g4err_dims
+  integer(hsize_t), dimension(3) :: g4iw_dims, g4iw_maxdims, g4err_dims, g4iw_dims_t, g4err_dims_t
   integer, parameter :: rank = 2, rank_iw = 1
   
   double precision, allocatable :: g4iw_r(:,:,:), g4iw_i(:,:,:), g4err(:,:,:), diff_r(:,:), diff_i(:,:)
+  double precision, allocatable :: g4iw_r_t(:,:,:), g4iw_i_t(:,:,:), g4err_t(:,:,:)
   integer :: ind, b1, s1, b2, s2, b3, s3, b4, s4, ineq
   integer, allocatable :: Nbands(:)
   integer :: iwb, iwf, iwf1, iwf2 
@@ -42,7 +43,7 @@ program symmetrize_vertex
   allocate(Nbands(nineq))
   do ineq=1,nineq
     if (ineq .eq. 1) then
-      write(*,'(A,I1,A)',advance='no') 'Vertex file :'  ! , ineq, ': '
+      write(*,'(A,I1,A)',advance='no') 'Vertex file : '  ! , ineq, ': '
       read(*,*) filename_vertex_ineq(ineq)
     endif
     filename_vertex_ineq(ineq)=filename_vertex_ineq(1)
@@ -107,10 +108,18 @@ program symmetrize_vertex
 
 ! allocate quantities that are needed in the loop afterwards: 
     g4iw_dims = (/2*iwfmax,2*iwfmax,2*iwbmax+1/)
+    g4err_dims = g4iw_dims
+
+    g4iw_dims_t = (/2*iwbmax+1,2*iwfmax,2*iwfmax/)
+    g4err_dims_t = g4iw_dims_t
 
     allocate(g4iw_r(2*iwfmax,2*iwfmax,2*iwbmax+1)) 
     allocate(g4iw_i(2*iwfmax,2*iwfmax,2*iwbmax+1))
     allocate(g4err(2*iwfmax, 2*iwfmax, 2*iwbmax+1))
+
+    allocate(g4iw_r_t(2*iwbmax+1,2*iwfmax,2*iwfmax)) 
+    allocate(g4iw_i_t(2*iwbmax+1,2*iwfmax,2*iwfmax))
+    allocate(g4err_t(2*iwbmax+1,2*iwfmax, 2*iwfmax))
 
     allocate(tmp_r_1(g4iw_dims(1), g4iw_dims(2)), tmp_i_1(g4iw_dims(1), g4iw_dims(2)), tmp_err_1(g4iw_dims(1),g4iw_dims(2)))
     allocate( diff_r(g4iw_dims(1), g4iw_dims(2)), diff_i(g4iw_dims(1), g4iw_dims(2)))
@@ -147,14 +156,25 @@ program symmetrize_vertex
        call h5dopen_f(file_id,name_buffer_error,g4err_id,err)
        ! call h5dopen_f(file_id, name_buffer_error, g4err_id, err)
 
-       call h5dread_f(g4iw_id, type_r_id, g4iw_r, g4iw_dims, err)
-       call h5dread_f(g4iw_id, type_i_id, g4iw_i, g4iw_dims, err)
-       call h5dread_f(g4err_id, h5t_native_double, g4err, g4err_dims, err)
+       call h5dread_f(g4iw_id, type_r_id, g4iw_r_t, g4iw_dims_t, err)
+       call h5dread_f(g4iw_id, type_i_id, g4iw_i_t, g4iw_dims_t, err)
+       call h5dread_f(g4err_id, h5t_native_double, g4err_t, g4err_dims_t, err)
 
        call h5dclose_f(g4iw_id, err)
        call h5dclose_f(g4err_id, err)
        ! call h5gclose_f(grp_id, err)
-      
+
+       ! Reason for doing this: old w2d format was bff; new w2d format is ffb
+       ! Attention: Fortran is implicitly transposed due to the way fortran / C access memory
+       ! transpose back
+       do iwb=1,2*iwbmax+1
+         do iwf=1,2*iwfmax
+           g4iw_r(:,iwf,iwb) = g4iw_r_t(iwb,iwf,:)
+           g4iw_i(:,iwf,iwb) = g4iw_i_t(iwb,iwf,:)
+           g4err(:,iwf,iwb) = g4err_t(iwb,iwf,:)
+         enddo
+       enddo
+
   ! get band and spin indices:
        call index2component(Nbands(ineq), ind, b1, s1, b2, s2, b3, s3, b4, s4)
       
@@ -216,6 +236,7 @@ program symmetrize_vertex
     call h5sclose_f(dspace_id, err)
 
     deallocate(g4iw_r, g4iw_i, g4err)
+    deallocate(g4iw_r_t, g4iw_i_t, g4err_t)
     deallocate(tmp_r_1, tmp_i_1, tmp_err_1, diff_r, diff_i) 
     deallocate(ind_band_list)
     deallocate(create_comp)
