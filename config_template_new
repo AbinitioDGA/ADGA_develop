@@ -15,15 +15,19 @@ VqFile =  # if empty or commented dont calculate with V(q)
 QpathFile = path.qp
 UFile = # use file instead of Atoms description
 
+# Hamiltonian (k) & Calculation (q) grid
 k-grid = 80 80 1
 q-grid = 1 1 1
 
+# Calculate the whole q-grid
 qvol = T
 
+# No path calculations
 k-path-eom = F
 q-path-susc = F
 
-Output = Output-bla/
+# Output folder gets created on execution
+Output = Output-test/
 
 [Atoms]
 [[1]]

@@ -771,7 +771,7 @@ subroutine init_h5_output(filename_output)
       do ikz=1,nkpz
         do i1=1,ndim
           do i2=1,ndim
-            hk_arr(i2,i1,ikz,iky,ikx)=hk(i1,i2,1+ikz+iky*nkpz+ikx*nkpy*nkpz)
+            hk_arr(i2,i1,ikz,iky,ikx)=hk(i1,i2,ikz+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz)
           end do
         end do
       end do

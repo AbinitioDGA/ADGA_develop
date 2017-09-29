@@ -645,21 +645,21 @@ end if
     call MPI_gatherv(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(chi_qw_dens)
     if (mpi_wrank .eq. master) then
-      call output_chi_qw(chi_qw_full,qw,'chi_qw_dens.dat')
+      ! call output_chi_qw(chi_qw_full,qw,'chi_qw_dens.dat')
       call output_chi_qw_h5(output_filename,'dens',chi_qw_full)
     end if
 
     call MPI_gatherv(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(chi_qw_magn)
     if (mpi_wrank .eq. master) then
-      call output_chi_qw(chi_qw_full,qw,'chi_qw_magn.dat')
+      ! call output_chi_qw(chi_qw_full,qw,'chi_qw_magn.dat')
       call output_chi_qw_h5(output_filename,'magn',chi_qw_full)
     end if
 
     call MPI_gatherv(bubble,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,     MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(bubble)
     if (mpi_wrank .eq. master) then
-      call output_chi_qw(chi_qw_full,qw,'bubble.dat')
+      ! call output_chi_qw(chi_qw_full,qw,'bubble.dat')
       call output_chi_qw_h5(output_filename,'bubble',chi_qw_full)
     end if
 
@@ -670,9 +670,9 @@ end if
 ! Output
   if (mpi_wrank .eq. master) then
      if (do_chi) then
-        call output_chi_loc(chi_loc_dens,'chi_loc_dens.dat')
-        call output_chi_loc(chi_loc_magn,'chi_loc_magn.dat')
-        call output_chi_loc(bubble_loc,'bubble_loc.dat')
+        ! call output_chi_loc(chi_loc_dens,'chi_loc_dens.dat')
+        ! call output_chi_loc(chi_loc_magn,'chi_loc_magn.dat')
+        ! call output_chi_loc(bubble_loc,'bubble_loc.dat')
         call output_chi_loc_h5(output_filename,'dens',chi_loc_dens)
         call output_chi_loc_h5(output_filename,'magn',chi_loc_magn)
         call output_chi_loc_h5(output_filename,'bubble',bubble_loc)
