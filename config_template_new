@@ -1,0 +1,59 @@
+[General]
+calc-susc = F
+calc-eom  = T
+
+# Number of atoms
+NAt = 2
+
+# Frequency boxes
+iwf = 10
+iwb = 5
+
+# General Files
+HkFile = input-SrVO3_2layer/2SVO_t2g.hk
+VqFile =  # if empty or commented dont calculate with V(q)
+QpathFile = path.qp
+UFile = # use file instead of Atoms description
+
+# Hamiltonian (k) & Calculation (q) grid
+k-grid = 80 80 1
+q-grid = 1 1 1
+
+# Calculate the whole q-grid
+qvol = T
+
+# No path calculations
+k-path-eom = F
+q-path-susc = F
+
+# Output folder gets created on execution
+Output = Output-test/
+
+[Atoms]
+[[1]]
+Interaction = Kanamori # oder Density
+Nd=3
+Udd = 4.5
+Vdd = 3.0
+Jdd = 0.5
+# Udp=
+# Vdp=
+# Jdp=
+# Upp = 1.0
+# Vpp = 0.3
+# Jpp = 0.1
+# Jdp = 89.0
+[[2]]
+Interaction =  Density
+Nd = 3
+Udd = 3.3
+Vdd = 1.0
+
+[One-Particle]
+1PFile = input-SrVO3_2layer/svo2-2017-08-09-Wed-11-56-15.hdf5
+orb-sym = F
+
+[Two-Particle]
+2PFile = input-SrVO3_2layer/vertex_out_SVO2L.hdf5
+# 0: 2PGF, 1: chi_con, 2: chi
+vertex-type = 0

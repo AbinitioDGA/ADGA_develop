@@ -129,7 +129,7 @@ module hdf5_module
 
      do iwb=0,2*iwbmax
 
-        write(name_buffer, '(I5.5)'), iwb
+        write(name_buffer, '(I5.5)') iwb
         call h5gcreate_f(grp_dens_id, name_buffer, iw_magn_id, err)
         call h5gcreate_f(grp_magn_id, name_buffer, iw_dens_id, err)
         call h5gclose_f(iw_magn_id, err)
@@ -315,7 +315,7 @@ module hdf5_module
        ! read siw:
        ! local self energy - only for interacting orbitals == d
        call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
-       call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/siw/value", siw_id, err)
+       call h5dopen_f(file_id, "dmft-last/"//trim(name_buffer)//"/siw/value", siw_id, err)
        call h5dget_space_f(siw_id, siw_space_id, err)
        call h5sget_simple_extent_dims_f(siw_space_id, siw_dims, siw_maxdims, err)
        ! ndims = siw_dims(3)
@@ -345,11 +345,11 @@ module hdf5_module
      enddo ! loop over inequivalent atoms
    
      ! test siw:
-     open(34, file=trim(output_dir)//"siw.dat", status='unknown')
-     do iw=-iwmax,iwmax-1
-        write(34,'(100F12.6)') (real(siw(iw,i)),aimag(siw(iw,i)), i=1,ndim)
-     enddo
-     close(34)
+     ! open(34, file=trim(output_dir)//"siw.dat", status='unknown')
+     ! do iw=-iwmax,iwmax-1
+     !    write(34,'(100F12.6)') iw_data(iw), (real(siw(iw,i)),aimag(siw(iw,i)), i=1,ndim)
+     ! enddo
+     ! close(34)
    
 
  end subroutine read_siw
@@ -374,7 +374,7 @@ module hdf5_module
        write(name_buffer,'("ineq-",I3.3)') ineq
        !read giw
        call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
-       call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/giw/value", giw_id, err)
+       call h5dopen_f(file_id, "dmft-last/"//trim(name_buffer)//"/giw/value", giw_id, err)
        call h5dget_space_f(giw_id, giw_space_id, err)
        call h5sget_simple_extent_dims_f(giw_space_id, giw_dims, giw_maxdims, err)
        allocate(giw_data(2,-iwmax:iwmax-1,giw_dims(2),giw_dims(3))) !indices: real/imag iw spin band
@@ -422,11 +422,11 @@ module hdf5_module
      enddo ! inequivalent atom loop
 
   ! test giw:
-  open(54, file=trim(output_dir)//"giw.dat", status='unknown')
-  do iw=-iwmax,iwmax-1
-     write(54,'(100F12.6)') (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
-  enddo
-  close(54)
+  ! open(54, file=trim(output_dir)//"giw.dat", status='unknown')
+  ! do iw=-iwmax,iwmax-1
+  !    write(54,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
+  ! enddo
+  ! close(54)
  end subroutine read_giw
 
  subroutine read_hk_w2dyn()
@@ -503,7 +503,7 @@ module hdf5_module
      integer(hsize_t),dimension(0) :: mu_dims
 
      call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
-     call h5dopen_f(file_id, "stat-001/mu/value", mu_id, err)
+     call h5dopen_f(file_id, "dmft-last/mu/value", mu_id, err)
      call h5dread_f(mu_id, h5t_native_double, mu, mu_dims, err)
      call h5dclose_f(mu_id, err)
      call h5fclose_f(file_id,err)
@@ -521,27 +521,27 @@ module hdf5_module
      ! dc for noninteracting bands set to 0
      dc = 0.d0
 
-!     do ineq=1,nineq
-!       dimstart=1
-!       do i=2,ineq
-!         dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
-!       enddo
-!       dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
-!       write(name_buffer,'("ineq-",I3.3)') ineq
-!       call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
-!       call h5dopen_f(file_id, "stat-001/"//trim(name_buffer)//"/dc/value", dc_id, err)
-!       call h5dget_space_f(dc_id, dc_space_id, err)
-!       call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, err)
-!       allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
-!       call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, err)
-!       call h5dclose_f(dc_id, err)
-!       call h5fclose_f(file_id,err)
-!
-!       do iband=dimstart,dimend
-!         dc(:,iband) = dc_data(:,iband-dimstart+1)
-!       enddo
-!       deallocate(dc_data)
-!     enddo
+      do ineq=1,nineq
+        dimstart=1
+        do i=2,ineq
+          dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+        enddo
+        dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
+        write(name_buffer,'("ineq-",I3.3)') ineq
+        call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
+        call h5dopen_f(file_id, "dmft-last/"//trim(name_buffer)//"/dc/value", dc_id, err)
+        call h5dget_space_f(dc_id, dc_space_id, err)
+        call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, err)
+        allocate(dc_data(dc_dims(1),dc_dims(2))) !indices: spin band
+        call h5dread_f(dc_id, h5t_native_double, dc_data, dc_dims, err)
+        call h5dclose_f(dc_id, err)
+        call h5fclose_f(file_id,err)
+
+        do iband=dimstart,dimend
+          dc(:,iband) = dc_data(:,iband-dimstart+1)
+        enddo
+        deallocate(dc_data)
+      enddo
  end subroutine read_dc
 
  subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
@@ -569,8 +569,8 @@ module hdf5_module
         ind_iwb = iwb+iwbmax
 
         do ineq=1,nineq
-          write(grpname_magn, '("ineq-",I3.3,"/magn/",(I5.5))'), ineq, ind_iwb
-          write(grpname_dens, '("ineq-",I3.3,"/dens/",(I5.5))'), ineq, ind_iwb
+          write(grpname_magn, '("ineq-",I3.3,"/magn/",(I5.5))') ineq, ind_iwb
+          write(grpname_dens, '("ineq-",I3.3,"/dens/",(I5.5))') ineq, ind_iwb
 
           dimstart=1
           do i=2,ineq
@@ -643,13 +643,13 @@ module hdf5_module
                             !full 2-particle GF:
                             !straight term G(\nu)G(\nu') is subtracted (twice) only in the dens channel and only for iw=0:
                             if((iwb .eq. 0) .and. i==j .and. k==l)then
-                              if(index2ineq(nineq,ndims,i,j,k,l)) then ! substracted in the correlated subspace
+                              if(index2ineq(nineq,ndims,i,j,k,l) .gt. 0) then ! substracted in the correlated subspace
                                 chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l)
                               endif
                             endif
 
                             if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
-                              if(.not. index2ineq(nineq,ndims,i,j,k,l)) then ! add bubble term only if not in the same correlated subspace
+                              if(index2ineq(nineq,ndims,i,j,k,l) .eq. 0) then ! add bubble term only if not in the same correlated subspace
                                 chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
                                 chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
                               endif
@@ -665,7 +665,7 @@ module hdf5_module
                           else if (vertex_type .eq. chi_g4) then
 
                             if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
-                              if(.not. index2ineq(nineq,ndims,i,j,k,l)) then ! add bubble term only if not in the same correlated subspace
+                              if(index2ineq(nineq,ndims,i,j,k,l) .eq. 0) then ! add bubble term only if not in the same correlated subspace
                                 chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
                                 chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
                               endif
@@ -771,7 +771,7 @@ subroutine init_h5_output(filename_output)
       do ikz=1,nkpz
         do i1=1,ndim
           do i2=1,ndim
-            hk_arr(i2,i1,ikz,iky,ikx)=hk(i1,i2,1+ikz+iky*nkpz+ikx*nkpy*nkpz)
+            hk_arr(i2,i1,ikz,iky,ikx)=hk(i1,i2,ikz+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz)
           end do
         end do
       end do

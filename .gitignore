@@ -21,6 +21,11 @@ tags
 config*
 # except config_template which is maintained by hand
 !config_template
+!config_umatrix_template
+!config_template_new
+
+# dont't forget about the module
+!config_module.f90
 
 # all possible output folder and everything inside
 Output*/**
@@ -32,3 +37,4 @@ input*/**
 # binaries
 main
 vertex_chann_sym
+umatrix

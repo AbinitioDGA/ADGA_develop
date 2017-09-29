@@ -1,0 +1,21 @@
+# config template for umatrix.f90
+# use integers for dimensions
+# use floats for U values
+[General]
+output=umatrix.dat
+NAt     = 1
+[Atoms]
+[[1]]
+Hamiltonian = Kanamori # oder Density
+Nd=3
+Np=2
+Udd = 4.5
+Vdd = 2.56888
+Jdd = 0.75
+# Udp=
+# Vdp=
+# Jdp=
+Upp = 1.0
+Vpp = 0.3
+Jpp=0.1
+Jdp = 89.0

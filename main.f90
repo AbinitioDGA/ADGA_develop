@@ -7,6 +7,7 @@ program main
   use hdf5_module
   use lapack_module
   use parameters_module
+  use config_module
   use one_particle_quant_module
   use eom_module
   use susc_module
@@ -53,12 +54,14 @@ program main
   if (mpi_wrank .eq. master) write(*,*) 'Reading config file'
   call read_config()
 
+  write(*,*) nkpx, nkpy, nkpz
+
   ! check config settings
   if (mpi_wrank .eq. master) write(*,*) 'Checking config file'
   call check_config() 
 
   ! create output folder if not yet existing
-  if (mpi_wrank .eq. master) call system('mkdir -p ' // adjustl(trim(output_dir)))
+  if (mpi_wrank .eq. master) call system('mkdir -p ' // trim(adjustl(output_dir)))
   call mpi_barrier(mpi_comm_world,ierr)
 
   ! program introduction
@@ -137,7 +140,28 @@ program main
   call init() ! this requires beta, so it has to be called after read_beta()
 
   !read umatrix from separate file:
-  call read_u(u,u_tilde)
+  if (read_ext_u) then
+    call read_u(u,u_tilde)
+  else
+    if (mpi_wrank .eq. master) write(*,*) 'Creating u matrix'
+    call create_u(u,u_tilde)
+
+    ! test umatrix
+    if (mpi_wrank .eq. master) then
+      open(unit=10,file=trim(output_dir)//"umatrix.dat")
+      write(10,*) 'Umatrix File for the ADGA code : band,band,band,band,Uvalue'
+      do i=1,ndim
+      do j=1,ndim
+      do k=1,ndim
+      do l=1,ndim
+        write(10,'(4I10,F15.8)') i,j,k,l,Umat(i,j,k,l)
+      enddo
+      enddo
+      enddo
+      enddo
+    endif
+    deallocate(Umat)
+  endif
 
 ! COMPUTE local single-particle Greens function -- this overwrites the readin from w2d above
 ! This calculation is necessary if one wants to do calculations with p-bands
@@ -564,7 +588,7 @@ end if
      call cpu_time(finish)
 
      !Output the calculation progress
-     write(*,'("Core:",I4,"  Progress:",I7,"  of",I7,"  Time: ",F8.4,"  (working area:",I7,"  -",I7,")")') &
+     write(*,'("Core:",I5,"  Progress:",I7,"  of",I7,"  Time: ",F8.4,"  (working area:",I9,"  -",I9,")")') &
       mpi_wrank, iqw-qwstart+1, qwstop-qwstart+1, finish-start, qwstart, qwstop
        ! write(*,'((A),I5,2X,I6,2X,I6,2X,I6,2X,F8.4,(A),F8.4)') 'mpi_rank || qwstart -- iqw -- qwstop || % : ',&
                             ! mpi_wrank,qwstart,iqw,qwstop, (iqw-qwstart)/dble(qwstart-qwstop+1), 'time: ',finish-start
@@ -621,21 +645,21 @@ end if
     call MPI_gatherv(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(chi_qw_dens)
     if (mpi_wrank .eq. master) then
-      call output_chi_qw(chi_qw_full,qw,'chi_qw_dens.dat')
+      ! call output_chi_qw(chi_qw_full,qw,'chi_qw_dens.dat')
       call output_chi_qw_h5(output_filename,'dens',chi_qw_full)
     end if
 
     call MPI_gatherv(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(chi_qw_magn)
     if (mpi_wrank .eq. master) then
-      call output_chi_qw(chi_qw_full,qw,'chi_qw_magn.dat')
+      ! call output_chi_qw(chi_qw_full,qw,'chi_qw_magn.dat')
       call output_chi_qw_h5(output_filename,'magn',chi_qw_full)
     end if
 
     call MPI_gatherv(bubble,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,chi_qw_full,rct,disp,     MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
     deallocate(bubble)
     if (mpi_wrank .eq. master) then
-      call output_chi_qw(chi_qw_full,qw,'bubble.dat')
+      ! call output_chi_qw(chi_qw_full,qw,'bubble.dat')
       call output_chi_qw_h5(output_filename,'bubble',chi_qw_full)
     end if
 
@@ -646,9 +670,9 @@ end if
 ! Output
   if (mpi_wrank .eq. master) then
      if (do_chi) then
-        call output_chi_loc(chi_loc_dens,'chi_loc_dens.dat')
-        call output_chi_loc(chi_loc_magn,'chi_loc_magn.dat')
-        call output_chi_loc(bubble_loc,'bubble_loc.dat')
+        ! call output_chi_loc(chi_loc_dens,'chi_loc_dens.dat')
+        ! call output_chi_loc(chi_loc_magn,'chi_loc_magn.dat')
+        ! call output_chi_loc(bubble_loc,'bubble_loc.dat')
         call output_chi_loc_h5(output_filename,'dens',chi_loc_dens)
         call output_chi_loc_h5(output_filename,'magn',chi_loc_magn)
         call output_chi_loc_h5(output_filename,'bubble',bubble_loc)

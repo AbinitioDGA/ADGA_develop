@@ -49,7 +49,7 @@ subroutine output_chi_qw(chi_qw,qw,filename_output)
   write(*,*) 'Output chi_qw'
 
   ! create a format string that works for various orbital dimensions
-  write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
+  write(format_str,'(A,I5,A)') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
 
   ! open file and write head line
   open(unit=10,file=trim(output_dir)//filename_output)
@@ -89,7 +89,7 @@ subroutine output_chi_qw_1line(chi_qw,qw,iqw,rank,filename_output)
   integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i,iqw,rank,un
 
   ! create a format string that works for various orbital dimensions
-  write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
+  write(format_str,'(A,I5,A)') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
 
   ! open file and write head line
   un=10000+rank
@@ -116,7 +116,7 @@ subroutine output_chi_loc(chi_qw,filename_output)
   write(*,*) 'output chi_loc'
 
   ! create a format string that works for various orbital dimensions
-  write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X',2*ndim2**2,'(E14.7E2,2X))'
+  write(format_str,'(A,I5,A)') '(I5,2X,E14.7E2,2X',2*ndim2**2,'(E14.7E2,2X))'
 
   ! open file and write head line
   open(unit=10,file=trim(output_dir)//filename_output)
@@ -148,7 +148,7 @@ subroutine output_chi_loc_1line(chi_qw,iwb,rank,filename_output)
   integer :: iwb,i,un,rank
 
   ! create a format string that works for various orbital dimensions
-  write(format_str,'((A)I3(A))') '(I5,2X,E14.7E2,2X',2*ndim2**2,'(E14.7E2,2X))'
+  write(format_str,'(A,I5,A)') '(I5,2X,E14.7E2,2X',2*ndim2**2,'(E14.7E2,2X))'
 
   ! open file and write head line
   un=20000+rank
