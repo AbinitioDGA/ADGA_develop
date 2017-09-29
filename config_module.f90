@@ -80,9 +80,14 @@ subroutine read_config()
   ! defining default values
   do_chi=.false.
   do_eom=.true.
+  q_vol=.true.
+  k_path_eom=.false.
+  q_path_susc=.false.
   output_dir='Output/'
-  filename_hk=''; filename=''; filename_vertex_sym='';
-  filename_vq=''; filename_q_path=''
+  filename_hk=''; filename=''; filename_vertex_sym=''
+  filename_vq=''; filename_q_path=''; filename_umatrix=''
+  nineq=1
+  iwfmax_small=-1; iwbmax_small=-1 ! maximum number of frequencies -- see check_freq_range
 
   ! search for General stuff + Allocation of values
   call group_find('[General]', search_start, search_end)
@@ -147,7 +152,7 @@ subroutine read_config()
     write(str_ineq,'(A2,I1,A2)') '[[',ineq,']]'
     call subgroup_find(str_ineq, search_start, search_end, subsearch_start, subsearch_end)
     if (subsearch_start .eq. 0) then ! group was not found
-      stop 'Subgroup not found'
+      stop 'Atomnumber subgroup not found'
     endif
 
     call string_find('Interaction',interaction(ineq),subsearch_start,subsearch_end)
@@ -171,7 +176,13 @@ subroutine read_config()
     end select
   enddo
 
+
   ndim=sum(ndims)
+
+  if (ndim .eq. 0) then
+    stop 'Number of bands per atom is required in [Atoms] section'
+  endif
+
   allocate(u(ndim**2,ndim**2), u_tilde(ndim**2,ndim**2))
   deallocate(interaction)
 
