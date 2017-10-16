@@ -97,8 +97,8 @@ subroutine read_config()
     call bool_find('calc-susc', do_chi, search_start, search_end)
     call bool_find('calc-eom', do_eom, search_start, search_end)
     call int_find('NAt', nineq, search_start, search_end)
-    call int_find('iwf', iwfmax_small, search_start, search_end)
-    call int_find('iwb', iwbmax_small, search_start, search_end)
+    call int_find('N4iwf', iwfmax_small, search_start, search_end)
+    call int_find('N4iwb', iwbmax_small, search_start, search_end)
     call string_find('HkFile', filename_hk, search_start, search_end)
       if (trim(adjustl(filename_hk)) .eq. '') then
         read_ext_hk = .false.

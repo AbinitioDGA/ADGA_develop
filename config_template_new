@@ -6,8 +6,8 @@ calc-eom  = T
 NAt = 2
 
 # Frequency boxes
-iwf = 10
-iwb = 5
+N4iwf = 10
+N4iwb = 5
 
 # General Files
 HkFile = input-SrVO3_2layer/2SVO_t2g.hk
@@ -32,7 +32,8 @@ Output = Output-test/
 [Atoms]
 [[1]]
 Interaction = Kanamori # oder Density
-Nd=3
+Nd=3 # Number of bands are minimum input here; everything else can be possible
+# be described by UFile
 Udd = 4.5
 Vdd = 3.0
 Jdd = 0.5
