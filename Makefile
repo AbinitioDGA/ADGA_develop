@@ -27,7 +27,7 @@ OBJECTS := $(sort $(ALL_OBJECTS))
 
 
 .PHONY: all
-all: main vertex_chann_sym umatrix
+all: main vertex_chann_sym
 #vq_check
 
 main: $(MAIN_OBJECTS)

@@ -54,7 +54,7 @@ program main
   if (mpi_wrank .eq. master) write(*,*) 'Reading config file'
   call read_config()
 
-  write(*,*) nkpx, nkpy, nkpz
+  if (mpi_wrank .eq. master) write(*,*) nkpx, nkpy, nkpz
 
   ! check config settings
   if (mpi_wrank .eq. master) write(*,*) 'Checking config file'
@@ -141,6 +141,7 @@ program main
 
   !read umatrix from separate file:
   if (read_ext_u) then
+    if (mpi_wrank .eq. master) write(*,*) 'Reading u matrix'
     call read_u(u,u_tilde)
   else
     if (mpi_wrank .eq. master) write(*,*) 'Creating u matrix'
