@@ -2,8 +2,11 @@ module parameters_module
   implicit none
   public
 
-  complex(kind=8) ci
-  parameter (ci=(0.d0,1.d0))
+  integer   :: ounit ! output unit
+  logical   :: verbose ! Extra verbose
+  character(len=200) :: verbstr
+
+  complex(kind=8),parameter :: ci=(0.d0,1.d0)
   double precision,parameter :: pi=3.1415926535897932385d0
   integer :: nkp, ndim, ndim2, maxdim, nineq
   integer, allocatable :: ndims(:,:)

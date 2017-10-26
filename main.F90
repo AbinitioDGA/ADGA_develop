@@ -41,24 +41,44 @@ program main
   character(20) :: date,time,zone
   character(200) :: output_filename
   integer,dimension(8) :: time_date_values
-
-
-  ! read command line argument -> file name of config file
-  if (iargc() .ne. 1) then
-    stop 'The program has to be executed with exactly one argument. (Name of config file)'
-  end if
+  logical :: verbose_extra
+  integer :: er ! error flag
+#ifdef MPI
+  character(len=MPI_MAX_PROCESSOR_NAME) :: hostname
+#endif
 
   ! mpi initialization
   call mpi_initialize()
 
-  ! read config settings
-  if (mpi_wrank .eq. master) write(*,*) 'Reading config file'
-  call read_config()
+  ! read command line argument -> file name of config file
+  if (iargc() .ne. 1) then
+    call mpi_stop('The program has to be executed with exactly one argument. (Name of config file)')
+  end if
 
-  write(*,*) nkpx, nkpy, nkpz
+  ! read config settings (use output_filename as a temporary error string)
+  call read_config(er,output_filename)
+  if (er .ne. 0) call mpi_stop(output_filename,er)
+
+  ! Set up the output file
+  verbose_extra = (verbose .and. (index(verbstr,"Extra") .ne. 0))
+  if (mpi_wrank .eq. master .or. verbose_extra) then
+     ounit = 123
+  else
+     ounit = 0
+  endif
+  if (ounit .gt. 0) then
+     if (mpi_wrank .eq. master) then
+        output_filename = "out"
+     else
+        write(output_filename,*) mpi_wrank
+        output_filename = "out."//TRIM(ADJUSTL(output_filename))
+     endif
+     open(unit=ounit,file=TRIM(ADJUSTL(output_filename)),status='unknown')
+  endif
+  if (ounit .ge. 1) write(ounit,*) nkpx, nkpy, nkpz
 
   ! check config settings
-  if (mpi_wrank .eq. master) write(*,*) 'Checking config file'
+  if (ounit .ge. 1) write(ounit,*) 'Checking config file'
   call check_config() 
 
   ! create output folder if not yet existing
@@ -66,19 +86,23 @@ program main
   call mpi_barrier(mpi_comm_world,ierr)
 
   ! program introduction
-  if (mpi_wrank .eq. master) then
-    write(*,*)
-    write(*,*) '/-----------------------------------------------------------\'
-    write(*,*) '|  Ab initio dynamical vertex approximation program (ADGA)  |'
-    write(*,*) '|  Running on ',mpi_wsize,' core(s).                        |'
-    write(*,*) '\-----------------------------------------------------------/'
-    write(*,*)
+  if (ounit .ge. 1) then
+    call date_and_time(date,time,zone,time_date_values)
+    call mpi_get_processor_name(hostname,i,j)
+    write(ounit,*)
+    write(ounit,*)            '/------------------------------------------------------------------\'
+    write(ounit,*)            '|  Ab initio dynamical vertex approximation program (abinitiodga)  |'
+    write(ounit,'(a,i11,a)')  '|  Running on ',mpi_wsize,' core(s).                               |'
+    write(ounit,*)            '|     time             date           host                         |'
+    write(ounit,'("| ",a,7x,a,10x,a,2x,"|")') trim(time),trim(date),hostname(1:i)
+    write(ounit,*)            '\------------------------------------------------------------------/'
+    write(ounit,*)
+    if (verbose) write(ounit,*) "Verbose string: ",trim(ADJUSTL(verbstr))
   end if
 
   ! creation of hdf5 output file
   if (mpi_wrank .eq. master) then
     ! generate a date-time string for output file name
-    call date_and_time(date,time,zone,time_date_values)
     output_filename=trim(output_dir)//'adga-'//trim(date)//'-'//trim(time)//'-output.hdf5'
     ! while the name is generated here to get the correct starting time, 
     ! the file is created later, just before the beginning of the parallel loop.
@@ -93,11 +117,11 @@ program main
   call get_freq_range(mpi_wrank,master)
   call check_freq_range(mpi_wrank,master)
 
-  if (mpi_wrank .eq. master) then
-    write(*,*) 'iwmax=', iwmax, ' (number of fermionic matsubara frequencies of one-particle quantities)'
-    write(*,*) 'iwfmax=', iwfmax, 'iwfmax_small=', iwfmax_small,&
+  if (ounit .ge. 1) then
+    write(ounit,*) 'iwmax=', iwmax, ' (number of fermionic matsubara frequencies of one-particle quantities)'
+    write(ounit,*) 'iwfmax=', iwfmax, 'iwfmax_small=', iwfmax_small,&
                ' (number of fermionic matsubara frequencies of two-particle quantities)'
-    write(*,*) 'iwbmax=',iwbmax, 'iwbmax_small=', iwbmax_small, &
+    write(ounit,*) 'iwbmax=',iwbmax, 'iwbmax_small=', iwbmax_small, &
                ' (number of bosonic matsubara frequencies of two-particle quantities)'
   end if
 
@@ -126,18 +150,18 @@ program main
 
   call finalize_h5() ! close the hdf5-fortran interface
 
-  if (mpi_wrank .eq. master) then
-    write(*,*) 'orb_symmetry = ', orb_sym
+  if (ounit .ge. 1) then
+    write(ounit,*) 'orb_symmetry = ', orb_sym
   end if
 
-  if (.not. do_vq .and. mpi_wrank .eq. master) then
-    write(*,*) 'Main: Run without V(q)'
+  if (.not. do_vq .and. ounit .ge. 1) then
+    write(ounit,*) 'Main: Run without V(q)'
   end if
 
-  if (mpi_wrank .eq. master) then
-    write(*,*) 'beta=', beta
-    write(*,*) 'mu=', mu
-    write(*,*) 'dc=', dc
+  if (ounit .ge. 1) then
+    write(ounit,*) 'beta=', beta
+    write(ounit,*) 'mu=', mu
+    write(ounit,*) 'dc=', dc
   end if
 
   call init() ! this requires beta, so it has to be called after read_beta()
@@ -146,7 +170,7 @@ program main
   if (read_ext_u) then
     call read_u(u,u_tilde)
   else
-    if (mpi_wrank .eq. master) write(*,*) 'Creating u matrix'
+    if (ounit .ge. 1) write(ounit,*) 'Creating u matrix'
     call create_u(u,u_tilde)
 
     ! test umatrix
@@ -200,16 +224,16 @@ program main
 
   if (q_path_susc .and. do_chi .and. (.not. q_vol)) then
     if (do_eom) then
-      write(*,*) 'Error: it is impossible to use do_eom and q_path_susc'
+      write(ounit,*) 'Error: it is impossible to use do_eom and q_path_susc'
       stop
     end if
     nqp=n_segments()*nqp1/2+1
     allocate(q_data(nqp))
     call generate_q_path(nqp1,q_data)
-    write(*,*) 'q path with',n_segments(),'segments and',nqp,'points.'
+    write(ounit,*) 'q path with',n_segments(),'segments and',nqp,'points.'
   else
     if (q_path_susc .and. q_vol) then
-      write(*,*) 'Warning: q_path_susc .and. q_vol currently has the same effect as only q_vol.'
+      write(ounit,*) 'Warning: q_path_susc .and. q_vol currently has the same effect as only q_vol.'
     end if
     nqp=nqpx*nqpy*nqpz
     allocate(q_data(nqp))
@@ -218,20 +242,20 @@ program main
 
 
 
-  if (mpi_wrank .eq. master) then
-    write(*,*) nkp1,'k points in one direction'
-    write(*,*) nkp,'k points total'
-    write(*,*) nqp1,'k points in one direction'
-    write(*,*) nqp,'q points total'
+  if (ounit .ge. 1) then
+    write(ounit,*) nkp1,'k points in one direction'
+    write(ounit,*) nkp,'k points total'
+    write(ounit,*) nqp1,'k points in one direction'
+    write(ounit,*) nqp,'q points total'
   end if
 
 !  else if (.not. do_eom .and. do_chi .and. q_path) then
 !    nqp=n_segments()*nqp1/2+1
 !    allocate(q_data(nqp))
 !    call generate_q_path(q_data)
-!    write(*,*) 'q path'
-!    write(*,*)'nqp=', nqp !test
-!    write(*,*) q_data
+!    write(ounit,*) 'q path'
+!    write(ounit,*)'nqp=', nqp !test
+!    write(ounit,*) q_data
 !  else if (do_eom .and. q_path) then
 !    nqp = nqp1**3
 !    allocate(q_data(nqp))
@@ -240,7 +264,7 @@ program main
 !    allocate(k_data_eom(nkp_eom))
 !    call generate_q_path(k_data_eom)
 !  else
-!    write(*,*) 'only (q_vol) and (.not. do_eom .and. q_path) are implemented yet.'
+!    write(ounit,*) 'only (q_vol) and (.not. do_eom .and. q_path) are implemented yet.'
 !    stop
 !  end if
 
@@ -250,14 +274,14 @@ program main
 !  call index_kq_search(k_data, q_data, kq_ind) ! old method, assumes cubic case
   call index_kq(kq_ind) ! new method
   call cpu_time(finish)
-  if (mpi_wrank .eq. master) then
-    write(*,*)'finding k-q index:', finish-start
+  if (ounit .ge. 1) then
+    write(ounit,*)'finding k-q index:', finish-start
   end if
 !##################### parallel code ##################################################
 
-  if (mpi_wrank .eq. master) then
-    write(*,*)'nqp=', nqp !test
-    write(*,*) maxval(kq_ind)
+  if (ounit .ge. 1) then
+    write(ounit,*)'nqp=', nqp !test
+    write(ounit,*) maxval(kq_ind)
   end if
 
 
@@ -318,7 +342,7 @@ end if
 
 
 if (mpi_wrank .eq. master) then
-  write(*,*) 'writing output to ',output_filename
+  write(ounit,*) 'writing output to ',output_filename
   call init_h5_output(output_filename)
 end if
 
@@ -437,7 +461,7 @@ end if
      end if
 
 !     call cpu_time(finish)
-!     write(*,*) finish-start
+!     write(ounit,*) finish-start
 
      ! Now we construct eta^q (in the small box..)
      allocate(bigwork_dens(maxdim,maxdim))
@@ -532,9 +556,9 @@ end if
      call cpu_time(finish)
 
      !Output the calculation progress
-     write(*,'("Core:",I5,"  Progress:",I7,"  of",I7,"  Time: ",F8.4,"  (working area:",I9,"  -",I9,")")') &
+     write(ounit,'("Core:",I5,"  Progress:",I7,"  of",I7,"  Time: ",F8.4,"  (working area:",I9,"  -",I9,")")') &
       mpi_wrank, iqw-qwstart+1, qwstop-qwstart+1, finish-start, qwstart, qwstop
-       ! write(*,'((A),I5,2X,I6,2X,I6,2X,I6,2X,F8.4,(A),F8.4)') 'mpi_rank || qwstart -- iqw -- qwstop || % : ',&
+       ! write(ounit,'((A),I5,2X,I6,2X,I6,2X,I6,2X,F8.4,(A),F8.4)') 'mpi_rank || qwstart -- iqw -- qwstop || % : ',&
                             ! mpi_wrank,qwstart,iqw,qwstop, (iqw-qwstart)/dble(qwstart-qwstop+1), 'time: ',finish-start
   enddo !iqw
 
@@ -573,6 +597,15 @@ end if
      call add_siw_dmft(sigma_sum)
      call get_sigma_g_loc(sigma_sum, sigma_loc, gloc)
      if (mpi_wrank .eq. master) then
+       if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
+         ! TODO: Extract the trace from sigma_sum etc.
+         write(ounit,'(1x,"Orbital trace of the self-energy components at the first matsubara:")') 
+         write(ounit,'(1x," FIXME!! (the numbers below are just placeholders):")') 
+         write(ounit,'(1x,"Tr[Self-energy[dmft]] : ",f24.11)') 1.23d0 
+         write(ounit,'(1x,"Tr[Self-energy[eta]] : ",f24.11)') 4.56d0 
+         write(ounit,'(1x,"Tr[Self-energy[gamma]] : ",f24.11)') 7.89d0 
+         write(ounit,'(1x,"Tr[Self-energy] : ",f24.11)') 1.23d0 
+       endif
        call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc)
        call output_eom_hdf5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
      end if
@@ -615,6 +648,11 @@ end if
     if (mpi_wrank .eq. master) then
       ! TODO: Read the summed up local susceptibility from file and add it to chi_qw_full.
       ! call read_and_add_local_chi_dens(chi_qw_full) ! Add chi^w_dens
+      if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
+         write(ounit,'(1x,"Orbital trace of Chi^q_dens at the first matsubara and q-point:")') 
+         write(ounit,'(1x," FIXME!! (the numbers below are just placeholders):")') 
+         write(ounit,'(1x,"Tr[Chi_d] : ",f12.7)') 1.23d0
+      endif
       ! call output_chi_qw(chi_qw_full,qw,'chi_qw_dens.dat')
       call output_chi_qw_h5(output_filename,'dens',chi_qw_full)
     end if
@@ -629,6 +667,11 @@ end if
     if (mpi_wrank .eq. master) then
       ! TODO: Read the summed up local susceptibility from file and add it to chi_qw_full.
       ! call read_and_add_local_chi_magn(chi_qw_full) ! Add chi^w_magn
+      if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
+         write(ounit,'(1x,"Orbital trace of Chi^q_magn at the first matsubara and q-point:")') 
+         write(ounit,'(1x," FIXME!! (the numbers below are just placeholders):")') 
+         write(ounit,'(1x,"Tr[Chi_m] : ",f12.7)') 1.23d0
+      endif
       ! call output_chi_qw(chi_qw_full,qw,'chi_qw_magn.dat')
       call output_chi_qw_h5(output_filename,'magn',chi_qw_full)
     end if
@@ -652,6 +695,7 @@ end if
 
 ! Output
   deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,qw)
-  if (mpi_wrank .eq. master) write(*,*) 'end of program'
+  if (ounit .ge. 1) write(ounit,*) 'end of program'
+  close(ounit)
   call mpi_close()
 end program main

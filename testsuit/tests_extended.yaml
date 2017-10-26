@@ -1,0 +1,61 @@
+Name: Extended test suite for abinitioDGA
+Date: 2017-10-26
+Author: Patrik Thunstrom
+Environment:
+    Executable: "./run.sh"
+Properties:
+    Selfenergy:
+        Description: Orbital trace of the self-energy at the first matsubara
+        Script: Scripts/Selfenergy.sh
+        Kind: Float
+        Precision: 1.0E-10
+    Selfenergy_eta:
+        Description: Orbital trace of the eta contribution to the self-energy at the first matsubara
+        Script: Scripts/Selfenergy_eta.sh
+        Kind: Float
+        Precision: 1.0E-10
+    Selfenergy_gamma:
+        Description: Orbital trace of the gamma contributions to the self-energy at the first matsubara
+        Script: Scripts/Selfenergy_gamma.sh
+        Kind: Float
+        Precision: 1.0E-10
+    Chiqdens:
+        Description: Orbital trace of Chi^q_dens at the first matsubara and q-point
+        Script: Scripts/Chiqd.sh
+        Kind: Float
+        Precision: 1.0E-7
+    Chiqmagn:
+        Description: Orbital trace of Chi^q_magn at the first matsubara and q-point
+        Script: Scripts/Chiqm.sh
+        Kind: Float
+        Precision: 1.0E-7
+
+TestCases:
+   - Description:  oneband with V^q and q_path
+     Path: Tests/oneband_vq_chipath
+     Chiqdens:  1.0 # Add a reference number here
+     Chiqmagn:  1.0 # Add a reference number here
+   - Description: SVO without V^q, only eom
+     Path: Tests/SVO_eom
+     Selfenergy:  1.0 # Add a reference number here
+     Selfenergy_eta:  1.0 # Add a reference number here
+     Selfenergy_gamma:  1.0 # Add a reference number here
+   - Description: SVO without V^q, only chi
+     Path: Tests/SVO_chi
+     Chiqmagn:  1.0 # Add a reference number here
+     Chiqdens:  1.0 # Add a reference number here
+   - Description: SVO without V^q, both eom and chi
+     Path: Tests/SVO_eomchi
+     Selfenergy:  1.0 # Add a reference number here
+     Selfenergy_eta:  1.0 # Add a reference number here
+     Selfenergy_gamma:  1.0 # Add a reference number here
+     Chiqmagn:  1.0 # Add a reference number here
+     Chiqdens:  1.0 # Add a reference number here
+   - Description:  SVO with V^q, both eom and chi
+     Path: Tests/SVO_vq_eomchi
+     Selfenergy:  1.0 # Add a reference number here
+     Selfenergy_eta:  1.0 # Add a reference number here
+     Selfenergy_gamma:  1.0 # Add a reference number here
+     Chiqmagn:  1.0 # Add a reference number here
+     Chiqdens:  1.0 # Add a reference number here
+

@@ -73,4 +73,71 @@ module mpi_org
 #endif
   end subroutine mpi_close
 
+  subroutine mpi_stop(stopmsg,er,mpi_er)
+   use parameters_module, ONLY: ounit
+   implicit none
+   character(len=*),intent(in)  :: stopmsg      !< message to print
+   integer,optional,intent(in)  :: er           !< error flag to print
+   integer,optional,intent(in)  :: mpi_er          !< rank of the processor printing this message
+#ifdef MPI
+   character(len=MPI_MAX_ERROR_STRING) :: str      ! temp string
+   integer                             :: strlen      ! length
+   integer                             :: mpi_errorflag   ! temp error flag
+   character(len=5)                    :: fancynr  ! temp string for the mpi rank
+   logical                             :: unitopened ! tells if the file unit is open
+#endif
+      inquire(unit=ounit,opened=unitopened)
+      if (unitopened) call flush(ounit)
+#if MPI 
+      write(fancynr,'(i5)') mpi_wrank
+      if (.not. present(mpi_er)) then
+         if (present(er)) then
+            if (unitopened) then
+               write(ounit,'(1x,"Rank ",a,", STOP in abinitiodga: ",a," er=",i5)') TRIM(ADJUSTL(fancynr)),stopmsg,er
+               close(ounit)
+            endif
+            write(*,'(1x,"Rank ",a,", STOP in abinitiodga: ",a," er=",i5)') TRIM(ADJUSTL(fancynr)),stopmsg,er
+         else
+            if (unitopened) then
+               write(ounit,'(1x,"Rank ",a,", STOP in abinitiodga: ",a)') TRIM(ADJUSTL(fancynr)),stopmsg
+               close(ounit)
+            endif
+            write(*,'(1x,"Rank ",a,", STOP in abinitiodga: ",a)') TRIM(ADJUSTL(fancynr)),stopmsg
+         endif
+         call sleep(1)
+         call MPI_Abort(MPI_COMM_WORLD,-1,mpi_errorflag)
+      else
+         if (unitopened) then
+            if (present(er)) then
+               write(ounit,'(1x,"Rank ",a,", STOP in abinitiodga: ",a," er=",i25)') TRIM(ADJUSTL(fancynr)),stopmsg,er
+            endif
+            write(ounit,'(1x,"Rank ",a,", STOP in abinitiodga: ",a," mpi=",i5)') TRIM(ADJUSTL(fancynr)),stopmsg,mpi_er
+            close(ounit)
+         endif
+         if (present(er)) write(*,'(1x,"Rank ",a,", STOP in abinitiodga: ",a," er=",i25)') TRIM(ADJUSTL(fancynr)),stopmsg,er
+         write(*,'(1x,"Rank ",a,", STOP in abinitiodga: ",a," mpi=",i5)') TRIM(ADJUSTL(fancynr)),stopmsg,mpi_er
+         call MPI_ERROR_STRING(mpi_er, str, strlen,mpi_errorflag)
+         if (mpi_errorflag .ne. 0) then
+            write(*,*) "Error in MPI_ERROR_STRING:",mpi_errorflag
+         else
+            write(*,*) "STOP in abinitiodga:" // str(1:strlen)
+         endif
+         call sleep(1)
+         call MPI_Abort(MPI_COMM_WORLD,mpi_er,mpi_errorflag)
+      endif
+#else
+      if (present(er)) then
+         write(*,*) "STOP in abinitiodga: " // stopmsg // " er=",er
+      else if (.not. present(mpi_er)) then
+         write(*,*) "STOP in abinitiodga: " // stopmsg
+      endif
+      if (present(mpi_er)) then
+         write(*,*) "ERROR: Got an mpi error but abinitiodga is compiled without MPI support!"
+         write(*,*) "STOP in abinitiodga: " // stopmsg // " mpi=",mpi_er
+      endif
+#endif
+
+      stop
+   end subroutine mpi_stop
+
 end module mpi_org

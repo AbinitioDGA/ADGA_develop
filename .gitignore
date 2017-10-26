@@ -13,9 +13,13 @@
 *.png
 *.hdf5
 *.hk
+*.dSYM
 
 #Ignore the Makefile
 Makefile
+
+#Test suit
+testsuit/runcommand
 
 #ctags
 tags
@@ -38,6 +42,7 @@ Input*/**
 input*/**
 
 # binaries
+abinitiodga
 main
 vertex_chann_sym
 umatrix

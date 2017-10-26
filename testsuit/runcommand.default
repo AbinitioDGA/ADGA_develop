@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+MPIRUN="mpirun -np 2"
+EXEC="abinitiodga"

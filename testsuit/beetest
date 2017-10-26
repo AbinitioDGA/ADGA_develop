@@ -1,0 +1,398 @@
+#!/usr/bin/env python
+# *********************************************************************************************************
+#  File: beetest[.py]
+#  Description: a tool for running and testing
+#               ab initio calculations
+#  Author: Peter Larsson
+#  Affiliation: Department of Physics & Materials Science,
+#               Uppsala University, Sweden.
+#  Revision history:
+#      2016-01-09  Johan Schott
+#        - Removing dependency of python module called YAML.
+#          YAML was used for reading input file and could also write output data from the tests.
+#          The non default option to write out data to YAML-format is removed.
+#        - Replaced tabs with spaces, according to python recommendations
+#      2010-11-16  Torbjorn Bjorkman
+#        - "Environment" no longer requires "Path" to be
+#          set (defaults to pwd).
+#      2008-10-28  Peter Larsson
+#        - Relative and absolute precision for floats
+#      2008-10-22  Peter Larsson
+#        - Added detection of errors in property scripts
+#      2008-04-17  Peter Larsson
+#        - Original version.
+# *********************************************************************************************************
+
+import os
+import subprocess
+import commands
+from copy import deepcopy
+from optparse import OptionParser
+import datetime
+
+# *****************************************
+#          Utility functions
+# *****************************************
+def EqualToAbsolutePrecision(operand1,operand2,precision):
+    return abs(operand1 - operand2) < abs(precision)
+
+def EqualToRelativePrecision(operand1,operand2,precision):
+    return abs(operand1 - operand2)/abs(operand2) < abs(precision)
+
+def GetProperties(keydata):
+    #Remove the Description and Path tags from hash data
+    result=deepcopy(keydata)
+    if 'Description' in result:
+        del result['Description']
+    if 'Path' in result:
+        del result['Path']
+    return result
+
+def NotifyFailure(prop,actual,expected):
+    print "Mismatch comparing " + prop
+    print "Found   : " + str(actual)
+    print "Expected: " + str(expected)
+
+def EnforceTrailingSlash(path):
+    if path[-1] != '/':
+        return path + '/'
+    else:
+        return path
+
+# *****************************************
+#      functions for reading yaml-files
+# *****************************************
+def read_file(filename):
+    with open(filename) as f:
+        content = f.readlines()
+    content = remove_empty_rows(content)
+    levels,indent_2_level = get_levels(content) # get the level in the tree for each row
+    value_types = get_value_types(content)
+    keys = get_keys(content)
+    tree = build_tree(content,levels,keys,value_types)
+    return tree
+
+def remove_empty_rows(content):
+    '''Empty rows are removed'''
+    a = []
+    for row in content: 
+        if not row == '\n':
+            a.append(row)
+    return a 
+
+def get_levels(content):
+    '''
+    Find and return the level in the tree for each row, as a list.
+    Also returns a dictonary translating indent to level.
+    '''
+    levels = []
+    indent_2_level = {}
+    for i,row in enumerate(content):
+        words = row.split()
+        ind = row.index(words[0][0]) # the indentation for this row
+        if i == 0:
+            levels.append(0)         # the first line belongs is in level 0 in the tree.
+            indent_2_level[ind] = 0  # the first line belongs is in level 0 in the tree.
+        else:
+            if ind in indent_2_level:
+                levels.append(indent_2_level[ind])
+            elif words[0][0] == '-':
+                if ind+1 in indent_2_level:
+                    levels.append(indent_2_level[ind+1])
+                    indent_2_level[ind] = indent_2_level[ind+1]
+                else:  
+                    new_level = max(levels)+1
+                    levels.append(new_level)
+                    indent_2_level[ind] = new_level
+            elif ind-1 in indent_2_level:
+                levels.append(indent_2_level[ind-1])
+                indent_2_level[ind] = indent_2_level[ind-1]
+            elif ind-2 in indent_2_level:
+                levels.append(indent_2_level[ind-2])
+                indent_2_level[ind] = indent_2_level[ind-2]
+            else:
+                new_level = max(levels)+1
+                levels.append(new_level)
+                indent_2_level[ind] = new_level
+    return levels,indent_2_level
+
+def get_keys(content):
+    keys = []
+    for i,row in enumerate(content):
+        words = row.split()
+        if words[0][0] == '-':
+            keys.append(words[1][:-1])
+        else:
+            keys.append(words[0][:-1])
+    return keys
+
+def get_value_types(content):
+    '''
+    Returns the dictionary value type for each row, as a list
+    '''
+    value_types = []    
+    for i,row in enumerate(content):
+        words = row.split()
+        if words[-1][-1] != ':':
+            value_types.append('str')
+        elif content[i+1].split()[0][0] == '-':
+            value_types.append('list')
+        else:
+            value_types.append('dict')
+    return value_types
+
+def get_value(key,words):
+    if key == 'Date':
+        s = [int(item) for item in words[0].split('-')]
+        value = datetime.date(s[0],s[1],s[2])
+    else:
+        s = ' '.join(words)
+        try:
+            value = float(s)
+        except ValueError:
+            if s[0] == '"' and s[-1] == '"':
+                value = s[1:-1]
+            else:
+                value = s
+    return value
+
+def build_tree(content,levels,keys,value_types):
+    root = {}
+    parents = {} # dictionary with the active parent for each level
+    parents[0] = root # the parent for level 0 is the root
+    for i,row in enumerate(content):
+        words = row.split()
+        level = levels[i]
+        key = keys[i]
+        value_type = value_types[i]
+
+        p = parents[level]  # parent
+
+        if isinstance(p,dict):
+            if value_type == 'str':
+                p[key] = get_value(key,words[1:])
+            elif value_type == 'list':
+                p[key] = []
+                parents[level+1] = p[key] 
+            elif value_type == 'dict':
+                p[key] = {}
+                parents[level+1] = p[key] 
+            else:
+                print 'Error: Valid value types are: str, list and dict.'
+                print 'Instead, value type:',value_type
+        elif isinstance(p,list):
+            if words[0][0] == '-':  # create new element in the list
+                p.append({}) # Assume all lists contains only dictonaries (restriction compared to the YAML standard)
+                if value_type == 'str':
+                    p[-1][key] = get_value(key,words[2:])
+                else:
+                    print 'Lists are only allowed to contain dictionaries with str as type values'
+            else:
+                p[-1][key] = get_value(key,words[1:]) # add key and value to the newest dictionary
+
+    return root                           
+
+# *****************************************
+#             Main program
+# *****************************************
+    
+parser=OptionParser()
+parser.add_option("-p","--protocol",dest="protocol",help="Write test protocol to disk",action="store_true")
+parser.add_option("-r","--regression",dest="regression",help="Test for regression from earlier protocol")
+parser.add_option("-k","--keep-going",dest="keep_going",help="Don't stop if there are errors",action="store_true")
+parser.add_option("-a","--analyze",dest="analyze",help="Dry run, don't run any tests, just analyze results",action="store_true")
+parser.add_option("-v","--verbose",dest="verbose",help="Print extra info",action="store_true")
+(options,args)=parser.parse_args()
+
+print "beetest version 0.4.2 (2017-01-09)"
+print
+
+#Assume that the test suite is defined in tests.yaml if not given
+if len(args) == 0:
+    args.append("tests.yaml")
+
+#Loop through all test suites/YAML files given at the command line
+for filename in args:
+    testdata = read_file(filename)
+
+    testresults=deepcopy(testdata)
+    del testresults['Properties']
+    
+    ntests=len(testdata['TestCases'])
+
+    if options.verbose:
+        print "Suite: " + filename
+        print "Name: " + testdata['Name']
+        print "Date: " + testdata['Date'].isoformat()
+        print "Author: " + testdata['Author']
+        print "Found " + str(ntests) + " test cases"
+
+    #Determine in which directory to run the test suite
+    if 'BEETEST_PATH' in os.environ:
+        testpath=os.environ['BEETEST_PATH']
+        if options.verbose: print "Using test path defined in BEETEST_PATH"
+    else:
+        if 'Environment' in testdata:
+            if 'Path' in testdata['Environment']:
+                testpath = testdata['Environment']['Path']
+                if options.verbose: print "Using test path defined in yaml file"
+            else:
+                testpath = os.getcwd()
+                if options.verbose: print "Using current working directory as test path"
+        else:
+            testpath = os.getcwd()
+            if options.verbose: print "Using current working directory as test path"
+    testpath = testpath.replace('\n', '')  # remove line break symbol '\n'
+    testpath = EnforceTrailingSlash(testpath)
+
+    #Determine which executable to run
+    if 'BEETEST_EXE' in os.environ:
+        testexe=os.environ['BEETEST_EXE']
+        if options.verbose: print "Using test executable defined ni BEETEST_EXE"            
+    else:
+        if 'Environment' in testdata:
+            if 'Executable' in testdata['Environment']:
+                testexe=testdata['Environment']['Executable']
+                if options.verbose: print "Using test executable defined in yaml file"
+        else:
+            print "ERROR: no test executable defined. Try setting BEETEST_EXE or define an environment in your .yaml file"
+            exit(1)
+
+    #Main loop, run all test cases defined in yaml file
+    passed=0
+    failed=0
+    error=0
+    for testcase in testdata['TestCases']:
+        i = testdata['TestCases'].index(testcase)
+
+        if 'Path' in testcase:
+            testcasepath=EnforceTrailingSlash(testcase['Path'])
+        
+            print "============================================================================================"
+
+            if options.analyze:
+                print "Scanning " + testcase['Description']
+            else:   
+                print "Running " + testcase['Description']
+            if options.verbose: print "Path: " + testcasepath
+            print "============================================================================================"
+
+            if not options.analyze:
+                cmd = 'cd ' + testpath + testcasepath + '; ' + testexe
+                print cmd
+                status = subprocess.check_call(cmd,shell=True)
+                print 'status =',status
+                if status != 0:
+                    print "Test ERROR: test executable exited with status %d" % (status)
+                    error = error + 1
+                    if options.keep_going:
+                        continue
+                    else:
+                        exit(1)
+            print "============================================================================================"
+
+            properties=GetProperties(testcase).keys()
+            if options.verbose:
+                print "The following properties will be examined:"
+                print properties
+
+            test_passed=True
+            for property in properties:
+                if property in testdata['Properties']:
+                    description = testdata['Properties'][property]['Description']
+                    script = testdata['Properties'][property]['Script']
+                    kind = testdata['Properties'][property]['Kind']
+
+                    testresults['TestCases'][i][property]="PASSED"
+                    (status, resultdata) = commands.getstatusoutput("cd " + testpath + testcasepath + "; " + testpath + script)
+
+                    if status != 0 or resultdata.isspace() or len(resultdata)==0:
+                        print "Test ERROR: could not extract data using %s script" % (script)
+                        error = error + 1
+                        if options.keep_going:
+                            continue
+                        else:
+                            exit(1)
+                            
+                    if kind == 'Float':
+                        result=float(resultdata)
+                        
+                        if 'AbsolutePrecision' in testdata['Properties'][property]:
+                            match = EqualToAbsolutePrecision(result,testcase[property], testdata['Properties'][property]['AbsolutePrecision'])
+                        elif 'RelativePrecision' in testdata['Properties'][property]:
+                            match = EqualToRelativePrecision(result,testcase[property], testdata['Properties'][property]['RelativePrecision'])
+                        elif 'Precision' in testdata['Properties'][property]:
+                            #Assuming that "Precision" = "AbsolutePrecision" for compatibility with versions < 0.4                          
+                            match = EqualToAbsolutePrecision(result,testcase[property], testdata['Properties'][property]['Precision'])                          
+                        else:
+                            print "Test ERROR: no floating point precision specified for %s" % (property)
+                            error = error + 1
+                            if options.keep_going:
+                                continue
+                            else:
+                                exit(1)
+                                
+                        if not match:
+                            test_passed=False
+                            testresults['TestCases'][i][property]="FAILED"                          
+                            NotifyFailure(description,result,testcase[property])
+                    elif kind == 'Integer':
+                        result=int(resultdata)
+                        if result != testcase[property]:
+                            test_passed=False
+                            testresults['TestCases'][i][property]="FAILED"
+                            NotifyFailure(description,result,testcase[property])
+                    elif kind == 'String':
+                        result=resultdata
+                        if result != testcase[property]:
+                            test_passed=False
+                            testresults['TestCases'][i][property]="FAILED"
+                            NotifyFailure(description,result,testcase[property])
+                else:
+                    print "ERROR: Undefined test property " + property + ". Please check the \'Properties:\' section in your yaml file"
+                    error = error + 1
+                    testresults['TestCases'][i][property]="ERROR"
+                    if options.keep_going: continue
+                    else: exit(1)
+            if test_passed:
+                print "Test PASSED"
+                passed = passed + 1
+            else:
+                print "Test FAILED"
+                failed = failed + 1
+            print "============================================================================================"
+            print
+            print
+        else:
+            print "Test ERROR: Found a test case with no path, skipped that one."
+            error = error + 1
+
+    print "Summary"
+    print
+    print "Passed: " + str(passed)
+    print "Failed: " + str(failed)
+    print "Errors: " + str(error)
+    print
+
+    status = ""
+    if error != 0:
+        status = "Status: ERROR"
+    elif passed == ntests:
+        status = "Status: PASSED"
+    else:
+        status = "Status: FAILED"
+    print status
+    
+    if options.regression:
+        regression = ""
+        regrdata = read_file(options.regression)
+        if options.verbose:
+            print "Doing regression testing versus the results in " + options.regression
+            
+        if regrdata['TestCases'] == testresults['TestCases']:
+            print "Regression test: PASSED"
+            regression = "PASSED"
+        else:
+            print "Regression test: FAILED"
+            regression = "FAILED"
+        testresults['Regression'] = {'Protocol':options.regression,'Status':regression}

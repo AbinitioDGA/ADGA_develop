@@ -1,5 +1,6 @@
 F90 = mpif90
-FFLAGS += -O3 -g -fbacktrace # -check all -check bounds
+FFLAGS += -O3 # -check all -check bounds
+#FFLAGS += -O3 -g -fbacktrace # -check all -check bounds
 FPPFLAGS = -DMPI
 FINCLUDE += -I/usr/local/include
 LD = $(F90)
@@ -23,16 +24,16 @@ OBJECTS := $(sort $(ALL_OBJECTS))
 .SUFFIXES: .o .f90 .F90
 
 %.o: %.f90
-	$(LD) $(FFLAGS) $(FINCLUDE) -c $< -o $@
+	$(F90) $(FFLAGS) $(FINCLUDE) -c $< -o $@
 
 %.o: %.F90
-	$(LD) $(FFLAGS) $(FPPFLAGS) $(FINCLUDE) -c $< -o $@
+	$(F90) $(FFLAGS) $(FPPFLAGS) $(FINCLUDE) -c $< -o $@
 
 
 .PHONY: all
-all: main vertex_chann_sym umatrix
+all: abinitiodga vertex_chann_sym umatrix
 
-main: $(MAIN_OBJECTS)
+abinitiodga: $(MAIN_OBJECTS)
 	$(LD) $^ -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
 
 vertex_chann_sym: $(VERTEX_OBJECTS)
@@ -56,5 +57,5 @@ config_module.o: parameters_module.o lookup_module.o
 
 .PHONY: clean
 clean:
-	rm -f *.o *.mod main vertex_chann_sym umatrix
+	rm -f *.o *.mod abinitiodga vertex_chann_sym umatrix
 

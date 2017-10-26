@@ -3,10 +3,12 @@ module config_module
 
 contains
 
-subroutine read_config()
+subroutine read_config(er,erstr)
   use lookup_module
 
   implicit none
+  integer,intent(out) :: er
+  character(len=*),intent(out) :: erstr
   integer :: i,j,k,l,ineq,stat
   integer :: int_temp
   character(len=150) :: str_temp, str_ineq
@@ -17,16 +19,23 @@ subroutine read_config()
   character(len=150) :: config_file, output
   integer :: pst, empty
 
+  er = 0
+  erstr = ''
+
   ! Config File checks
   if (iargc() .ne. 1) then
-    stop 'The program has to be executed with exactly one argument. (Name of config file)'
+    er = 1
+    erstr = 'The program has to be executed with exactly one argument. (Name of config file)'
+    return
   end if
   call getarg(1,config_file)
 
   open(unit=10,file=trim(config_file),action='read',iostat=stat)
     if (stat .ne. 0) then
       close(10)
-      stop 'Input file cannot be opened'
+      er = 2
+      erstr = 'Input file cannot be opened'
+      return
     endif
 
     ! line counting
@@ -92,7 +101,9 @@ subroutine read_config()
   ! search for General stuff + Allocation of values
   call group_find('[General]', search_start, search_end)
   if (search_start .eq. 0) then ! group was not found
-    stop 'General Group not found'
+    er = 3
+    erstr = 'General Group not found'
+    return
   endif
   call bool_find('calc-susc', do_chi, search_start, search_end)
   call bool_find('calc-eom', do_eom, search_start, search_end)
@@ -129,6 +140,13 @@ subroutine read_config()
     read_ext_u = .true.
   endif
 
+  verbose = .false.
+  verbstr = ''
+  call group_find('[Verbose]', search_start, search_end)
+  if (search_start .ge. 0) then
+     verbose = .true.
+     verbstr = file_save(search_start)
+  endif
 
   allocate(interaction(nineq))
   allocate(interaction_mode(nineq))
@@ -146,13 +164,17 @@ subroutine read_config()
   ! search for Atoms (interaction parameters for umatrix)
   call group_find('[Atoms]', search_start, search_end)
   if (search_start .eq. 0) then ! group was not found
-    stop 'Atoms Group not found'
+    er = 4
+    erstr = 'Atoms Group not found'
+    return
   endif
   do ineq=1,nineq
     write(str_ineq,'(A2,I1,A2)') '[[',ineq,']]'
     call subgroup_find(str_ineq, search_start, search_end, subsearch_start, subsearch_end)
     if (subsearch_start .eq. 0) then ! group was not found
-      stop 'Atomnumber subgroup not found'
+      er = 5
+      erstr = 'Atomnumber subgroup not found'
+      return
     endif
 
     call string_find('Interaction',interaction(ineq),subsearch_start,subsearch_end)
@@ -180,7 +202,9 @@ subroutine read_config()
   ndim=sum(ndims)
 
   if (ndim .eq. 0) then
-    stop 'Number of bands per atom is required in [Atoms] section'
+    er = 6
+    erstr = 'Number of bands per atom is required in [Atoms] section'
+    return
   endif
 
   allocate(u(ndim**2,ndim**2), u_tilde(ndim**2,ndim**2))
@@ -190,18 +214,25 @@ subroutine read_config()
   ! search for 1particle and 2particle files / parameters
   call group_find('[One-Particle]', search_start, search_end)
   if (search_start .eq. 0) then ! group was not found
-    stop 'One-Particle Group not found'
+    er = 7
+    erstr = 'One-Particle Group not found'
+    return
   endif
   call string_find('1PFile', filename, search_start, search_end)
   call bool_find('orb-sym', orb_sym, search_start, search_end)
 
   call group_find('[Two-Particle]', search_start, search_end)
   if (search_start .eq. 0) then ! group was not found
-    stop 'Two-Particle Group not found'
+    er =8
+    erstr= 'Two-Particle Group not found'
+    return
   endif
   call string_find('2PFile', filename_vertex_sym, search_start, search_end)
   call int_find('vertex-type', vertex_type, search_start, search_end)
 
+
+  deallocate(file_save)
+  return
 end subroutine read_config
 
 

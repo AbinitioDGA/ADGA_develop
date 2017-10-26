@@ -3,55 +3,63 @@ LDFLAGS += -I/opt/hdf5-1.8.16_gcc/include/
 LDFLAGS += -L/opt/hdf5-1.8.16_gcc/lib/
 
 F90 = mpif90 # for hclm
-FFLAGS += -O3 -g -fbacktrace -C -DMPI -ffree-line-length-none -cpp -ffree-form
+FFLAGS += -O3 -g -fbacktrace
+FPPFLAGS = -DMPI
 FINCLUDE += -I/opt/hdf5-1.8.16_gcc/include/
 LD = $(F90)
 LDFLAGS += -lhdf5_fortran -lhdf5hl_fortran #-lmkl_rt  #-limf
 LDFLAGS += -lhdf5_fortran -lhdf5hl_fortran -llapack -lblas -limf
 LDINCLUDE += -L/opt/hdf5-1.8.16_gcc/lib/
 
-
-# get source files
-F90_MAIN_SOURCES := main.f90 parameters_module.f90 vq_module.f90 kq_tools.f90 lapack_module.f90 one_particle_quant_module.f90 \
-		    susc_module.f90 eom_module.f90 hdf5_module.f90 aux.f90 mpi_org.f90
-F90_VERTEX_SOURCES := vertex_chann_sym.f90 hdf5_module.f90 parameters_module.f90 aux.f90
-MAIN_OBJECTS := $(patsubst %.f90,%.o,$(F90_MAIN_SOURCES))
-VERTEX_OBJECTS := $(patsubst %.f90,%.o,$(F90_VERTEX_SOURCES))
-VQ_OBJECTS := $(patsubst %.f90,%.o,$(F90_VQ_SOURCES))
+MAIN_OBJECTS := main.o parameters_module.o vq_module.o kq_tools.o lapack_module.o one_particle_quant_module.o \
+		    susc_module.o eom_module.o hdf5_module.o aux.o mpi_org.o lookup_module.o config_module.o
+VERTEX_OBJECTS := vertex_chann_sym.o hdf5_module.o parameters_module.o aux.o
+U_OBJECTS := umatrix.o
 
 # define all objects
 ALL_OBJECTS := $(MAIN_OBJECTS)
 ALL_OBJECTS += $(VERTEX_OBJECTS)
-ALL_OBJECTS += $(VQ_OBJECTS)
+ALL_OBJECTS += $(U_OBJECTS)
 
 # remove duplicates
 OBJECTS := $(sort $(ALL_OBJECTS))
 
+.SUFFIXES: 
+.SUFFIXES: .o .f90 .F90
+
+%.o: %.f90
+	$(F90) $(FFLAGS) $(FINCLUDE) -c $< -o $@
+
+%.o: %.F90
+	$(F90) $(FFLAGS) $(FPPFLAGS) $(FINCLUDE) -c $< -o $@
+
 
 .PHONY: all
-all: main vertex_chann_sym
+all: abinitiodga vertex_chann_sym umatrix
 
-main: $(MAIN_OBJECTS)
+abinitiodga: $(MAIN_OBJECTS)
 	$(LD) $^ -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
 
 vertex_chann_sym: $(VERTEX_OBJECTS)
 	$(LD) $^ -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
 
+umatrix: $(U_OBJECTS)
+	$(LD) $^ -o $@
 
 main.o: parameters_module.o aux.o kq_tools.o lapack_module.o one_particle_quant_module.o susc_module.o \
-				eom_module.o vq_module.o hdf5_module.o mpi_org.o
-vertex_chann_sym.o: hdf5_module.o parameters_module.f90 aux.o
+				eom_module.o vq_module.o hdf5_module.o mpi_org.o config_module.o
+vertex_chann_sym.o: parameters_module.o hdf5_module.o aux.o
 eom_module.o: parameters_module.o one_particle_quant_module.o
 susc_module.o: parameters_module.o hdf5_module.o
-one_particle_quant_module.o: aux.o lapack_module.o parameters_module.o
+one_particle_quant_module.o: aux.o lapack_module.o parameters_module.o mpi_org.o
 kq_tools.o: parameters_module.o
 vq_module.o: parameters_module.o hdf5_module.o aux.o
 hdf5_module.o: parameters_module.o aux.o
 mpi_org.o: parameters_module.o 
-
-$(OBJECTS): %.o: %.f90
-	$(LD) $(FFLAGS) $(FINCLUDE) -c $< -o $@
+lookup_module.o: parameters_module.o
+config_module.o: parameters_module.o lookup_module.o
 
 .PHONY: clean
 clean:
-	rm -f *.o *.mod main vertex_chann_sym
+	rm -f *.o *.mod abinitiodga vertex_chann_sym umatrix
+
