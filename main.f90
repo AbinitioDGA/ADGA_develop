@@ -391,9 +391,8 @@ end if
         enddo
 
 
-        gamma_dmft_dens = 0.d0
-        gamma_dmft_magn = 0.d0
-
+        gamma_dmft_dens = chi_loc_dens_sum_left
+        gamma_dmft_magn = chi_loc_magn_sum_left
         do i1=1,ndim2
            do dum=0,2*iwfmax_small-1
               gamma_dmft_dens(i1,i1+dum*ndim2) = chi_loc_dens_sum_left(i1,i1+dum*ndim2)-1.d0
