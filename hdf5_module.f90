@@ -324,7 +324,8 @@ module hdf5_module
    
        !paramagnetic (spin average):
        do i=dimstart,dimend
-         siw(:,i) = siw_data(1,:,1,i-dimstart+1)+siw_data(1,:,2,i-dimstart+1)+ci*siw_data(2,:,1,i-dimstart+1)+ci*siw_data(2,:,2,i-dimstart+1)
+         siw(:,i) = siw_data(1,:,1,i-dimstart+1)+&
+                    siw_data(1,:,2,i-dimstart+1)+ci*siw_data(2,:,1,i-dimstart+1)+ci*siw_data(2,:,2,i-dimstart+1)
          siw(:,i) = siw(:,i)/2.d0
        enddo
    
@@ -382,7 +383,8 @@ module hdf5_module
    
        !paramagnetic:
        do i=dimstart,dimend
-         giw(:,i) = giw_data(1,:,1,i-dimstart+1)+giw_data(1,:,2,i-dimstart+1)+ci*giw_data(2,:,1,i-dimstart+1)+ci*giw_data(2,:,2,i-dimstart+1)
+         giw(:,i) = giw_data(1,:,1,i-dimstart+1)+&
+                    giw_data(1,:,2,i-dimstart+1)+ci*giw_data(2,:,1,i-dimstart+1)+ci*giw_data(2,:,2,i-dimstart+1)
          giw(:,i) = giw(:,i)/2.d0
        enddo
    
@@ -550,7 +552,8 @@ module hdf5_module
      integer :: ineq,dimstart,dimend,imembers,ind_grp,b1,b2,b3,b4,ind_iwb
      integer :: i1,i2,iwf1,iwf2,i,j,k,l
      integer,intent(in) :: iwb
-     integer(hid_t) :: file_vert_id,grp_magn_id,grp_dens_id,nmembers,dset_magn_id,dset_dens_id,itype
+     integer(hid_t) :: file_vert_id,grp_magn_id,grp_dens_id,dset_magn_id,dset_dens_id
+     integer :: nmembers,itype
      integer(hsize_t), dimension(2) :: tmp_dims
      character(len=100) :: grpname_magn,grpname_dens,name_buffer,name_buffer_dset
      complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:)
@@ -934,7 +937,8 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
             do i2=1,ndim
               do i3=1,ndim
                 do i4=1,ndim
-                  chi_slice(i4,i3,i2,i1,iqz,iqy,iqx) = chi_qw(ndim*(i1-1)+i2,ndim*(i4-1)+i3,(iwb-1)*nqp+(iqz-1)+(iqy-1)*nqpz+(iqx-1)*nqpy*nqpz+1)
+                  chi_slice(i4,i3,i2,i1,iqz,iqy,iqx) = &
+                     chi_qw(ndim*(i1-1)+i2,ndim*(i4-1)+i3,(iwb-1)*nqp+(iqz-1)+(iqy-1)*nqpz+(iqx-1)*nqpy*nqpz+1)
                 end do ! i4
               end do ! i3
             end do ! i2
@@ -1018,7 +1022,8 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
         do iky=1,nkpy
           do ikx=1,nkpx
             do iw=1,2*iwfmax_small
-              siwk_outputarray(i2,i1,ikz,iky,ikx,iw) = sigma_sum_hf(i1,i2,iw-iwfmax_small-1,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
+              siwk_outputarray(i2,i1,ikz,iky,ikx,iw) = &
+               sigma_sum_hf(i1,i2,iw-iwfmax_small-1,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
             end do
           end do
         end do

@@ -12,7 +12,8 @@ program symmetrize_vertex
   integer(hid_t) :: file_id, new_file_id
   character(len=80) :: grpname, name_buffer, name_buffer_value, name_buffer_error
   character(len=80) :: name_buffer2, name_buffer3
-  integer(hid_t) :: nmembers, imembers, itype, grp_id, g4iw_id, g4err_id
+  integer(hid_t) :: grp_id, g4iw_id, g4err_id
+  integer         :: nmembers, imembers, itype
   integer(hid_t) :: dset_dens_id, dset_magn_id, dset_err_id
   integer(hid_t) :: dspace_iwb_id, dspace_iwf_id
   integer(hsize_t), dimension(1) :: dim_iwb, dim_iwf

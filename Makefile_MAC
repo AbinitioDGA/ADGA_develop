@@ -1,0 +1,60 @@
+F90 = mpif90
+FFLAGS += -O3 -g -fbacktrace # -check all -check bounds
+FPPFLAGS = -DMPI
+FINCLUDE += -I/usr/local/include
+LD = $(F90)
+LDFLAGS += -lhdf5 -lhdf5_fortran -lhdf5hl_fortran -llapack  #-limf
+#LDINCLUDE += -L/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/lib -L/cm/shared/apps/intel/composer_xe_2015.2.164/mkl/lib/intel64
+
+MAIN_OBJECTS := main.o parameters_module.o vq_module.o kq_tools.o lapack_module.o one_particle_quant_module.o \
+		    susc_module.o eom_module.o hdf5_module.o aux.o mpi_org.o lookup_module.o config_module.o
+VERTEX_OBJECTS := vertex_chann_sym.o hdf5_module.o parameters_module.o aux.o
+U_OBJECTS := umatrix.o
+
+# define all objects
+ALL_OBJECTS := $(MAIN_OBJECTS)
+ALL_OBJECTS += $(VERTEX_OBJECTS)
+ALL_OBJECTS += $(U_OBJECTS)
+
+# remove duplicates
+OBJECTS := $(sort $(ALL_OBJECTS))
+
+.SUFFIXES: 
+.SUFFIXES: .o .f90 .F90
+
+%.o: %.f90
+	$(LD) $(FFLAGS) $(FINCLUDE) -c $< -o $@
+
+%.o: %.F90
+	$(LD) $(FFLAGS) $(FPPFLAGS) $(FINCLUDE) -c $< -o $@
+
+
+.PHONY: all
+all: main vertex_chann_sym umatrix
+
+main: $(MAIN_OBJECTS)
+	$(LD) $^ -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
+
+vertex_chann_sym: $(VERTEX_OBJECTS)
+	$(LD) $^ -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
+
+umatrix: $(U_OBJECTS)
+	$(LD) $^ -o $@
+
+main.o: parameters_module.o aux.o kq_tools.o lapack_module.o one_particle_quant_module.o susc_module.o \
+				eom_module.o vq_module.o hdf5_module.o mpi_org.o config_module.o
+vertex_chann_sym.o: parameters_module.o hdf5_module.o aux.o
+eom_module.o: parameters_module.o one_particle_quant_module.o
+susc_module.o: parameters_module.o hdf5_module.o
+one_particle_quant_module.o: aux.o lapack_module.o parameters_module.o mpi_org.o
+kq_tools.o: parameters_module.o
+vq_module.o: parameters_module.o hdf5_module.o aux.o
+hdf5_module.o: parameters_module.o aux.o
+mpi_org.o: parameters_module.o 
+lookup_module.o: parameters_module.o
+config_module.o: parameters_module.o lookup_module.o
+
+.PHONY: clean
+clean:
+	rm -f *.o *.mod main vertex_chann_sym umatrix
+

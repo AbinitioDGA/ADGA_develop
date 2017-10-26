@@ -94,40 +94,40 @@ subroutine read_config()
   if (search_start .eq. 0) then ! group was not found
     stop 'General Group not found'
   endif
-    call bool_find('calc-susc', do_chi, search_start, search_end)
-    call bool_find('calc-eom', do_eom, search_start, search_end)
-    call int_find('NAt', nineq, search_start, search_end)
-    call int_find('N4iwf', iwfmax_small, search_start, search_end)
-    call int_find('N4iwb', iwbmax_small, search_start, search_end)
-    call string_find('HkFile', filename_hk, search_start, search_end)
-      if (trim(adjustl(filename_hk)) .eq. '') then
-        read_ext_hk = .false.
-      else
-        read_ext_hk = .true.
-      endif
-    call string_find('VqFile', filename_vq, search_start, search_end)
-      if (trim(adjustl(filename_vq)) .eq. '') then
-        do_vq = .false. 
-      else
-        do_vq = .true.
-      endif
-    call string_find('QpathFile', filename_q_path, search_start, search_end)
-    call int3_find('k-grid', nkpx, nkpy, nkpz, search_start, search_end)
-    call int3_find('q-grid', nqpx, nqpy, nqpz, search_start, search_end)
-    call bool_find('qvol', q_vol, search_start, search_end)
-    call bool_find('k-path-eom', k_path_eom, search_start, search_end)
-    call bool_find('q-path-susc', q_path_susc, search_start, search_end)
-    call string_find('Output', output_dir, search_start, search_end)
-      str_temp = trim(adjustl(output_dir))
-      if (scan(trim(str_temp),'/',.true.) .ne. len_trim(str_temp)) then   ! no / at the end
-        output_dir = trim(str_temp) // '/'  ! add it
-      endif
-    call string_find('UFile', filename_umatrix, search_start, search_end)
-      if(trim(adjustl(filename_umatrix)) .eq. '') then
-        read_ext_u = .false.
-      else
-        read_ext_u = .true.
-      endif
+  call bool_find('calc-susc', do_chi, search_start, search_end)
+  call bool_find('calc-eom', do_eom, search_start, search_end)
+  call int_find('NAt', nineq, search_start, search_end)
+  call int_find('N4iwf', iwfmax_small, search_start, search_end)
+  call int_find('N4iwb', iwbmax_small, search_start, search_end)
+  call string_find('HkFile', filename_hk, search_start, search_end)
+  if (trim(adjustl(filename_hk)) .eq. '') then
+    read_ext_hk = .false.
+  else
+    read_ext_hk = .true.
+  endif
+  call string_find('VqFile', filename_vq, search_start, search_end)
+  if (trim(adjustl(filename_vq)) .eq. '') then
+    do_vq = .false. 
+  else
+    do_vq = .true.
+  endif
+  call string_find('QpathFile', filename_q_path, search_start, search_end)
+  call int3_find('k-grid', nkpx, nkpy, nkpz, search_start, search_end)
+  call int3_find('q-grid', nqpx, nqpy, nqpz, search_start, search_end)
+  call bool_find('qvol', q_vol, search_start, search_end)
+  call bool_find('k-path-eom', k_path_eom, search_start, search_end)
+  call bool_find('q-path-susc', q_path_susc, search_start, search_end)
+  call string_find('Output', output_dir, search_start, search_end)
+  str_temp = trim(adjustl(output_dir))
+  if (scan(trim(str_temp),'/',.true.) .ne. len_trim(str_temp)) then   ! no / at the end
+    output_dir = trim(str_temp) // '/'  ! add it
+  endif
+  call string_find('UFile', filename_umatrix, search_start, search_end)
+  if(trim(adjustl(filename_umatrix)) .eq. '') then
+    read_ext_u = .false.
+  else
+    read_ext_u = .true.
+  endif
 
 
   allocate(interaction(nineq))
@@ -192,15 +192,15 @@ subroutine read_config()
   if (search_start .eq. 0) then ! group was not found
     stop 'One-Particle Group not found'
   endif
-    call string_find('1PFile', filename, search_start, search_end)
-    call bool_find('orb-sym', orb_sym, search_start, search_end)
+  call string_find('1PFile', filename, search_start, search_end)
+  call bool_find('orb-sym', orb_sym, search_start, search_end)
 
   call group_find('[Two-Particle]', search_start, search_end)
   if (search_start .eq. 0) then ! group was not found
     stop 'Two-Particle Group not found'
   endif
-    call string_find('2PFile', filename_vertex_sym, search_start, search_end)
-    call int_find('vertex-type', vertex_type, search_start, search_end)
+  call string_find('2PFile', filename_vertex_sym, search_start, search_end)
+  call int_find('vertex-type', vertex_type, search_start, search_end)
 
 end subroutine read_config
 
@@ -210,9 +210,9 @@ subroutine init()
   integer :: i
   maxdim = ndim*ndim*2*iwfmax_small
   ndim2 = ndim*ndim
-  if (full_chi0) then
-    iwstart=-iwmax+iwbmax
-    iwstop=iwmax-iwbmax-1
+  if (full_chi0 .and. do_chi) then
+    iwstart=min(-iwmax+iwbmax,-iwfmax_small)
+    iwstop=max(iwmax-iwbmax-1,iwfmax_small-1)
   else
     iwstart=-iwfmax_small
     iwstop=iwfmax_small-1

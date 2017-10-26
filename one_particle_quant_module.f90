@@ -114,6 +114,7 @@ subroutine get_gloc(sigma_sum, gloc)
 end subroutine get_gloc
 
 
+! 
 subroutine get_chi0_loc(iwf, iwb, chi0_loc)
   implicit none
   integer :: i, j, k, l, i1, i2
@@ -125,15 +126,7 @@ subroutine get_chi0_loc(iwf, iwb, chi0_loc)
   do i=1,ndim
      do j=1,ndim
         i1=i1+1
-        i2=0
-        do l=1,ndim
-           do k=1,ndim
-              i2=i2+1
-              if(i==l .and. j==k)then
-                chi0_loc(i1,i2) = - beta*giw(iwf,i)*giw(iwf-iwb,j)
-              endif
-           enddo
-        enddo
+        chi0_loc(i1,i1) = -beta*giw(iwf,i)*giw(iwf-iwb,j)
      enddo
   enddo
 
@@ -151,34 +144,24 @@ subroutine get_chi0_loc_inv(iwf, iwb, chi0_loc)
   do i=1,ndim
      do j=1,ndim
         i1=i1+1
-        i2=0
-        do l=1,ndim
-           do k=1,ndim
-              i2=i2+1
-              if(i==l .and. j==k)then
-                chi0_loc(i1,i2) = -1.d0/(beta*giw(iwf,i)*giw(iwf-iwb,j))
-              endif
-           enddo
-        enddo
+        chi0_loc(i1,i1) = -1.d0/(beta*giw(iwf,i)*giw(iwf-iwb,j))
      enddo
   enddo
 
 end subroutine get_chi0_loc_inv
 
 
-subroutine get_chi0(ik, ikq, iwf, iwb, chi0)
+subroutine accumulate_chi0(ik, ikq, iwf, iwb, chi0)
   implicit none
   integer :: i, j, k, l, i1, i2
   integer :: iwf, iwb, ik, ikq
   complex(kind=8) :: g1(ndim,ndim), g2(ndim,ndim)
-  complex(kind=8), intent(out) :: chi0(ndim*ndim,ndim*ndim)
+  complex(kind=8), intent(inout) :: chi0(ndim*ndim,ndim*ndim)
+  complex(KIND=8) :: c
 
   g1(:,:) = -hk(:,:,ik)
   do i=1,ndim
-     g1(i,i) = ci*iw_data(iwf)+mu-hk(i,i,ik)-dc(1,i)
-  enddo
-  do i=1,ndim
-  g1(i,i) = g1(i,i)-siw(iwf,i)
+     g1(i,i) = ci*iw_data(iwf)+mu-hk(i,i,ik)-dc(1,i)-siw(iwf,i)
   enddo
 
 
@@ -194,10 +177,7 @@ subroutine get_chi0(ik, ikq, iwf, iwb, chi0)
 
   g2(:,:) = -hk(:,:,ikq)
   do i=1,ndim
-     g2(i,i) = ci*iw_data(iwf-iwb)+mu-hk(i,i,ikq)-dc(1,i)
-  enddo
-  do i=1,ndim
-  g2(i,i) = g2(i,i)-siw(iwf-iwb,i)
+     g2(i,i) = ci*iw_data(iwf-iwb)+mu-hk(i,i,ikq)-dc(1,i)-siw(iwf-iwb,i)
   enddo
 
   if (ndim .eq. 1) then
@@ -210,23 +190,24 @@ subroutine get_chi0(ik, ikq, iwf, iwb, chi0)
     call inverse_matrix(g2)
   end if
 
-  chi0 = 0.d0
-  i1 = 0
-  do i=1,ndim
-     do j=1,ndim
-        i1=i1+1
-        i2=0
-        do l=1,ndim
-           do k=1,ndim
-              i2=i2+1
-                ! this is not ineq diagonal due to the k dependency
-                chi0(i1,i2) = - beta*g1(i,l)*g2(k,j)
+  ! Accumulate chi0
+  i2=0
+  do l=1,ndim
+     do k=1,ndim
+        i2=i2+1
+        i1 = 0
+        do i=1,ndim
+           c = - beta*g1(i,l)
+           do j=1,ndim
+              i1=i1+1
+              ! the lattice green's functions are not orbital diagonal
+              chi0(i1,i2) = chi0(i1,i2) + c*g2(k,j)
            enddo
         enddo
      enddo
   enddo
 
-end subroutine get_chi0
+end subroutine accumulate_chi0
 
 
 subroutine get_ndmft()

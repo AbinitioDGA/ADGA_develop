@@ -8,7 +8,8 @@ module eom_module
 contains
 
 !================================================================================================
-  subroutine calc_eom(interm3_dens, interm3_magn, gamma_dmft_dens, gamma_dmft_magn, gamma_loc_sum_left, sigma, sigma_dmft, sigma_hf, kq_ind, iwb, iq, v)
+  subroutine calc_eom(interm3_dens, interm3_magn, gamma_dmft_dens, gamma_dmft_magn, gamma_loc_sum_left,&
+                      sigma, sigma_dmft, sigma_hf, kq_ind, iwb, iq, v)
   implicit none
 
   integer :: dum,i,j,iw,iwf,iwf2,l,k,ik,ikq
@@ -19,9 +20,11 @@ contains
   complex(kind=8) :: gamma_dmft(ndim2,maxdim)
   complex(kind=8) :: interm3_dens(ndim2,maxdim),interm3_magn(ndim2,maxdim)
   complex(kind=8) :: gamma_loc_sum_left(ndim2,maxdim)
-  complex(kind=8),intent(inout) :: sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp), sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1)
+  complex(kind=8),intent(inout) :: sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
+  complex(kind=8),intent(inout) :: sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1)
   complex(kind=8),intent(inout) :: sigma_hf(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
-  complex(kind=8) :: m_tot_array(ndim,ndim,ndim,ndim,-iwfmax_small:iwfmax_small), m_dmft_array(ndim,ndim,ndim,ndim,-iwfmax_small:iwfmax_small) 
+  complex(kind=8) :: m_tot_array(ndim,ndim,ndim,ndim,-iwfmax_small:iwfmax_small)
+  complex(kind=8) :: m_dmft_array(ndim,ndim,ndim,ndim,-iwfmax_small:iwfmax_small) 
   complex(kind=8) :: m_tot(ndim2,maxdim)
   complex(kind=8) :: u_work(ndim2,ndim2), m_work(ndim2,maxdim)
   complex(kind=8) :: gkiw(ndim,ndim)
@@ -184,7 +187,8 @@ contains
      do i=1,ndim
         do j=1,ndim
            !computation of local Hartree-term requires crossing-symmetric U:
-           sigma_dmft(i,i,:) = sigma_dmft(i,i,:)-2.d0*dble(nqp)*beta*u_arr(i,j,i,j)*n_dmft(j)+dble(nqp)*beta*u_arr(i,j,j,i)*n_dmft(j)
+           sigma_dmft(i,i,:) = sigma_dmft(i,i,:)-2.d0*dble(nqp)*beta*u_arr(i,j,i,j)*n_dmft(j)+&
+                               dble(nqp)*beta*u_arr(i,j,j,i)*n_dmft(j)
         enddo
      enddo
   endif
@@ -263,7 +267,8 @@ end subroutine get_sigma_g_loc
 subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc)
   implicit none
 
-  complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp), sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1)
+  complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
+  complex(kind=8), intent(in) :: sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1)
   complex(kind=8), intent(in) :: sigma_sum_hf(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
   complex(kind=8), intent(in) :: sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1)
   complex(kind=8) :: sigma_tmp(ndim*(ndim+1)/2)
@@ -334,7 +339,8 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc)
 
     do ik=1,nkp
        do iwf=0,5
-          write(45,'(100F12.6)') k_data(1,ik), k_data(2,ik), k_data(3,ik), iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), real(sigma_sum_hf(i,j,iwf,ik)),j=i,ndim), i=1,ndim)
+          write(45,'(100F12.6)') k_data(1,ik), k_data(2,ik), k_data(3,ik), iw_data(iwf),&
+             ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), real(sigma_sum_hf(i,j,iwf,ik)),j=i,ndim), i=1,ndim)
        enddo
     enddo
 
