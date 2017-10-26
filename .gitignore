@@ -17,6 +17,9 @@
 #ctags
 tags
 
+#Ignore the Makefile
+Makefile
+
 # configfiles
 config*
 # except config_template which is maintained by hand
