@@ -215,7 +215,7 @@ subroutine create_u(u, u_tilde)
            do k=1,ndim
               i1 = i1+1
               u(i1,i2) = Umat(i,j,k,l)
-              u_tilde(i1,i2) = Umat(i,j,k,l)
+              u_tilde(i1,i2) = Umat(i,j,l,k)
            enddo
         enddo
      enddo
