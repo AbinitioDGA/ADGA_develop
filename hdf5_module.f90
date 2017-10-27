@@ -691,7 +691,9 @@ subroutine init_h5_output(filename_output)
   implicit none
 
   integer :: err,i1,i2,ikx,iky,ikz
-  integer(hid_t) :: file_id,grp_id_chi_qw,grp_id_chi_loc,grp_id_siwk,grp_id_input,grp_id_susc,grp_id_se
+  integer(hid_t) :: file_id,grp_id_input,grp_id_susc,grp_id_se
+  integer(hid_t) :: grp_id_chi_qw,grp_id_chi_loc
+  integer(hid_t) :: grp_id_se_loc,grp_id_se_nonloc
   character(len=*) :: filename_output
   integer(kind=8) :: chi_qw_dims(3),chi_loc_dims(3)
   integer(hid_t) :: dspace_scalar_id,dset_id_mu,dset_id_beta,dset_id_1,dspace_vec_id
@@ -718,6 +720,10 @@ subroutine init_h5_output(filename_output)
   
   if (do_eom) then
     call h5gcreate_f(file_id,'selfenergy',grp_id_se,err)
+    call h5gcreate_f(grp_id_se,'nonloc',grp_id_se_nonloc,err)
+    call h5gclose_f(grp_id_se_nonloc,err)
+    call h5gcreate_f(grp_id_se,'loc',grp_id_se_loc,err)
+    call h5gclose_f(grp_id_se_loc,err)
     call h5gclose_f(grp_id_se,err)
   end if
 
@@ -764,14 +770,14 @@ subroutine init_h5_output(filename_output)
   call h5dclose_f(dset_id_s,err)
 
 ! create dataspace for hamiltonian
-  dims_hk_arr=(/ ndim,ndim,nkpz,nkpy,nkpx /)
-  allocate(hk_arr(ndim,ndim,nkpz,nkpy,nkpx))
+  dims_hk_arr=(/ nkpz,nkpy,nkpx,ndim,ndim /)
+  allocate(hk_arr(nkpz,nkpy,nkpx,ndim,ndim))
   do ikx=1,nkpx
     do iky=1,nkpy
       do ikz=1,nkpz
         do i1=1,ndim
           do i2=1,ndim
-            hk_arr(i2,i1,ikz,iky,ikx)=hk(i1,i2,ikz+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz)
+            hk_arr(ikz,iky,ikx,i2,i1)=hk(i1,i2,ikz+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz)
           end do
         end do
       end do
@@ -840,11 +846,11 @@ subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
   integer(hid_t) :: dspace_id_chi_loc
   integer(hid_t) :: dset_id_chi_loc
   complex(kind=8),dimension(ndim**2,ndim**2,2*iwbmax_small+1) :: chi_loc
-  complex(kind=8),dimension(ndim,ndim,ndim,ndim,2*iwbmax_small+1) :: chi_loc_outputarray
+  complex(kind=8),dimension(2*iwbmax_small+1,ndim,ndim,ndim,ndim) :: chi_loc_outputarray
 
   rank_chi_loc=5
   allocate(dims_chi_loc(rank_chi_loc))
-  dims_chi_loc=(/ ndim,ndim,ndim,ndim,2*iwbmax_small+1 /)
+  dims_chi_loc=(/ 2*iwbmax_small+1,ndim,ndim,ndim,ndim/)
 
 
   ! reshape and transpose the array, i.e. break up the compound index
@@ -853,7 +859,7 @@ subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
       do i3=1,ndim
         do i4=1,ndim
           do iwb=1,2*iwbmax_small+1
-            chi_loc_outputarray(i4,i3,i2,i1,iwb) = chi_loc(ndim*(i1-1)+i2,ndim*(i4-1)+i3,iwb)
+            chi_loc_outputarray(iwb,i4,i3,i2,i1) = chi_loc(ndim*(i1-1)+i2,ndim*(i4-1)+i3,iwb)
           end do
         end do
       end do
@@ -892,13 +898,13 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
   integer(hid_t) :: dspace_id_chi_qw,dspace_id_chi_slice
   integer(hid_t) :: dset_id_chi_qw
   complex(kind=8),dimension(ndim**2,ndim**2,nqp*(2*iwbmax_small+1)) :: chi_qw
-  complex(kind=8),dimension(ndim,ndim,ndim,ndim,nqpz,nqpy,nqpx) :: chi_slice
+  complex(kind=8),dimension(nqpz,nqpy,nqpx,ndim,ndim,ndim,ndim) :: chi_slice
 
   rank_chi_qw=8 
   allocate(dims_chi_qw(rank_chi_qw))
-  dims_chi_qw=(/ ndim,ndim,ndim,ndim,nqpz,nqpy,nqpx,2*iwbmax_small+1 /)
+  dims_chi_qw=(/ 2*iwbmax_small+1,nqpz,nqpy,nqpx,ndim,ndim,ndim,ndim /)
   allocate(dims_chi_slice(rank_chi_qw))
-  dims_chi_slice=(/ ndim,ndim,ndim,ndim,nqpz,nqpy,nqpx,1/)
+  dims_chi_slice=(/ 1,nqpz,nqpy,nqpx,ndim,ndim,ndim,ndim/)
   allocate(stride(rank_chi_qw),block(rank_chi_qw),offset_chi_slice(rank_chi_qw))
   stride=(/1,1,1,1,1,1,1,1/)
   block=(/1,1,1,1,1,1,1,1/)
@@ -934,7 +940,7 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
             do i2=1,ndim
               do i3=1,ndim
                 do i4=1,ndim
-                  chi_slice(i4,i3,i2,i1,iqz,iqy,iqx) = chi_qw(ndim*(i1-1)+i2,ndim*(i4-1)+i3,(iwb-1)*nqp+(iqz-1)+(iqy-1)*nqpz+(iqx-1)*nqpy*nqpz+1)
+                  chi_slice(iqz,iqy,iqx,i4,i3,i2,i1) = chi_qw(ndim*(i1-1)+i2,ndim*(i4-1)+i3,(iwb-1)*nqp+(iqz-1)+(iqy-1)*nqpz+(iqx-1)*nqpy*nqpz+1)
                 end do ! i4
               end do ! i3
             end do ! i2
@@ -944,7 +950,7 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
     end do ! nqpz
     ! re-open dataset
     call h5dopen_f(grp_id_chi_qw,channel,dset_id_chi_qw,err)
-    offset_chi_slice=(/0,0,0,0,0,0,0,iwb-1/)
+    offset_chi_slice=(/iwb-1,0,0,0,0,0,0,0/)
     
     ! select hyperslab
     call h5sselect_hyperslab_f(dspace_id_chi_qw,H5S_SELECT_SET_F,offset_chi_slice,dims_chi_slice,err,stride,block)
@@ -973,8 +979,8 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   integer(hsize_t),dimension(:),allocatable :: dims_siwk,dims_siw
   complex(kind=8),dimension(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp) :: sigma_sum,sigma_sum_hf
   complex(kind=8),dimension(ndim,ndim,-iwfmax_small:iwfmax_small-1) :: sigma_loc,sigma_sum_dmft
-  complex(kind=8),dimension(ndim,ndim,nkpz,nkpy,nkpx,2*iwfmax_small) :: siwk_outputarray
-  complex(kind=8),dimension(ndim,ndim,2*iwfmax_small) :: siw_outputarray
+  complex(kind=8),dimension(2*iwfmax_small,nkpz,nkpy,nkpx,ndim,ndim) :: siwk_outputarray
+  complex(kind=8),dimension(2*iwfmax_small,ndim,ndim) :: siw_outputarray
 
   integer :: i1,i2,ikx,iky,ikz,iw
 
@@ -990,7 +996,7 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
         do iky=1,nkpy
           do ikx=1,nkpx
             do iw=1,2*iwfmax_small
-              siwk_outputarray(i2,i1,ikz,iky,ikx,iw) = sigma_sum(i1,i2,iw-iwfmax_small-1,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
+              siwk_outputarray(iw,ikz,iky,ikx,i2,i1) = sigma_sum(i1,i2,iw-iwfmax_small-1,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
             end do
           end do
         end do
@@ -1000,12 +1006,12 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
 
   rank_siwk=6
   allocate(dims_siwk(rank_siwk))
-  dims_siwk=(/ndim,ndim,nkpz,nkpy,nkpx,2*iwfmax_small/)
+  dims_siwk=(/ 2*iwfmax_small,nkpz,nkpy,nkpx,ndim,ndim /)
   call h5screate_f(H5S_SIMPLE_F,dspace_id_sigmasum,err)
   call h5sset_extent_simple_f(dspace_id_sigmasum,rank_siwk,dims_siwk,dims_siwk,err)
 
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
-  call h5gopen_f(file_id,'selfenergy',grp_id_siwk,err)
+  call h5gopen_f(file_id,'selfenergy/nonloc',grp_id_siwk,err)
   call h5dcreate_f(grp_id_siwk,'dga',compound_id,dspace_id_sigmasum,dset_id_sigmasum,err)
   call h5dwrite_f(dset_id_sigmasum,type_r_id,real(siwk_outputarray),dims_siwk,err)
   call h5dwrite_f(dset_id_sigmasum,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
@@ -1018,7 +1024,7 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
         do iky=1,nkpy
           do ikx=1,nkpx
             do iw=1,2*iwfmax_small
-              siwk_outputarray(i2,i1,ikz,iky,ikx,iw) = sigma_sum_hf(i1,i2,iw-iwfmax_small-1,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
+              siwk_outputarray(iw,ikz,iky,ikx,i2,i1) = sigma_sum_hf(i1,i2,iw-iwfmax_small-1,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
             end do
           end do
         end do
@@ -1027,29 +1033,31 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   end do
 
   ! the dimensions are the same, so we can use the same data space
-  call h5dcreate_f(grp_id_siwk,'hartree_fock_nonloc',compound_id,dspace_id_sigmasum,dset_id_sigmasumhf,err)
+  call h5dcreate_f(grp_id_siwk,'hartree_fock',compound_id,dspace_id_sigmasum,dset_id_sigmasumhf,err)
   call h5dwrite_f(dset_id_sigmasumhf,type_r_id,real(siwk_outputarray),dims_siwk,err)
   call h5dwrite_f(dset_id_sigmasumhf,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
   call h5dclose_f(dset_id_sigmasumhf,err)
+  call h5gclose_f(grp_id_siwk,err)
 
 
   deallocate(dims_siwk)
 
   rank_siw=3
   allocate(dims_siw(rank_siw))
-  dims_siw=(/ndim,ndim,2*iwfmax_small/)
+  dims_siw=(/ 2*iwfmax_small,ndim,ndim /)
   call h5screate_f(H5S_SIMPLE_F,dspace_id_siw,err)
   call h5sset_extent_simple_f(dspace_id_siw,rank_siw,dims_siw,dims_siw,err)
 
   do i1=1,ndim
     do i2=1,ndim
       do iw=1,2*iwfmax_small
-        siw_outputarray(i2,i1,iw) = sigma_loc(i1,i2,iw-iwfmax_small-1)
+        siw_outputarray(iw,i2,i1) = sigma_loc(i1,i2,iw-iwfmax_small-1)
       end do
     end do
   end do
 
-  call h5dcreate_f(grp_id_siwk,'dga_loc',compound_id,dspace_id_siw,dset_id_siwloc,err)
+  call h5gopen_f(file_id,'selfenergy/loc',grp_id_siwk,err)
+  call h5dcreate_f(grp_id_siwk,'dga_ksum',compound_id,dspace_id_siw,dset_id_siwloc,err)
   call h5dwrite_f(dset_id_siwloc,type_r_id,real(siw_outputarray),dims_siw,err)
   call h5dwrite_f(dset_id_siwloc,type_i_id,aimag(siw_outputarray),dims_siw,err)
   call h5dclose_f(dset_id_siwloc,err)
@@ -1058,7 +1066,7 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   do i1=1,ndim
     do i2=1,ndim
       do iw=1,2*iwfmax_small
-        siw_outputarray(i2,i1,iw) = sigma_sum_dmft(i1,i2,iw-iwfmax_small-1)
+        siw_outputarray(iw,i2,i1) = sigma_sum_dmft(i1,i2,iw-iwfmax_small-1)
       end do
     end do
   end do
