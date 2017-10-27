@@ -841,16 +841,20 @@ subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
   character(len=*) :: filename_output,channel
   integer :: err,rank_chi_loc
   integer :: i1,i2,i3,i4,iwb
-  integer(kind=8),dimension(:),allocatable :: dims_chi_loc
+  integer(hsize_t),dimension(:),allocatable :: dims_chi_loc,cdims
   integer(hid_t) :: file_id,grp_id_chi_loc
   integer(hid_t) :: dspace_id_chi_loc
   integer(hid_t) :: dset_id_chi_loc
+  integer(hid_t) :: plist_id
   complex(kind=8),dimension(ndim**2,ndim**2,2*iwbmax_small+1) :: chi_loc
   complex(kind=8),dimension(2*iwbmax_small+1,ndim,ndim,ndim,ndim) :: chi_loc_outputarray
 
   rank_chi_loc=5
-  allocate(dims_chi_loc(rank_chi_loc))
+  allocate(dims_chi_loc(rank_chi_loc),cdims(rank_chi_loc))
   dims_chi_loc=(/ 2*iwbmax_small+1,ndim,ndim,ndim,ndim/)
+  !cdims = (/ 2*iwbmax_small+1,1,1,1,1 /) ! chunk dimensions chosen like this, because for certain bands, the whole chunk is 0 then.
+  !cdims = (/ 2*iwbmax_small+1,ndim,ndim,ndim,ndim /) ! effectively no chunking, best compression but might become too large
+  cdims = (/ 1,ndim,ndim,ndim,ndim /) ! strangely this leads to compression nearly as good as in "no chunking"
 
 
   ! reshape and transpose the array, i.e. break up the compound index
@@ -868,21 +872,32 @@ subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
 
 
 
-  call h5open_f(err)
-  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
-  call h5gopen_f(file_id,'susceptibility/loc',grp_id_chi_loc,err)
+  
+  call h5open_f(err)                                              ! open hdf5 fortran interface
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)      ! open output file
+  call h5gopen_f(file_id,'susceptibility/loc',grp_id_chi_loc,err) ! open group for chi_loc
 
-  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_loc,err)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_loc,err)            ! prepare the data space
   call h5sset_extent_simple_f(dspace_id_chi_loc,rank_chi_loc,dims_chi_loc,dims_chi_loc,err)
 
-  call h5dcreate_f(grp_id_chi_loc,channel,compound_id,dspace_id_chi_loc,dset_id_chi_loc,err)
+  call h5pcreate_f(H5P_DATASET_CREATE_F,plist_id,err)             ! create property list for the dataset
+  call h5pset_chunk_f(plist_id,rank_chi_loc,cdims,err)            ! set size of chunks, in which the data are written
+  call h5pset_deflate_f(plist_id,9,err)                           ! select DEFLATE (GZIP) in compression level 9 (highest)
+  call h5pset_fletcher32_f(plist_id,err)                          ! use Fletcher32 checksum filter
+
+  call h5dcreate_f(grp_id_chi_loc,channel,compound_id,    &       ! create dataset with name <channel>
+                 & dspace_id_chi_loc,dset_id_chi_loc,err, & 
+                 & dcpl_id=plist_id)                              ! use the property list defined above
   call h5dwrite_f(dset_id_chi_loc,type_r_id,real(chi_loc_outputarray),dims_chi_loc,err)
   call h5dwrite_f(dset_id_chi_loc,type_i_id,aimag(chi_loc_outputarray),dims_chi_loc,err)
 
+  call h5sclose_f(dspace_id_chi_loc,err)
+  call h5pclose_f(plist_id,err)
   call h5dclose_f(dset_id_chi_loc,err)
   call h5gclose_f(grp_id_chi_loc,err)
   call h5close_f(err)
- 
+  
+  deallocate(dims_chi_loc,cdims)
   write(*,*) 'local susceptibility ',channel,' written to h5'
 end subroutine output_chi_loc_h5
 
@@ -893,16 +908,17 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
   character(len=*) :: filename_output,channel
   integer :: err,rank_chi_qw
   integer :: iwb,iqx,iqy,iqz,i1,i2,i3,i4
-  integer(kind=8),dimension(:),allocatable :: dims_chi_qw,dims_chi_slice,offset_chi_slice,stride,block
-  integer(hid_t) :: file_id,grp_id_chi_qw
+  integer(kind=8),dimension(:),allocatable :: dims_chi_qw,dims_chi_slice,offset_chi_slice,stride,block,cdims
+  integer(hid_t) :: file_id,grp_id_chi_qw,plist_id
   integer(hid_t) :: dspace_id_chi_qw,dspace_id_chi_slice
   integer(hid_t) :: dset_id_chi_qw
   complex(kind=8),dimension(ndim**2,ndim**2,nqp*(2*iwbmax_small+1)) :: chi_qw
   complex(kind=8),dimension(nqpz,nqpy,nqpx,ndim,ndim,ndim,ndim) :: chi_slice
 
   rank_chi_qw=8 
-  allocate(dims_chi_qw(rank_chi_qw))
+  allocate(dims_chi_qw(rank_chi_qw),cdims(rank_chi_qw))
   dims_chi_qw=(/ 2*iwbmax_small+1,nqpz,nqpy,nqpx,ndim,ndim,ndim,ndim /)
+  cdims=(/ 1,nqpz,nqpy,nqpx,ndim,ndim,ndim,ndim /)
   allocate(dims_chi_slice(rank_chi_qw))
   dims_chi_slice=(/ 1,nqpz,nqpy,nqpx,ndim,ndim,ndim,ndim/)
   allocate(stride(rank_chi_qw),block(rank_chi_qw),offset_chi_slice(rank_chi_qw))
@@ -917,7 +933,12 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
   call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_qw,err)
   call h5sset_extent_simple_f(dspace_id_chi_qw,rank_chi_qw,dims_chi_qw,dims_chi_qw,err)
 
-  call h5dcreate_f(grp_id_chi_qw,channel,compound_id,dspace_id_chi_qw,dset_id_chi_qw,err)
+  call h5pcreate_f(H5P_DATASET_CREATE_F,plist_id,err)
+  call h5pset_chunk_f(plist_id,rank_chi_qw,cdims,err)
+  call h5pset_deflate_f(plist_id,9,err)
+  call h5pset_fletcher32_f(plist_id,err)
+
+  call h5dcreate_f(grp_id_chi_qw,channel,compound_id,dspace_id_chi_qw,dset_id_chi_qw,err,dcpl_id=plist_id)
   call h5dwrite_f(dset_id_chi_qw,type_r_id,real(chi_qw),dims_chi_qw,err) ! this is overwritten anyway
   call h5dwrite_f(dset_id_chi_qw,type_i_id,aimag(chi_qw),dims_chi_qw,err)
   call h5dclose_f(dset_id_chi_qw,err)
@@ -927,7 +948,7 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
   ! re-open group
   call h5gopen_f(file_id,'susceptibility/nonloc',grp_id_chi_qw,err)
 
-  ! since fortran knows only 7-dimensional arrays, we cannot write the 8-dimensional chi directly
+  ! since in the fortran 90 standard the highest allowed array rank is 7, we cannot write the 8-dimensional chi directly.
   ! instead it is written slice-by-slice in a loop over omega
   ! additionally, the order of the indices is reversed here, because fortran uses column-major memory layout
   ! Furthermore, the last two band indices are swapped back here to break up the compound index correctly.
@@ -963,9 +984,11 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
     call h5dclose_f(dset_id_chi_qw,err)
   end do ! iwb
 
+  call h5pclose_f(plist_id,err)
   call h5gclose_f(grp_id_chi_qw,err)
   call h5close_f(err)
  
+  deallocate(dims_chi_qw,cdims,dims_chi_slice,stride,block,offset_chi_slice)
   write(*,*) 'nonlocal susceptibility ',channel,' written to h5'
 end subroutine output_chi_qw_h5
 
@@ -976,7 +999,7 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   integer(hid_t) :: file_id,grp_id_siwk,dset_id_sigmasum,dspace_id_sigmasum,dset_id_sigmasumhf
   integer(hid_t) :: dspace_id_siw,dset_id_siwloc,dset_id_siwdmft
   integer :: rank_siwk,rank_siw
-  integer(hsize_t),dimension(:),allocatable :: dims_siwk,dims_siw
+  integer(hsize_t),dimension(:),allocatable :: dims_siwk,dims_siw,cdims
   complex(kind=8),dimension(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp) :: sigma_sum,sigma_sum_hf
   complex(kind=8),dimension(ndim,ndim,-iwfmax_small:iwfmax_small-1) :: sigma_loc,sigma_sum_dmft
   complex(kind=8),dimension(2*iwfmax_small,nkpz,nkpy,nkpx,ndim,ndim) :: siwk_outputarray
@@ -1005,17 +1028,26 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   end do
 
   rank_siwk=6
-  allocate(dims_siwk(rank_siwk))
+  allocate(dims_siwk(rank_siwk),cdims(rank_siwk))
   dims_siwk=(/ 2*iwfmax_small,nkpz,nkpy,nkpx,ndim,ndim /)
+  cdims=(/ 2*iwfmax_small,nkpz,nkpy,nkpx,1,1 /)
+
   call h5screate_f(H5S_SIMPLE_F,dspace_id_sigmasum,err)
   call h5sset_extent_simple_f(dspace_id_sigmasum,rank_siwk,dims_siwk,dims_siwk,err)
 
+  call h5pcreate_f(H5P_DATASET_CREATE_F,plist_id,err)
+  call h5pset_chunk_f(plist_id,rank_siwk,cdims,err)
+  call h5pset_deflate_f(plist_id,9,err)
+  call h5pset_fletcher32_f(plist_id,err)
+
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
   call h5gopen_f(file_id,'selfenergy/nonloc',grp_id_siwk,err)
-  call h5dcreate_f(grp_id_siwk,'dga',compound_id,dspace_id_sigmasum,dset_id_sigmasum,err)
+  call h5dcreate_f(grp_id_siwk,'dga',compound_id,dspace_id_sigmasum,dset_id_sigmasum,err,dcpl_id=plist_id)
   call h5dwrite_f(dset_id_sigmasum,type_r_id,real(siwk_outputarray),dims_siwk,err)
   call h5dwrite_f(dset_id_sigmasum,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
   call h5dclose_f(dset_id_sigmasum,err)
+
+  write(*,*) 'nonlocal selfenergy (DGA) written to h5'
 
   ! in order to save memory, the same array is used again, now for the Hartree-Fock contribution.
   do i1=1,ndim
@@ -1033,12 +1065,13 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   end do
 
   ! the dimensions are the same, so we can use the same data space
-  call h5dcreate_f(grp_id_siwk,'hartree_fock',compound_id,dspace_id_sigmasum,dset_id_sigmasumhf,err)
+  call h5dcreate_f(grp_id_siwk,'hartree_fock',compound_id,dspace_id_sigmasum,dset_id_sigmasumhf,err,dcpl_id=plist_id)
   call h5dwrite_f(dset_id_sigmasumhf,type_r_id,real(siwk_outputarray),dims_siwk,err)
   call h5dwrite_f(dset_id_sigmasumhf,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
   call h5dclose_f(dset_id_sigmasumhf,err)
   call h5gclose_f(grp_id_siwk,err)
 
+  write(*,*) 'nonlocal selfenergy (HF) written to h5'
 
   deallocate(dims_siwk)
 
@@ -1062,6 +1095,7 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   call h5dwrite_f(dset_id_siwloc,type_i_id,aimag(siw_outputarray),dims_siw,err)
   call h5dclose_f(dset_id_siwloc,err)
 
+  write(*,*) 'local selfenergy (KSUM) written to h5'
 
   do i1=1,ndim
     do i2=1,ndim
@@ -1076,6 +1110,7 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   call h5dwrite_f(dset_id_siwdmft,type_i_id,aimag(siw_outputarray),dims_siw,err)
   call h5dclose_f(dset_id_siwdmft,err)
 
+  write(*,*) 'local selfenergy (DMFT) written to h5'
   deallocate(dims_siw)
 
   call h5gclose_f(grp_id_siwk,err)
