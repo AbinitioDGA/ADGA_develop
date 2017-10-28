@@ -16,7 +16,7 @@
 *.dSYM
 
 #Ignore the Makefile
-Makefile
+./Makefile
 
 #Test suit
 testsuit/runcommand

@@ -7,7 +7,7 @@ if `echo ${fstring2} | sed "s/#.*//" | grep "\-DMPI" 1>/dev/null 2>&1`
 then
     RUNCOMMAND=`echo $MPIRUN ../../../bin/$EXEC test.conf`
 else
-    RUNCOMMAND=`echo ../../../bin/$EXEC test.conf`
+    RUNCOMMAND=`echo ../../../bin/$EXEC config_test`
 fi
 echo $RUNCOMMAND
 # Run the command
