@@ -14,8 +14,8 @@
 *.hdf5
 *.hk
 *.dSYM
-#!testsuit/Tests/*_data/*.hdf5
-#!testsuit/Tests/*_data/*.hk
+!testsuit/Tests/*_data/*.hdf5
+!testsuit/Tests/*_data/*.hk
 
 #Ignore the make_config
 make_config
