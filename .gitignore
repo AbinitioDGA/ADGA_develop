@@ -14,9 +14,12 @@
 *.hdf5
 *.hk
 *.dSYM
+#!testsuit/Tests/*_data/*.hdf5
+#!testsuit/Tests/*_data/*.hk
 
-#Ignore the Makefile
-Makefile
+#Ignore the make_config
+make_config
+bin/
 
 #Test suit
 testsuit/runcommand

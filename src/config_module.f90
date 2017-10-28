@@ -92,8 +92,8 @@ subroutine read_config(er,erstr)
   q_vol=.true.
   k_path_eom=.false.
   q_path_susc=.false.
-  output_dir='Output/'
-  filename_hk=''; filename=''; filename_vertex_sym=''
+  output_dir='output/'
+  filename_hk=''; filename_1p=''; filename_vertex_sym=''
   filename_vq=''; filename_q_path=''; filename_umatrix=''
   nineq=1
   iwfmax_small=-1; iwbmax_small=-1 ! maximum number of frequencies -- see check_freq_range
@@ -129,9 +129,13 @@ subroutine read_config(er,erstr)
   call bool_find('k-path-eom', k_path_eom, search_start, search_end)
   call bool_find('q-path-susc', q_path_susc, search_start, search_end)
   call string_find('Output', output_dir, search_start, search_end)
-  str_temp = trim(adjustl(output_dir))
-  if (scan(trim(str_temp),'/',.true.) .ne. len_trim(str_temp)) then   ! no / at the end
-    output_dir = trim(str_temp) // '/'  ! add it
+  if (len_trim(adjustl(output_dir)) .ge. 1) then
+   str_temp = trim(adjustl(output_dir))
+   if (scan(trim(str_temp),'/',.true.) .ne. len_trim(str_temp)) then   ! no / at the end
+     output_dir = trim(str_temp) // '/'  ! add it
+   endif
+  else
+   output_dir='output/'
   endif
   call string_find('UFile', filename_umatrix, search_start, search_end)
   if(trim(adjustl(filename_umatrix)) .eq. '') then
@@ -143,7 +147,7 @@ subroutine read_config(er,erstr)
   verbose = .false.
   verbstr = ''
   call group_find('[Verbose]', search_start, search_end)
-  if (search_start .ge. 0) then
+  if (search_start .ge. 1) then
      verbose = .true.
      verbstr = file_save(search_start)
   endif
@@ -218,7 +222,7 @@ subroutine read_config(er,erstr)
     erstr = 'One-Particle Group not found'
     return
   endif
-  call string_find('1PFile', filename, search_start, search_end)
+  call string_find('1PFile', filename_1p, search_start, search_end)
   call bool_find('orb-sym', orb_sym, search_start, search_end)
 
   call group_find('[Two-Particle]', search_start, search_end)
@@ -239,6 +243,8 @@ end subroutine read_config
 subroutine init()
   implicit none
   integer :: i
+  real(KIND=8),parameter :: pi = 4d0*atan(1d0)
+
   maxdim = ndim*ndim*2*iwfmax_small
   ndim2 = ndim*ndim
   if (full_chi0 .and. do_chi) then
@@ -369,7 +375,7 @@ subroutine check_config()
     endif
   endif
 
-  inquire (file=trim(filename), exist=there)
+  inquire (file=trim(filename_1p), exist=there)
   if (.not. there) then
     stop "Error: One-Particle data file does not exist"
   endif

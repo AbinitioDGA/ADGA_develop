@@ -1,2 +1,2 @@
 #!/bin/bash
-grep 'Tr[Self-energy] :' out|awk '{print $3}'
+grep 'Tr\[Self-energy\] :' output_test/out|awk '{print $3}'

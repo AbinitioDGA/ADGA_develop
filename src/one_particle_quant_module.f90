@@ -11,6 +11,7 @@ subroutine get_giw()
   implicit none
   integer :: ik, iw, i
   complex(kind=8) :: g(ndim,ndim), g2(ndim,ndim)
+  complex(kind=8),parameter :: ci = (0d0,1d0)
 
   giw = 0.d0
   do ik=1,nkp
@@ -54,6 +55,7 @@ subroutine get_gkiw(ikq, iwf, iwb, gkiw)
   integer :: i
   integer :: iwf, iwb, ikq
   complex(kind=8), intent(out) :: gkiw(ndim,ndim)
+  complex(kind=8),parameter :: ci = (0d0,1d0)
 
 
   gkiw(:,:) = -hk(:,:,ikq)
@@ -76,6 +78,7 @@ subroutine get_gloc(sigma_sum, gloc)
   integer :: ik, iw, i
   complex(kind=8) :: g(ndim,ndim), g2(ndim,ndim)
   complex(kind=8), intent (out) :: gloc(-iwmax:iwmax-1,ndim,ndim)
+  complex(kind=8),parameter :: ci = (0d0,1d0)
 
   gloc = 0.d0
   do ik=1,nkp
@@ -158,6 +161,7 @@ subroutine accumulate_chi0(ik, ikq, iwf, iwb, chi0)
   complex(kind=8) :: g1(ndim,ndim), g2(ndim,ndim)
   complex(kind=8), intent(inout) :: chi0(ndim*ndim,ndim*ndim)
   complex(KIND=8) :: c
+  complex(kind=8),parameter :: ci = (0d0,1d0)
 
   g1(:,:) = -hk(:,:,ik)
   do i=1,ndim

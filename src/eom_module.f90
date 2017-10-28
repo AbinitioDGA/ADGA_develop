@@ -32,6 +32,7 @@ contains
   complex(kind=8) :: sigma_fock(ndim,ndim)
   complex(kind=8) :: vq(ndim,ndim,ndim,ndim), u_arr(ndim,ndim,ndim,ndim)
   complex(kind=8) :: sigma_hf_0(ndim,ndim)
+  complex(kind=8),parameter :: ci = (0d0,1d0)
 
   !subtract -1 in the diagonal of the orbital blocks:
   do i1=1,ndim2
@@ -259,10 +260,6 @@ subroutine get_sigma_g_loc(sigma_sum, sigma_loc, gloc)
 
 end subroutine get_sigma_g_loc
 
-
-
-
-
 !==============================================================================================
 subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc)
   implicit none
@@ -277,94 +274,46 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc)
   character(len=50) :: eom_format
   character(len=200) :: filename_siwk
 
-  do ik=1,nkp
-    write(filename_siwk,'(A,F5.3,A,F5.3,A,F5.3,A)') 'siwk_',k_data(1,ik),'_',k_data(2,ik),'_',k_data(3,ik),'.dat'
-    open(34, file=trim(output_dir)//filename_siwk)
-    do iwf=-iwfmax_small,iwfmax_small-1
-      write(34,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndim), i=1,ndim)
-    end do
-    close(34)
-  end do
-
-
-
-
-  !TODO generate the filenames automatically
-  open(34, file=trim(output_dir)//"siw_0_0_0.dat", status='unknown')
-  open(47, file=trim(output_dir)//"siw_0_0.5_0.dat", status='unknown')
-  open(48, file=trim(output_dir)//"siw_0.25_0.25_0.dat", status='unknown')
-  open(50, file=trim(output_dir)//"siw_dmft_rep.dat", status='unknown')
-
-  open(35, file=trim(output_dir)//"siw_0_0_0.25.dat", status='unknown')
-  open(36, file=trim(output_dir)//"siw_0_0_0.5.dat", status='unknown')
-  open(37, file=trim(output_dir)//"siw_0_0.25_0.25.dat", status='unknown')
-  open(38, file=trim(output_dir)//"siw_0_0.20_0.15.dat", status='unknown')
-  open(39, file=trim(output_dir)//"siw_0_0.20_0.20.dat", status='unknown')
-  open(40, file=trim(output_dir)//"siw_0_0.25_0.50.dat", status='unknown')
-  open(41, file=trim(output_dir)//"siw_0_0.50_0.50.dat", status='unknown')
-  open(42, file=trim(output_dir)//"siw_0.5_0.5_0.5.dat", status='unknown')
-  open(43, file=trim(output_dir)//"siw_0.25_0.25_0.25.dat", status='unknown')
+  if (verbose .and. (index(verbstr,"Siwk") .ne. 0)) then
+   do ik=1,nkp
+     write(filename_siwk,'(A,F5.3,A,F5.3,A,F5.3,A)') 'siwk_',k_data(1,ik),'_',k_data(2,ik),'_',k_data(3,ik),'.dat'
+     open(34, file=trim(output_dir)//filename_siwk)
+     do iwf=-iwfmax_small,iwfmax_small-1
+       write(34,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndim), i=1,ndim)
+     end do
+     close(34)
+   end do
+  endif
 
   open(44, file=trim(output_dir)//"siw_loc.dat", status='unknown')
-  open(45, file=trim(output_dir)//"siw_all_k.dat",status='unknown')
-  open(46, file=trim(output_dir)//"g_loc.dat", status='unknown')
-  open(49, file=trim(output_dir)//"n_dga.dat", status='unknown')
+  open(50, file=trim(output_dir)//"siw_dmft_rep.dat", status='unknown')
 
-
-  !TODO read symmetry points from file
   do iwf=-iwfmax_small,iwfmax_small-1
-     ! write(34,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,1)), aimag(sigma_sum(i,j,iwf,1)), real(sigma_sum_hf(i,j,iwf,1)), j=i,ndim), i=1,ndim)
-     ! write(35,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,6)), aimag(sigma_sum(i,j,iwf,6)), real(sigma_sum_hf(i,j,iwf,6)), j=i,ndim), i=1,ndim)
-     ! write(36,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,11)),aimag(sigma_sum(i,j,iwf,11)), real(sigma_sum_hf(i,j,iwf,11)),j=i,ndim), i=1,ndim)
-     ! write(37,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,106)), aimag(sigma_sum(i,j,iwf,106)), real(sigma_sum_hf(i,j,iwf,106)), j=i,ndim), i=1,ndim)
-     ! write(38,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,84)), aimag(sigma_sum(i,j,iwf,84)), real(sigma_sum_hf(i,j,iwf,84)), j=i,ndim), i=1,ndim)
-     ! write(39,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,85)), aimag(sigma_sum(i,j,iwf,85)), real(sigma_sum_hf(i,j,iwf,85)),j=i,ndim), i=1,ndim)
-     ! write(40,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,111)), aimag(sigma_sum(i,j,iwf,111)), real(sigma_sum_hf(i,j,iwf,111)),j=i,ndim), i=1,ndim)
-     ! write(41,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,211)), aimag(sigma_sum(i,j,iwf,211)), real(sigma_sum_hf(i,j,iwf,211)),j=i,ndim), i=1,ndim)
-     ! write(42,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,4211)), aimag(sigma_sum(i,j,iwf,4211)), real(sigma_sum_hf(i,j,iwf,4211)),j=i,ndim), i=1,ndim)
-     ! write(43,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,2106)), aimag(sigma_sum(i,j,iwf,2106)), real(sigma_sum_hf(i,j,iwf,2106)),j=i,ndim), i=1,ndim)
-     ! write(47,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,201)),aimag(sigma_sum(i,j,iwf,201)), real(sigma_sum_hf(i,j,iwf,201)),j=i,ndim), i=1,ndim)
-     ! write(48,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,2101)),aimag(sigma_sum(i,j,iwf,2101)), real(sigma_sum_hf(i,j,iwf,2101)),j=i,ndim), i=1,ndim)
-
      write(50,'(100F12.6)')iw_data(iwf), ((real(sigma_sum_dmft(i,j,iwf)),aimag(sigma_sum_dmft(i,j,iwf)), j=i,ndim), i=1,ndim)
      write(44,'(100F12.6)')iw_data(iwf), ((real(sigma_loc(i,j,iwf)), aimag(sigma_loc(i,j,iwf)), j=i,ndim), i=1,ndim)
   enddo
+  close(50)
+  close(44)
 
-
-
+  open(46, file=trim(output_dir)//"g_loc.dat", status='unknown')
   do iwf=-iwmax,iwmax-1
      write(46,'(100F12.6)')iw_data(iwf), ((real(gloc(iwf,i,j)), aimag(gloc(iwf,i,j)), j=i,ndim), i=1,ndim)
   enddo
+  close(46)
 
 
+  open(45, file=trim(output_dir)//"siw_all_k.dat",status='unknown')
     do ik=1,nkp
        do iwf=0,5
           write(45,'(100F12.6)') k_data(1,ik), k_data(2,ik), k_data(3,ik), iw_data(iwf),&
              ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), real(sigma_sum_hf(i,j,iwf,ik)),j=i,ndim), i=1,ndim)
        enddo
     enddo
-
-   write(49,'(100F12.6)')  (real(n_dga(i)), i=1,ndim)
-
-  close(34)
-  close(35)
-  close(36)
-  close(37)
-  close(38)
-  close(39)
-  close(40)
-  close(41)
-  close(42)
-  close(43)
-  close(44)
   close(45)
-  close(46)
-  close(47)
-  close(48)
+
+  open(49, file=trim(output_dir)//"n_dga.dat", status='unknown')
+  write(49,'(100F12.6)')  (real(n_dga(i)), i=1,ndim)
   close(49)
-  close(50)
-
-
 
   if (k_path_eom) then
     nkp_eom=n_segments()*nkp1/2+1
@@ -387,11 +336,6 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc)
     end do
     close(46)
   end if
-
-!  close(34)
-!  close(35)
-!  close(44)
-!  close(45)
 
 end subroutine output_eom
 !================================================================================================

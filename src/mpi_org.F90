@@ -33,6 +33,7 @@ module mpi_org
 
 
   subroutine mpi_distribute()
+    use parameters_module, ONLY: ounit
     implicit none
     integer :: i,j
 #ifdef MPI
@@ -54,14 +55,14 @@ module mpi_org
         do i=2,mpi_wsize
           disp(i)=sum(rct(1:i-1))! the first displacing has to be 0
         end do
-        write(*,*) 'receive ct',rct
-        write(*,*) 'displacing',disp
+        write(ounit,*) 'mpi_distribute: receive ct',rct
+        write(ounit,*) 'mpi_distribute: displacing',disp
       end if
 #else
       qwstart = 1
       qwstop = nqp*(2*iwbmax_small+1)
 #endif
-    write(*,*)'rank=',mpi_wrank, 'qwstart=', qwstart, 'qwstop=', qwstop
+    if (ounit .gt.  0) write(ounit,*)'mpi_distribute: rank=',mpi_wrank, 'qwstart=', qwstart, 'qwstop=', qwstop
   end subroutine mpi_distribute
 
 

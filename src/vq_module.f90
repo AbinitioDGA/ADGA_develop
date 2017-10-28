@@ -21,6 +21,7 @@ subroutine read_vq(iq, v)
   integer(hsize_t), dimension(2) :: iq_dims, iq_maxdims
   integer(hsize_t), dimension(1) :: vq_dims
   double precision :: vq_tmp_r(nqp), vq_tmp_i(nqp)
+  complex(kind=8),parameter :: ci = (0d0,1d0)
 
   call h5fopen_f(filename_vq, h5f_acc_rdonly_f, vq_file_id, err)
 

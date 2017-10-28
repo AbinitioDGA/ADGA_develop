@@ -1,22 +1,17 @@
-F90 = mpiifort
-FFLAGS += -O3 -g -fpp -DMPI #-traceback -check all
-FINCLUDE += -I/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/include
-LD = $(F90)
-LDFLAGS += -lhdf5_fortran -lhdf5hl_fortran -lmkl_rt  #-limf
-LDINCLUDE += -L/opt/sw/x86_64/glibc-2.12/ivybridge-ep/hdf5/1.8.12/intel-14.0.2/lib -L/cm/shared/apps/intel/composer_xe_2015.2.164/mkl/lib/intel64
+SHELL=/bin/bash
+
+PROG = abinitiodga
+PREPROG = setupvertex
+UPROG = umatrix
+
+include ../make_config
+
+INSTALL_DIR = ../bin
 
 MAIN_OBJECTS := main.o parameters_module.o vq_module.o kq_tools.o lapack_module.o one_particle_quant_module.o \
 		    susc_module.o eom_module.o hdf5_module.o aux.o mpi_org.o lookup_module.o config_module.o
 VERTEX_OBJECTS := vertex_chann_sym.o hdf5_module.o parameters_module.o aux.o
 U_OBJECTS := umatrix.o
-
-# define all objects
-ALL_OBJECTS := $(MAIN_OBJECTS)
-ALL_OBJECTS += $(VERTEX_OBJECTS)
-ALL_OBJECTS += $(U_OBJECTS)
-
-# remove duplicates
-OBJECTS := $(sort $(ALL_OBJECTS))
 
 .SUFFIXES: 
 .SUFFIXES: .o .f90 .F90
@@ -27,17 +22,19 @@ OBJECTS := $(sort $(ALL_OBJECTS))
 %.o: %.F90
 	$(F90) $(FFLAGS) $(FPPFLAGS) $(FINCLUDE) -c $< -o $@
 
-
 .PHONY: all
-all: abinitiodga vertex_chann_sym umatrix
+all: $(INSTALL_DIR) $(INSTALL_DIR)/$(PROG) $(INSTALL_DIR)/$(PREPROG) $(INSTALL_DIR)/$(UPROG)
 
-abinitiodga: $(MAIN_OBJECTS)
+$(INSTALL_DIR): 
+	if [ ! -d $(INSTALL_DIR) ]; then mkdir -p $(INSTALL_DIR) ; fi
+
+$(INSTALL_DIR)/$(PROG): $(MAIN_OBJECTS)
 	$(LD) $^ -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
 
-vertex_chann_sym: $(VERTEX_OBJECTS)
+$(INSTALL_DIR)/$(PREPROG): $(VERTEX_OBJECTS)
 	$(LD) $^ -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
 
-umatrix: $(U_OBJECTS)
+$(INSTALL_DIR)/$(UPROG): $(U_OBJECTS)
 	$(LD) $^ -o $@
 
 main.o: parameters_module.o aux.o kq_tools.o lapack_module.o one_particle_quant_module.o susc_module.o \
@@ -53,8 +50,13 @@ mpi_org.o: parameters_module.o
 lookup_module.o: parameters_module.o
 config_module.o: parameters_module.o lookup_module.o
 
-.PHONY: clean
-
+.PHONY: clean pristine
 clean:
-	rm -f *.o *.mod abinitiodga vertex_chann_sym umatrix
+	rm -f *.o *.mod
+
+pristine:
+	rm -f *.o *.mod
+	rm -f $(INSTALL_DIR)/$(PROG)
+	rm -f $(INSTALL_DIR)/$(PREPROG)
+	rm -f $(INSTALL_DIR)/$(UPROG) 
 

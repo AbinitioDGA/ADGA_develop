@@ -1,2 +1,2 @@
 #!/bin/bash
-grep 'Tr[Chi_d] :' out|awk '{print $3}'
+grep 'Tr\[Chi_d\] :' out|awk '{print $3}'

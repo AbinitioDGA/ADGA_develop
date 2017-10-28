@@ -1,2 +1,2 @@
 #!/bin/bash
-grep 'Tr[Self-energy[eta]] :' out|awk '{print $3}'
+grep 'Tr\[Self-energy\[eta\]\] :' out|awk '{print $3}'

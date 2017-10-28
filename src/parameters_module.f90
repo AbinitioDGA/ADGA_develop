@@ -6,8 +6,8 @@ module parameters_module
   logical   :: verbose ! Extra verbose
   character(len=200) :: verbstr
 
-  complex(kind=8),parameter :: ci=(0.d0,1.d0)
-  double precision,parameter :: pi=3.1415926535897932385d0
+  !complex(kind=8),parameter :: ci=(0.d0,1.d0)
+  !double precision,parameter :: pi=3.1415926535897932385d0
   integer :: nkp, ndim, ndim2, maxdim, nineq
   integer, allocatable :: ndims(:,:)
   integer :: nkpx,nkpy,nkpz,nkp1,nqpx,nqpy,nqpz,nqp1
@@ -34,7 +34,8 @@ module parameters_module
 
   character(len=150) :: filename_vr ! filename of extrapolated V(r)
   character(len=150) :: filename_vertex, filename_vertex_sym
-  character(len=150) :: filename, filename_umatrix, filename_vq
+  character(len=150) :: filename_umatrix, filename_vq
+  character(len=150) :: filename_1p
   character(len=150) :: filename_hk, output_dir, filename_q_path
   character(len=100) :: config_file
 

@@ -59,6 +59,10 @@ program main
   call read_config(er,output_filename)
   if (er .ne. 0) call mpi_stop(output_filename,er)
 
+  ! create output folder if not yet existing
+  if (mpi_wrank .eq. master) call system('mkdir -p ' // trim(adjustl(output_dir)))
+  call mpi_barrier(mpi_comm_world,ierr)
+
   ! Set up the output file
   verbose_extra = (verbose .and. (index(verbstr,"Extra") .ne. 0))
   if (mpi_wrank .eq. master .or. verbose_extra) then
@@ -68,34 +72,28 @@ program main
   endif
   if (ounit .gt. 0) then
      if (mpi_wrank .eq. master) then
-        output_filename = "out"
+        output_filename = trim(adjustl(output_dir))//"out"
      else
         write(output_filename,*) mpi_wrank
-        output_filename = "out."//TRIM(ADJUSTL(output_filename))
+        output_filename = trim(adjustl(output_dir))//"out."//TRIM(ADJUSTL(output_filename))
      endif
      open(unit=ounit,file=TRIM(ADJUSTL(output_filename)),status='unknown')
   endif
-  if (ounit .ge. 1) write(ounit,*) nkpx, nkpy, nkpz
 
   ! check config settings
-  if (ounit .ge. 1) write(ounit,*) 'Checking config file'
   call check_config() 
-
-  ! create output folder if not yet existing
-  if (mpi_wrank .eq. master) call system('mkdir -p ' // trim(adjustl(output_dir)))
-  call mpi_barrier(mpi_comm_world,ierr)
 
   ! program introduction
   if (ounit .ge. 1) then
     call date_and_time(date,time,zone,time_date_values)
     call mpi_get_processor_name(hostname,i,j)
     write(ounit,*)
-    write(ounit,*)            '/------------------------------------------------------------------\'
-    write(ounit,*)            '|  Ab initio dynamical vertex approximation program (abinitiodga)  |'
-    write(ounit,'(a,i11,a)')  '|  Running on ',mpi_wsize,' core(s).                               |'
-    write(ounit,*)            '|     time             date           host                         |'
-    write(ounit,'("| ",a,7x,a,10x,a,2x,"|")') trim(time),trim(date),hostname(1:i)
-    write(ounit,*)            '\------------------------------------------------------------------/'
+    write(ounit,*)                        '/------------------------------------------------------------------\'
+    write(ounit,*)                        '|  Ab initio dynamical vertex approximation program (abinitiodga)  |'
+    write(ounit,'(1x,a,i11,a,3i6,a)') '|  Running on ',mpi_wsize,' core(s) with ',nkpx, nkpy, nkpz,' k-points |'
+    write(ounit,*)                        '|     time             date           host                         |'
+    write(ounit,'(" | ",a,7x,a,10x,a,26x,"|")') trim(time),trim(date),hostname(1:i)
+    write(ounit,*)                        '\------------------------------------------------------------------/'
     write(ounit,*)
     if (verbose) write(ounit,*) "Verbose string: ",trim(ADJUSTL(verbstr))
   end if
@@ -556,8 +554,11 @@ end if
      call cpu_time(finish)
 
      !Output the calculation progress
-     write(ounit,'("Core:",I5,"  Progress:",I7,"  of",I7,"  Time: ",F8.4,"  (working area:",I9,"  -",I9,")")') &
+     if (ounit .gt. 0) then
+      write(ounit,'("Core:",I5,"  Progress:",I7,"  of",I7,"  Time: ",F8.4,"  (working area:",I9,"  -",I9,")")') &
       mpi_wrank, iqw-qwstart+1, qwstop-qwstart+1, finish-start, qwstart, qwstop
+      call flush(ounit)
+     endif
        ! write(ounit,'((A),I5,2X,I6,2X,I6,2X,I6,2X,F8.4,(A),F8.4)') 'mpi_rank || qwstart -- iqw -- qwstop || % : ',&
                             ! mpi_wrank,qwstart,iqw,qwstop, (iqw-qwstart)/dble(qwstart-qwstop+1), 'time: ',finish-start
   enddo !iqw

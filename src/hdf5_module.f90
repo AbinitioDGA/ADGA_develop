@@ -1,7 +1,6 @@
 module hdf5_module
 
   use hdf5
-  use parameters_module
   implicit none
 
   integer(hid_t) :: plist_id
@@ -60,6 +59,7 @@ module hdf5_module
 
 !=====================================================================================
    subroutine read_axes(file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
+     use parameters_module
      implicit none
      double precision, allocatable :: iwb_array(:),iwf_array(:)
      integer(hsize_t), dimension(1), intent(out) :: dim_iwb, dim_iwf
@@ -90,6 +90,7 @@ module hdf5_module
 
 
    subroutine write_axes(file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
+     use parameters_module
      integer(hid_t) :: file_id
      double precision, intent(in):: iwb_array(-iwbmax:iwbmax), iwf_array(-iwfmax:iwfmax-1)
      integer(hsize_t),dimension(1) :: dim_iwb, dim_iwf
@@ -113,6 +114,7 @@ module hdf5_module
 
 !===========================================================================================
    subroutine create_channels(file_id, ineq)
+     use parameters_module
      implicit none
 
      integer :: iwb,ineq
@@ -146,6 +148,7 @@ module hdf5_module
 
 !=====================================================================================
     subroutine create_component(file_id, ichannel, iwb, ind_orb, ineq)
+      use parameters_module
       implicit none
 
       integer, intent(in) :: ineq ! inequivalent atom
@@ -182,6 +185,7 @@ module hdf5_module
 
 !====================================================================================
    subroutine add_to_component(file_id, ichannel, iwb, ind_orb, g4iw_r, g4iw_i, g4err, ineq)
+     use parameters_module
      implicit none
      integer, intent(in) :: ichannel, iwb, ind_orb, ineq
      double precision,intent(in) :: g4iw_r(2*iwfmax, 2*iwfmax, 2*iwbmax+1)
@@ -222,6 +226,7 @@ module hdf5_module
 
 
  subroutine get_freq_range(mpi_wrank,master)
+     use parameters_module
      implicit none
      integer :: mpi_wrank, master
      integer(hid_t) :: file_id
@@ -230,9 +235,9 @@ module hdf5_module
  
      ! read frequency range of one-particle quantities
      if (mpi_wrank .eq. master) then
-       write(*,*) 'one particle quantities in ',filename
+       write(ounit,*) 'one particle quantities in ',filename_1p
      endif
-     call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
+     call h5fopen_f(filename_1p, h5f_acc_rdonly_f, file_id, err)
      call h5dopen_f(file_id, ".axes/iw", iw_id, err)
      call h5dget_space_f(iw_id, iw_space_id, err)
      call h5sget_simple_extent_dims_f(iw_space_id, iw_dims, iw_maxdims, err)
@@ -241,7 +246,7 @@ module hdf5_module
      call h5fclose_f(file_id,err)
 
      if (mpi_wrank .eq. master) then
-       write(*,*) 'two particle quantities in ',filename_vertex_sym
+       write(ounit,*) 'two particle quantities in ',filename_vertex_sym
      endif
      call h5fopen_f(filename_vertex_sym, h5f_acc_rdonly_f, file_id, err)
      ! read fermionic Matsubara frequencies iwf:
@@ -264,11 +269,13 @@ module hdf5_module
 
 
  subroutine read_hk_w2w()
+     use parameters_module
      implicit none
      double precision, allocatable :: hr(:,:), hi(:,:)
      integer :: ik,i,j
      integer :: ndim_test
      double precision :: kx, ky, kz
+     complex(kind=8),parameter :: ci = (0d0,1d0)
      
      open(21, file=filename_hk, status='unknown') ! the filename_hk is taken from parameters_module
      read(21,*) nkp,ndim_test
@@ -295,12 +302,14 @@ module hdf5_module
  end subroutine read_hk_w2w
 
  subroutine read_siw()
+     use parameters_module
      implicit none
      integer :: i,iw,ineq,iband,dimstart, dimend
      integer(hid_t) :: file_id,siw_id, siw_space_id
      integer(hsize_t), dimension(3) :: siw_dims, siw_maxdims
      double precision, allocatable :: siw_data(:,:,:,:)
      character(len=200) :: name_buffer
+     complex(kind=8),parameter :: ci = (0d0,1d0)
 
      siw=0.d0
    
@@ -314,7 +323,7 @@ module hdf5_module
        write(name_buffer,'("ineq-",I3.3)') ineq
        ! read siw:
        ! local self energy - only for interacting orbitals == d
-       call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
+       call h5fopen_f(filename_1p, h5f_acc_rdonly_f, file_id, err)
        call h5dopen_f(file_id, "dmft-last/"//trim(name_buffer)//"/siw/value", siw_id, err)
        call h5dget_space_f(siw_id, siw_space_id, err)
        call h5sget_simple_extent_dims_f(siw_space_id, siw_dims, siw_maxdims, err)
@@ -356,12 +365,14 @@ module hdf5_module
  end subroutine read_siw
 
  subroutine read_giw()
+     use parameters_module
      implicit none
      integer :: i,iw,ineq,iband,dimstart, dimend
      integer(hid_t) :: file_id,giw_id, giw_space_id
      integer(hsize_t), dimension(3) :: giw_dims, giw_maxdims
      double precision, allocatable :: giw_data(:,:,:,:)
      character(len=200) :: name_buffer
+     complex(kind=8),parameter :: ci = (0d0,1d0)
 
      giw=0.d0
    
@@ -374,7 +385,7 @@ module hdf5_module
    
        write(name_buffer,'("ineq-",I3.3)') ineq
        !read giw
-       call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
+       call h5fopen_f(filename_1p, h5f_acc_rdonly_f, file_id, err)
        call h5dopen_f(file_id, "dmft-last/"//trim(name_buffer)//"/giw/value", giw_id, err)
        call h5dget_space_f(giw_id, giw_space_id, err)
        call h5sget_simple_extent_dims_f(giw_space_id, giw_dims, giw_maxdims, err)
@@ -432,6 +443,7 @@ module hdf5_module
  end subroutine read_giw
 
  subroutine read_hk_w2dyn()
+     use parameters_module
      implicit none
      integer :: ndim_test
      integer :: i,ik
@@ -439,9 +451,10 @@ module hdf5_module
      integer(hsize_t), dimension(2) :: k_dims, k_maxdims
      integer(hsize_t), dimension(3) :: hk_dims, hk_maxdims
      double precision, allocatable :: hk_data(:,:,:,:)
+     complex(kind=8),parameter :: ci = (0d0,1d0)
 
     ! read k-points:
-    call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
+    call h5fopen_f(filename_1p, h5f_acc_rdonly_f, file_id, err)
     call h5dopen_f(file_id, ".axes/k-points", k_id, err)
     call h5dget_space_f(k_id, k_space_id, err)
     call h5sget_simple_extent_dims_f(k_space_id, k_dims, k_maxdims, err)
@@ -486,11 +499,12 @@ module hdf5_module
  end subroutine read_hk_w2dyn
 
  subroutine read_beta()
+     use parameters_module
      implicit none
      integer(hid_t) :: file_id,config_id,beta_id
      integer(hsize_t),dimension(0) :: beta_dims
 
-     call h5fopen_f(filename,h5f_acc_rdonly_f,file_id,err)
+     call h5fopen_f(filename_1p,h5f_acc_rdonly_f,file_id,err)
      call h5gopen_f(file_id, ".config", config_id, err)
      call h5aopen_f(config_id, "general.beta", beta_id, err)
      call h5aread_f(beta_id, h5t_native_double, beta, beta_dims, err)
@@ -500,11 +514,12 @@ module hdf5_module
  end subroutine read_beta
 
  subroutine read_mu()
+     use parameters_module
      implicit none
      integer(hid_t) :: mu_id,file_id,mu_space_id
      integer(hsize_t),dimension(0) :: mu_dims
 
-     call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
+     call h5fopen_f(filename_1p, h5f_acc_rdonly_f, file_id, err)
      call h5dopen_f(file_id, "dmft-last/mu/value", mu_id, err)
      call h5dread_f(mu_id, h5t_native_double, mu, mu_dims, err)
      call h5dclose_f(mu_id, err)
@@ -513,6 +528,7 @@ module hdf5_module
 
 
  subroutine read_dc()
+     use parameters_module
      implicit none
      integer :: ineq,i,iband,dimstart,dimend
      integer(hid_t) :: file_id,dc_id, dc_space_id
@@ -530,7 +546,7 @@ module hdf5_module
         enddo
         dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
         write(name_buffer,'("ineq-",I3.3)') ineq
-        call h5fopen_f(filename, h5f_acc_rdonly_f, file_id, err)
+        call h5fopen_f(filename_1p, h5f_acc_rdonly_f, file_id, err)
         call h5dopen_f(file_id, "dmft-last/"//trim(name_buffer)//"/dc/value", dc_id, err)
         call h5dget_space_f(dc_id, dc_space_id, err)
         call h5sget_simple_extent_dims_f(dc_space_id, dc_dims, dc_maxdims, err)
@@ -547,6 +563,7 @@ module hdf5_module
  end subroutine read_dc
 
  subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
+     use parameters_module
      use aux
      implicit none
      integer :: ineq,dimstart,dimend,imembers,ind_grp,b1,b2,b3,b4,ind_iwb
@@ -559,6 +576,7 @@ module hdf5_module
      complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:)
      complex(kind=8),intent(out) :: chi_loc_magn_full(maxdim,maxdim),chi_loc_dens_full(maxdim,maxdim)
      double precision, allocatable :: tmp_r(:,:), tmp_i(:,:)
+     complex(kind=8),parameter :: ci = (0d0,1d0)
 
         allocate(g4iw_magn(ndim, ndim, -iwfmax:iwfmax-1, ndim, ndim, -iwfmax:iwfmax-1))
         allocate(g4iw_dens(ndim, ndim, -iwfmax:iwfmax-1, ndim, ndim, -iwfmax:iwfmax-1))
@@ -691,6 +709,7 @@ module hdf5_module
 
 ! This subroutine creates the HDF5 output file and initializes its structure
 subroutine init_h5_output(filename_output)
+  use parameters_module
   implicit none
 
   integer :: err,i1,i2,ikx,iky,ikz
@@ -704,7 +723,7 @@ subroutine init_h5_output(filename_output)
   integer(hsize_t),dimension(2) :: dims_dc,dims_g
   integer(hsize_t),dimension(5) :: dims_hk_arr
   complex(kind=8), dimension(:,:,:,:,:),allocatable :: hk_arr
-  write(*,*) 'initialize output file'
+  write(ounit,*) 'initialize output file'
 
   call h5open_f(err)
   call h5fcreate_f(filename_output, h5f_acc_trunc_f, file_id, err)
@@ -829,11 +848,12 @@ subroutine init_h5_output(filename_output)
   call h5gclose_f(grp_id_input,err)
   call h5fclose_f(file_id,err)
 
-  write(*,*) 'hdf5 output initialized'
+  write(ounit,*) 'hdf5 output initialized'
 end subroutine init_h5_output
 
 
 subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
+  use parameters_module
   implicit none
   character(len=*) :: filename_output,channel
   integer :: err,rank_chi_loc
@@ -880,12 +900,12 @@ subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
   call h5gclose_f(grp_id_chi_loc,err)
   call h5close_f(err)
  
-  write(*,*) 'local susceptibility ',channel,' written to h5'
+  write(ounit,*) 'local susceptibility ',channel,' written to h5'
 end subroutine output_chi_loc_h5
 
 
 subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
-
+  use parameters_module
   implicit none
   character(len=*) :: filename_output,channel
   integer :: err,rank_chi_qw
@@ -964,11 +984,12 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
   call h5gclose_f(grp_id_chi_qw,err)
   call h5close_f(err)
  
-  write(*,*) 'nonlocal susceptibility ',channel,' written to h5'
+  write(ounit,*) 'nonlocal susceptibility ',channel,' written to h5'
 end subroutine output_chi_qw_h5
 
 
 subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+  use parameters_module
   implicit none
   character(len=*) :: filename_output
   integer(hid_t) :: file_id,grp_id_siwk,dset_id_sigmasum,dspace_id_sigmasum,dset_id_sigmasumhf

@@ -14,7 +14,13 @@ clean:
 	make pristine
 
 pristine: 
-	cd Tests/oneband; make clean
-	cd Tests/onebandVq; make clean
-	cd Tests/SVO; make clean
+	cd Tests/oneband_eom; make clean
+	cd Tests/oneband_chi; make clean
+	cd Tests/oneband_eomchi; make clean
+	cd Tests/oneband_vq_eomchi; make clean
+	cd Tests/oneband_vq_chipath; make clean
+	cd Tests/SVO_eom; make clean
+	cd Tests/SVO_chi; make clean
+	cd Tests/SVO_eomchi; make clean
+	cd Tests/SVO_vq_eomchi; make clean
 
