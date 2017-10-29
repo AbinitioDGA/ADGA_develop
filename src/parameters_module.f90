@@ -3,8 +3,10 @@ module parameters_module
   public
 
   integer   :: ounit ! output unit
-  logical   :: verbose ! Extra verbose
+  logical   :: verbose ! User defined verbose
   character(len=200) :: verbstr
+  logical   :: debug ! User defined debug
+  character(len=200) :: dbgstr
 
   !complex(kind=8),parameter :: ci=(0.d0,1.d0)
   !double precision,parameter :: pi=3.1415926535897932385d0

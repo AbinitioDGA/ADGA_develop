@@ -152,6 +152,22 @@ subroutine read_config(er,erstr)
      verbstr = file_save(search_start)
   endif
 
+  debug = .false.
+  dbgstr = ''
+  call group_find('[Debug]', search_start, search_end)
+  if (search_start .ge. 1) then
+     debug = .true.
+     dbgstr = file_save(search_start)
+  endif
+
+  ! Make sure that we only use 1 q-point when we run with Onlydmft
+  if (debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) then
+     ! Only local quantities
+     nqpx = 1
+     nqpy = 1
+     nqpz = 1
+  endif
+
   allocate(interaction(nineq))
   allocate(interaction_mode(nineq))
   allocate(ndims(nineq,2))

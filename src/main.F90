@@ -35,14 +35,15 @@ program main
   integer :: offset
   logical :: update_chi_loc_flag
   complex(kind=8), allocatable :: gammaqd(:,:), v(:,:)
-  complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_hf(:,:,:,:), sigma_dmft(:,:,:)
-  complex(kind=8), allocatable :: sigma_sum(:,:,:,:), sigma_sum_hf(:,:,:,:), sigma_sum_dmft(:,:,:), sigma_loc(:,:,:)
+  complex(kind=8), allocatable :: sigma(:,:,:,:), sigma_hf(:,:,:), sigma_dmft(:,:,:)
+  complex(kind=8), allocatable :: sigma_sum(:,:,:,:), sigma_sum_hf(:,:,:), sigma_sum_dmft(:,:,:), sigma_loc(:,:,:)
 ! variables for date-time string
   character(20) :: date,time,zone
   character(200) :: output_filename
   integer,dimension(8) :: time_date_values
   logical :: verbose_extra
   integer :: er ! error flag
+  logical :: nonlocal ! Do the nonlocal quantities
 #ifdef MPI
   character(len=MPI_MAX_PROCESSOR_NAME) :: hostname
 #endif
@@ -316,7 +317,7 @@ end if
 
 if (do_eom) then
   allocate(gammaqd(ndim2,maxdim))
-  allocate(sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp), sigma_hf(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
+  allocate(sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp), sigma_hf(ndim,ndim,nkp))
   allocate(sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1))
   sigma = 0.d0
   sigma_hf = 0.d0
@@ -344,7 +345,7 @@ if (mpi_wrank .eq. master) then
   call init_h5_output(output_filename)
 end if
 
-
+  nonlocal = .not. (debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) ! Do the non-local quantities!
 
   iwb = iwbmax_small+3
   do iqw=qwstart,qwstop
@@ -433,134 +434,139 @@ end if
         enddo
 
      endif !update local quantities
+   
+     ! Calculate static quantities
+     if (do_eom .and. iwb .eq. 0 .and. (iq .eq. 1 .or. do_vq)) call calc_eom_static(kq_ind,iq,v,sigma_dmft,sigma_hf)
+     ! Calculate local quantities
+     if (do_eom .and. iq .eq. 1) call calc_eom_dmft(gammawd,gammawm,iwb,sigma_dmft)
 
-     ! Calculate chi0q in the big box (which has the same size as the small box when do_chi = .false.)
-     chi0q=0.d0
-     do iwf=iwstart,iwstop
-        ! compute k-summed (but still q-dependent) bubble chi0(i1,i2):
-        chi0 = 0
-        do ik=1,nkp
-           ikq = kq_ind(ik,iq) !Index of G(k+q)
-           call accumulate_chi0(ik, ikq, iwf, iwb, chi0) ! This subroutine accumulates chi0 (over k)
-        enddo
-        chi0 = chi0/dble(nkp)
-        if (do_chi) bubble_nl(:,:,iqw) = bubble_nl(:,:,iqw) + chi0 ! Accumulate chi0 over iwf
-        if (-iwfmax_small .le. iwf .and. iwf .le. iwfmax_small-1) chi0q(:,:,iwf) = chi0 ! Store in chi0q (small iwf box)
-     end do
-     if (do_chi) then
-        ! Get the non-local bubble
-        bubble_nl(:,:,iqw) = bubble_nl(:,:,iqw)/(beta**2)  - bubble_loc_tmp
-        ! Add gamma^w.chi0^{nl,q} to the q dependent susceptibility
-        do iwf = - iwfmax_small,iwfmax_small-1
-           chi0nl = chi0q - chi0w
-           call calc_chi_qw(chi_qw_dens(:,:,iqw),gammawd,chi0nl)
-           call calc_chi_qw(chi_qw_magn(:,:,iqw),gammawm,chi0nl)
-        enddo
-     end if
+     if (nonlocal) then
+      ! Calculate chi0q in the big box (which has the same size as the small box when do_chi = .false.)
+      chi0q=0.d0
+      do iwf=iwstart,iwstop
+         ! compute k-summed (but still q-dependent) bubble chi0(i1,i2):
+         chi0 = 0
+         do ik=1,nkp
+            ikq = kq_ind(ik,iq) !Index of G(k+q)
+            call accumulate_chi0(ik, ikq, iwf, iwb, chi0) ! This subroutine accumulates chi0 (over k)
+         enddo
+         chi0 = chi0/dble(nkp)
+         if (do_chi) bubble_nl(:,:,iqw) = bubble_nl(:,:,iqw) + chi0 ! Accumulate chi0 over iwf
+         if (-iwfmax_small .le. iwf .and. iwf .le. iwfmax_small-1) chi0q(:,:,iwf) = chi0 ! Store in chi0q (small iwf box)
+      end do
+      if (do_chi) then
+         ! Get the non-local bubble
+         bubble_nl(:,:,iqw) = bubble_nl(:,:,iqw)/(beta**2)  - bubble_loc_tmp
+         ! Add gamma^w.chi0^{nl,q} to the q dependent susceptibility
+         do iwf = - iwfmax_small,iwfmax_small-1
+            chi0nl = chi0q - chi0w
+            call calc_chi_qw(chi_qw_dens(:,:,iqw),gammawd,chi0nl)
+            call calc_chi_qw(chi_qw_magn(:,:,iqw),gammawm,chi0nl)
+         enddo
+      end if
 
-!     call cpu_time(finish)
-!     write(ounit,*) finish-start
+!      call cpu_time(finish)
+!      write(ounit,*) finish-start
 
-     ! Now we construct eta^q (in the small box..)
-     allocate(bigwork_dens(maxdim,maxdim))
-     allocate(bigwork_magn(maxdim,maxdim))
-     bigwork_dens = 0.d0
-     bigwork_magn = 0.d0
-     if (do_eom) gammaqd = 0.d0
-     ! Loop over the left fermionic matsubara frequency (array index)
-     do dum1= 0,2*iwfmax_small-1
-        iwf = dum1 - iwfmax_small ! left fermionic matsubara frequency
-        offset = dum1*ndim2 ! fermionic matsubara offset
-        !get horizontal slice of chi_loc for matmul (interm2):
-        chi0wFm_slice = chi0wFm(offset+1:offset+ndim2,:)
-        chi0wFd_slice = chi0wFd(offset+1:offset+ndim2,:)
+      ! Now we construct eta^q (in the small box..)
+      allocate(bigwork_dens(maxdim,maxdim))
+      allocate(bigwork_magn(maxdim,maxdim))
+      bigwork_dens = 0.d0
+      bigwork_magn = 0.d0
+      if (do_eom) gammaqd = 0.d0
+      ! Loop over the left fermionic matsubara frequency (array index)
+      do dum1= 0,2*iwfmax_small-1
+         iwf = dum1 - iwfmax_small ! left fermionic matsubara frequency
+         offset = dum1*ndim2 ! fermionic matsubara offset
+         !get horizontal slice of chi_loc for matmul (interm2):
+         chi0wFm_slice = chi0wFm(offset+1:offset+ndim2,:)
+         chi0wFd_slice = chi0wFd(offset+1:offset+ndim2,:)
 
-        ! compute intermediate quantity (chi0*chi0_loc_inv - 1) and store it in smallwork (chi0w_inv is diagonal)
-        do i2=1,ndim2
-           smallwork(:,i2) = chi0q(:,i2,iwf)*chi0w_inv(i2,i2,iwf) ! Nb: chi0w_inv is here assumed to be diagonal
-           smallwork(i2,i2) = smallwork(i2,i2) - 1d0
-        enddo
+         ! compute intermediate quantity (chi0*chi0_loc_inv - 1) and store it in smallwork (chi0w_inv is diagonal)
+         do i2=1,ndim2
+            smallwork(:,i2) = chi0q(:,i2,iwf)*chi0w_inv(i2,i2,iwf) ! Nb: chi0w_inv is here assumed to be diagonal
+            smallwork(i2,i2) = smallwork(i2,i2) - 1d0
+         enddo
 
-        ! compute intermediate quantity chi0^{nl,q}.F^w = (chi0^q-chi0^w).F^w = (chi0*[chi0^w]^{-1}-1)*(chi0^w.F^w):
-        rectanglework = 0.d0
-        alpha = 1.d0
-        delta = 0.d0
-        call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, smallwork, ndim2, chi0wFd_slice, ndim2, delta, rectanglework, ndim2)
-        ! Store in bigwork_dens (Nb: with a minus sign)
-        bigwork_dens(offset+1:offset+ndim2,:) = -rectanglework
-        ! Accumulate over iwf in gamma^q_d
-        if (do_eom) gammaqd = gammaqd + rectanglework
+         ! compute intermediate quantity chi0^{nl,q}.F^w = (chi0^q-chi0^w).F^w = (chi0*[chi0^w]^{-1}-1)*(chi0^w.F^w):
+         rectanglework = 0.d0
+         alpha = 1.d0
+         delta = 0.d0
+         call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, smallwork, ndim2, chi0wFd_slice, ndim2, delta, rectanglework, ndim2)
+         ! Store in bigwork_dens (Nb: with a minus sign)
+         bigwork_dens(offset+1:offset+ndim2,:) = -rectanglework
+         ! Accumulate over iwf in gamma^q_d
+         if (do_eom) gammaqd = gammaqd + rectanglework
 
-        !same for the magn channel: chi0^{nl,q}.F^w
-        rectanglework = 0.d0
-        alpha = 1.d0
-        delta = 0.d0
-        call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, smallwork, ndim2, chi0wFm_slice, ndim2, delta, rectanglework, ndim2)
-        ! Store in bigwork_magn (Nb: with a minus sign)
-        bigwork_magn(offset+1:offset+ndim2,:) = -rectanglework
+         !same for the magn channel: chi0^{nl,q}.F^w
+         rectanglework = 0.d0
+         alpha = 1.d0
+         delta = 0.d0
+         call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, smallwork, ndim2, chi0wFm_slice, ndim2, delta, rectanglework, ndim2)
+         ! Store in bigwork_magn (Nb: with a minus sign)
+         bigwork_magn(offset+1:offset+ndim2,:) = -rectanglework
 
-        ! compute part containing nonlocal interaction v (only in density channel)
-        ! 2*beta^(-2)*chi0.v
-        smallwork = 2d0/(beta**2)*MATMUL(chi0q(:,:,iwf),v)
-        ! beta^(-2)*(chi0*v)*(1+gamma^w_d)
-        rectanglework = 0.d0
-        alpha = 1.d0
-        delta = 0.d0
-        call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, smallwork, ndim2, oneplusgammawd, ndim2, delta, rectanglework, ndim2)
-        ! add it to our big work array (Nb: with a minus sign):
-        bigwork_dens(offset+1:offset+ndim2,:) = bigwork_dens(offset+1:offset+ndim2,:) - rectanglework
+         ! compute part containing nonlocal interaction v (only in density channel)
+         ! 2*beta^(-2)*chi0.v
+         smallwork = 2d0/(beta**2)*MATMUL(chi0q(:,:,iwf),v)
+         ! beta^(-2)*(chi0*v)*(1+gamma^w_d)
+         rectanglework = 0.d0
+         alpha = 1.d0
+         delta = 0.d0
+         call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, smallwork, ndim2, oneplusgammawd, ndim2, delta, rectanglework, ndim2)
+         ! add it to our big work array (Nb: with a minus sign):
+         bigwork_dens(offset+1:offset+ndim2,:) = bigwork_dens(offset+1:offset+ndim2,:) - rectanglework
 
-     enddo ! dum1
+      enddo ! dum1
 
-     ! We need to add the identity before the inversion: 
-     ! bigwork_dens = [1 - chi0^{nl,q}.F^w_d - 2*beta^{-2}*chi0^q.v^q.(1 + gamma^w)]
-     ! bigwork_magn = [1 - chi0^{nl,q}.F^w_m ]
-     do i=1,maxdim
-        bigwork_dens(i,i) = bigwork_dens(i,i) + 1d0
-        bigwork_magn(i,i) = bigwork_magn(i,i) + 1d0
-     enddo
+      ! We need to add the identity before the inversion: 
+      ! bigwork_dens = [1 - chi0^{nl,q}.F^w_d - 2*beta^{-2}*chi0^q.v^q.(1 + gamma^w)]
+      ! bigwork_magn = [1 - chi0^{nl,q}.F^w_m ]
+      do i=1,maxdim
+         bigwork_dens(i,i) = bigwork_dens(i,i) + 1d0
+         bigwork_magn(i,i) = bigwork_magn(i,i) + 1d0
+      enddo
 
-     call inverse_matrix(bigwork_dens)
-     call inverse_matrix(bigwork_magn)
+      call inverse_matrix(bigwork_dens)
+      call inverse_matrix(bigwork_magn)
 
-     ! We need to subtract the identity before the multiplication from the left with (1 + gamma^w): 
-     do i=1,maxdim
-        bigwork_dens(i,i) = bigwork_dens(i,i) - 1d0
-        bigwork_magn(i,i) = bigwork_magn(i,i) - 1d0
-     enddo
+      ! We need to subtract the identity before the multiplication from the left with (1 + gamma^w): 
+      do i=1,maxdim
+         bigwork_dens(i,i) = bigwork_dens(i,i) - 1d0
+         bigwork_magn(i,i) = bigwork_magn(i,i) - 1d0
+      enddo
 
-     ! Multiply with (1 + gamma^w) from the left
-     etaqd = 0.d0
-     etaqm = 0.d0
-     alpha = 1.d0
-     delta = 0.d0
-     call zgemm('n', 'n', ndim2, maxdim, maxdim, alpha, oneplusgammawd &
-             , ndim2, bigwork_dens, maxdim, delta, etaqd, ndim2)
-     call zgemm('n', 'n', ndim2, maxdim, maxdim, alpha, oneplusgammawm &
-               , ndim2, bigwork_magn, maxdim, delta, etaqm, ndim2)
+      ! Multiply with (1 + gamma^w) from the left
+      etaqd = 0.d0
+      etaqm = 0.d0
+      alpha = 1.d0
+      delta = 0.d0
+      call zgemm('n', 'n', ndim2, maxdim, maxdim, alpha, oneplusgammawd &
+              , ndim2, bigwork_dens, maxdim, delta, etaqd, ndim2)
+      call zgemm('n', 'n', ndim2, maxdim, maxdim, alpha, oneplusgammawm &
+                , ndim2, bigwork_magn, maxdim, delta, etaqm, ndim2)
 
-     ! Now we are done with the bigwork arrays
-     deallocate(bigwork_dens, bigwork_magn)
+      ! Now we are done with the bigwork arrays
+      deallocate(bigwork_dens, bigwork_magn)
 
-     if (do_chi) then
-        ! Add eta^q.chi0^q to the q dependent susceptibility
-        call calc_chi_qw(chi_qw_dens(:,:,iqw),etaqd,chi0q)
-        call calc_chi_qw(chi_qw_magn(:,:,iqw),etaqm,chi0q)
-     end if
-     if (do_eom) then
-        !equation of motion
-        call calc_eom(etaqd,etaqm,gammawd,gammawm,gammaqd,sigma,sigma_dmft,sigma_hf,kq_ind,iwb,iq,v)
-     end if
+      if (do_chi) then
+         ! Add eta^q.chi0^q to the q dependent susceptibility
+         call calc_chi_qw(chi_qw_dens(:,:,iqw),etaqd,chi0q)
+         call calc_chi_qw(chi_qw_magn(:,:,iqw),etaqm,chi0q)
+      end if
+      if (do_eom) then
+         !equation of motion
+         call calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind,iwb,iq,v,sigma)
+      end if
+     endif ! non-local
      call cpu_time(finish)
 
      !Output the calculation progress
      if (ounit .gt. 0) then
-      write(ounit,'("Core:",I5,"  Progress:",I7,"  of",I7,"  Time: ",F8.4,"  (working area:",I9,"  -",I9,")")') &
-      mpi_wrank, iqw-qwstart+1, qwstop-qwstart+1, finish-start, qwstart, qwstop
+      write(ounit,'("Core:",I5,"  Completed qw-point: ",I7," (from ",I7," to ",I7,")  Time: ",F8.4)') &
+      mpi_wrank, iqw, qwstart, qwstop, finish-start
       call flush(ounit)
      endif
-       ! write(ounit,'((A),I5,2X,I6,2X,I6,2X,I6,2X,F8.4,(A),F8.4)') 'mpi_rank || qwstart -- iqw -- qwstop || % : ',&
-                            ! mpi_wrank,qwstart,iqw,qwstop, (iqw-qwstart)/dble(qwstart-qwstop+1), 'time: ',finish-start
   enddo !iqw
 
 
@@ -581,11 +587,11 @@ end if
 
   ! MPI reduction and output
   if (do_eom) then
-     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp),sigma_sum_hf(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp))
+     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp),sigma_sum_hf(ndim,ndim,nkp))
      allocate(sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1),sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1))
 #ifdef MPI
      call MPI_reduce(sigma, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
-     call MPI_reduce(sigma_hf,sigma_sum_hf,ndim*ndim*2*iwfmax_small*nkp,MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+     call MPI_reduce(sigma_hf,sigma_sum_hf,ndim*ndim*nkp,MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      call MPI_reduce(sigma_dmft,sigma_sum_dmft,ndim*ndim*2*iwfmax_small,MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
 #else
      sigma_sum = sigma
@@ -603,12 +609,11 @@ end if
          write(ounit,'(1x,"Orbital trace of the self-energy components at the first matsubara:")') 
          write(ounit,'(1x," FIXME!! (the numbers below are just placeholders):")') 
          write(ounit,'(1x,"Tr[Self-energy[dmft]] : ",f24.11)') 1.23d0 
-         write(ounit,'(1x,"Tr[Self-energy[eta]] : ",f24.11)') 4.56d0 
-         write(ounit,'(1x,"Tr[Self-energy[gamma]] : ",f24.11)') 7.89d0 
+         write(ounit,'(1x,"Tr[Self-energy[non-dmft]] : ",f24.11)') 7.89d0 
          write(ounit,'(1x,"Tr[Self-energy] : ",f24.11)') 1.23d0 
        endif
-       call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc)
-       call output_eom_hdf5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+       call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, nonlocal)
+       if (nonlocal) call output_eom_hdf5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
      end if
      deallocate(sigma, sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc)
   end if
@@ -631,66 +636,66 @@ end if
     end if
     deallocate(bubble_loc)
 
+    if (nonlocal) then
+      allocate(chi_qw_full(1,1,1))
+      if (mpi_wrank .eq. master) then
+        deallocate(chi_qw_full)
+        allocate(chi_qw_full(ndim2,ndim2,nqp*(2*iwbmax+1)))
+      end if
+      chi_qw_full=0.d0
 
-    allocate(chi_qw_full(1,1,1))
-    if (mpi_wrank .eq. master) then
+#ifdef MPI
+      call MPI_gatherv(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,&
+                     chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
+#else
+      chi_qw_full = chi_qw_dens
+#endif
+      if (mpi_wrank .eq. master) then
+        ! TODO: Read the summed up local susceptibility from file and add it to chi_qw_full.
+        ! call read_and_add_local_chi_dens(chi_qw_full) ! Add chi^w_dens
+        if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
+           write(ounit,'(1x,"Orbital trace of Chi^q_dens at the first matsubara and q-point:")') 
+           write(ounit,'(1x," FIXME!! (the numbers below are just placeholders):")') 
+           write(ounit,'(1x,"Tr[Chi_d] : ",f12.7)') 1.23d0
+        endif
+        ! call output_chi_qw(chi_qw_full,qw,'chi_qw_dens.dat')
+        call output_chi_qw_h5(output_filename,'dens',chi_qw_full)
+      end if
+
+#ifdef MPI
+      call MPI_gatherv(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,&
+                     chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
+#else
+      chi_qw_full = chi_qw_magn
+#endif
+      if (mpi_wrank .eq. master) then
+        ! TODO: Read the summed up local susceptibility from file and add it to chi_qw_full.
+        ! call read_and_add_local_chi_magn(chi_qw_full) ! Add chi^w_magn
+        if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
+           write(ounit,'(1x,"Orbital trace of Chi^q_magn at the first matsubara and q-point:")') 
+           write(ounit,'(1x," FIXME!! (the numbers below are just placeholders):")') 
+           write(ounit,'(1x,"Tr[Chi_m] : ",f12.7)') 1.23d0
+        endif
+        ! call output_chi_qw(chi_qw_full,qw,'chi_qw_magn.dat')
+        call output_chi_qw_h5(output_filename,'magn',chi_qw_full)
+      end if
+
+#ifdef MPI
+      call MPI_gatherv(bubble_nl,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,&
+                     chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
+#else
+      chi_qw_full = bubble_nl
+#endif
+      if (mpi_wrank .eq. master) then
+         ! call output_chi_qw(chi_qw_full,qw,'bubble_nl.dat')
+         call output_chi_qw_h5(output_filename,'bubble_nl',chi_qw_full)
+      end if
+
       deallocate(chi_qw_full)
-      allocate(chi_qw_full(ndim2,ndim2,nqp*(2*iwbmax+1)))
-    end if
-    chi_qw_full=0.d0
-
-#ifdef MPI
-    call MPI_gatherv(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,&
-                     chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
-#else
-    chi_qw_full = chi_qw_dens
-#endif
-    deallocate(chi_qw_dens)
-    if (mpi_wrank .eq. master) then
-      ! TODO: Read the summed up local susceptibility from file and add it to chi_qw_full.
-      ! call read_and_add_local_chi_dens(chi_qw_full) ! Add chi^w_dens
-      if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
-         write(ounit,'(1x,"Orbital trace of Chi^q_dens at the first matsubara and q-point:")') 
-         write(ounit,'(1x," FIXME!! (the numbers below are just placeholders):")') 
-         write(ounit,'(1x,"Tr[Chi_d] : ",f12.7)') 1.23d0
-      endif
-      ! call output_chi_qw(chi_qw_full,qw,'chi_qw_dens.dat')
-      call output_chi_qw_h5(output_filename,'dens',chi_qw_full)
-    end if
-
-#ifdef MPI
-    call MPI_gatherv(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,&
-                     chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
-#else
-    chi_qw_full = chi_qw_magn
-#endif
+    endif
     deallocate(chi_qw_magn)
-    if (mpi_wrank .eq. master) then
-      ! TODO: Read the summed up local susceptibility from file and add it to chi_qw_full.
-      ! call read_and_add_local_chi_magn(chi_qw_full) ! Add chi^w_magn
-      if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
-         write(ounit,'(1x,"Orbital trace of Chi^q_magn at the first matsubara and q-point:")') 
-         write(ounit,'(1x," FIXME!! (the numbers below are just placeholders):")') 
-         write(ounit,'(1x,"Tr[Chi_m] : ",f12.7)') 1.23d0
-      endif
-      ! call output_chi_qw(chi_qw_full,qw,'chi_qw_magn.dat')
-      call output_chi_qw_h5(output_filename,'magn',chi_qw_full)
-    end if
-
-#ifdef MPI
-    call MPI_gatherv(bubble_nl,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,&
-                     chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
-#else
-    chi_qw_full = bubble_nl
-#endif
+    deallocate(chi_qw_dens)
     deallocate(bubble_nl)
-    if (mpi_wrank .eq. master) then
-      ! call output_chi_qw(chi_qw_full,qw,'bubble_nl.dat')
-      call output_chi_qw_h5(output_filename,'bubble_nl',chi_qw_full)
-    end if
-
-    deallocate(chi_qw_full)
-
   end if
 
 
