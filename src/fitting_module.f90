@@ -47,9 +47,11 @@ subroutine fit_sum_fermionic_box(apart, w, chi, chi_sum_left)
            if ((nreal .eq. 0 .or. nreal .eq. ipartmax-1).and. (nimag .eq. 0 .or. nimag .eq. ipartmax-1)) then
               chi_sum_left(i1,i2) = dot_product(w,chi_sum_left_part(:,i1,i2))
            else if ((nreal .eq. 0 .or. nreal .eq. ipartmax-1)) then
-              chi_sum_left(i1,i2) = cmplx(dble(dot_product(w,dble(chi_sum_left_part(:,i1,i2)))),dimag(chi_sum_left_part(ipartmax,i1,i2)),KIND=8)
+              chi_sum_left(i1,i2) = cmplx(dble(dot_product(w,dble(chi_sum_left_part(:,i1,i2)))),&
+                                          dimag(chi_sum_left_part(ipartmax,i1,i2)),KIND=8)
            else if ((nimag .eq. 0 .or. nimag .eq. ipartmax-1)) then
-              chi_sum_left(i1,i2) = cmplx(dble(chi_sum_left_part(ipartmax,i1,i2)),dble(dot_product(w,dimag(chi_sum_left_part(:,i1,i2)))),KIND=8)
+              chi_sum_left(i1,i2) = cmplx(dble(chi_sum_left_part(ipartmax,i1,i2)),&
+                                          dble(dot_product(w,dimag(chi_sum_left_part(:,i1,i2)))),KIND=8)
            else
               chi_sum_left(i1,i2) = chi_sum_left_part(ipartmax,i1,i2)
            endif
@@ -59,10 +61,13 @@ subroutine fit_sum_fermionic_box(apart, w, chi, chi_sum_left)
         diff_fit = abs(chi_sum_left(i1,i2)-chi_sum_left_part(ipartmax,i1,i2))
         diff_scale = abs(chi_sum_left_part(ipartmax,i1,i2)-chi_sum_left_part(1,i1,i2))
         if(diff_fit .gt. 4.d0*diff_scale)then
-           write(*,'(a,2i4,2f16.10,10x,2f16.10)') 'failed fit?', i1, (i2/ndim2)-iwfmax_small,diff_fit,diff_scale,chi_sum_left(i1,i2)
-           write(*,'("real:",999f16.10)') dble(chi_sum_left_part(:,i1,i2))
-           write(*,'("imag:",999f16.10)') dimag(chi_sum_left_part(:,i1,i2))
-           chi_sum_left(i1,i2) = chi_sum_left_part(ipartmax,i1,i2)
+          if (ounit .gt. 0) then
+           write(ounit,'(a,2i4,2f16.10,10x,2f16.10)') 'failed fit?', i1,&
+                   (i2/ndim2)-iwfmax_small,diff_fit,diff_scale,chi_sum_left(i1,i2)
+           write(ounit,'("real:",999f16.10)') dble(chi_sum_left_part(:,i1,i2))
+           write(ounit,'("imag:",999f16.10)') dimag(chi_sum_left_part(:,i1,i2))
+          endif
+          chi_sum_left(i1,i2) = chi_sum_left_part(ipartmax,i1,i2)
         endif
      enddo
 

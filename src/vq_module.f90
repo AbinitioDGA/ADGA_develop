@@ -8,11 +8,13 @@ module vq_module
 contains
 
 !===============================================================================================================================
-subroutine read_vq(iq, v)
+subroutine read_vq(iq, v,er,erstr)
   use aux
   implicit none
   integer, intent(in) :: iq
   complex(kind=8), intent(out) :: v(ndim2,ndim2)
+  integer,intent(out) :: er
+  character(len=*),intent(out) :: erstr
   complex(kind=8) :: vq(ndim,ndim,ndim,ndim)
   integer(hid_t) :: vq_file_id, grp_id, iq_id, iq_space_id
   integer :: err, ind, i, j, k, l, i1, i2
@@ -23,14 +25,18 @@ subroutine read_vq(iq, v)
   double precision :: vq_tmp_r(nqp), vq_tmp_i(nqp)
   complex(kind=8),parameter :: ci = (0d0,1d0)
 
+  er = 0
+  erstr = ''
+
   call h5fopen_f(filename_vq, h5f_acc_rdonly_f, vq_file_id, err)
 
   call h5dopen_f(vq_file_id, ".axes/Q-points", iq_id, err)
   call h5dget_space_f(iq_id, iq_space_id, err)
   call h5sget_simple_extent_dims_f(iq_space_id, iq_dims, iq_maxdims, err)
   if(iq_dims(2) .ne. nqp) then
-     write(*,*) 'Inconsistent number of q-points in V^q!', iq_dims(2),'/',nqp
-     stop
+     er = 1
+     write(erstr,*) 'Inconsistent number of q-points in V^q!', iq_dims(2),'/',nqp
+     return
   endif
 
   vq = 0.d0

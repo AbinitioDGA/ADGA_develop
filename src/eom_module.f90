@@ -258,6 +258,8 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
    integer :: ik, iwf, i, j, iband,nkp_eom,ii, i1, i2, i3, i4
    character(len=50) :: eom_format
    character(len=200) :: filename_siwk
+   integer            :: er
+   character(len=200) :: erstr
 
    open(44, file=trim(output_dir)//"siw_loc_diag.dat", status='unknown')
    open(50, file=trim(output_dir)//"siw_dmft_rep_diag.dat", status='unknown')
@@ -331,25 +333,29 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
       close(49)
 
       if (k_path_eom) then
-        nkp_eom=n_segments()*nkp1/2+1
-        allocate(k_data_eom(nkp_eom))
-        call generate_q_path(nkp1,k_data_eom)
-        write(*,*) k_data_eom
-        open(unit=46,file='skiw_path.dat')
-        write(eom_format,'((A)I2(A))') '(I5,2X,F12.6,2X,',2*ndim*(ndim+1)/2,'(F12.6,2X))'
-        do ik=1,nkp_eom
-          do iwf=-iwfmax_small,iwfmax_small-1
-            ii=0
-            do i1=1,ndim
-              do i2=1,i1
-                ii=ii+1
-                sigma_tmp(ii)=sigma_sum(i1,i2,iwf,k_data_eom(ik))
+         nkp_eom=n_segments()*nkp1/2+1
+         allocate(k_data_eom(nkp_eom))
+         call generate_q_path(nkp1,k_data_eom,er,erstr)
+         if (er .ne. 0) then
+            if (ounit .gt. 0) write(ounit,'(a)') TRIM(erstr)
+         else
+            !write(*,*) k_data_eom
+            open(unit=46,file='skiw_path.dat')
+            write(eom_format,'((A)I2(A))') '(I5,2X,F12.6,2X,',2*ndim*(ndim+1)/2,'(F12.6,2X))'
+            do ik=1,nkp_eom
+              do iwf=-iwfmax_small,iwfmax_small-1
+                ii=0
+                do i1=1,ndim
+                  do i2=1,i1
+                    ii=ii+1
+                    sigma_tmp(ii)=sigma_sum(i1,i2,iwf,k_data_eom(ik))
+                  end do
+                end do
+                write(46,eom_format) k_data_eom(ik),iw_data(iwf),sigma_tmp
               end do
             end do
-            write(46,eom_format) k_data_eom(ik),iw_data(iwf),sigma_tmp
-          end do
-        end do
-        close(46)
+            close(46)
+         endif
       end if
    endif
 

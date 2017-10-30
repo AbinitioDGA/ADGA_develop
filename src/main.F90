@@ -124,9 +124,11 @@ program main
 
 ! read Hamiltonian
   if(read_ext_hk) then
-    call read_hk_w2w()
+    call read_hk_w2w(er,erstr)
+    if (er .ne. 0) call mpi_stop(erstr,er)
   else
-    call read_hk_w2dyn()
+    call read_hk_w2dyn(er,erstr)
+    if (er .ne. 0) call mpi_stop(erstr,er)
   end if
 
   call read_mu()   ! w2d chemical potential
@@ -220,7 +222,8 @@ program main
     if (do_eom) call mpi_stop('Error: it is currently not possible to use both do_eom and q_path_susc',er)
     nqp=n_segments()*nqp1/2+1
     allocate(q_data(nqp))
-    call generate_q_path(nqp1,q_data)
+    call generate_q_path(nqp1,q_data,er,erstr)
+    if (er .ne. 0) call mpi_stop(erstr,er)
     write(ounit,*) 'q path with',n_segments(),'segments and',nqp,'points.'
   else
     if (q_path_susc .and. q_vol) then
@@ -359,7 +362,8 @@ end if
 
      !read nonlocal interaction v and go into compound index:
      if(do_vq) then
-        call read_vq(iq,v)
+        call read_vq(iq,v,er,erstr)
+        if (er .ne. 0) call mpi_stop(erstr,er)
        ! v = v-u  !otherwise, local U would be included twice
      else
         v = 0.d0

@@ -46,7 +46,7 @@ subroutine output_chi_qw(chi_qw,qw,filename_output)
   integer :: iwb,iq,qw(2,nqp*(2*iwbmax+1)),i
   integer :: i1
 
-  write(*,*) 'Output chi_qw'
+  if (ounit .gt. 0) write(ounit,*) 'Output chi_qw'
 
   ! create a format string that works for various orbital dimensions
   write(format_str,'(A,I5,A)') '(I5,2X,E14.7E2,2X,I5,2X,',2*ndim2**2+3,'(E14.7E2,2X))'
@@ -113,7 +113,7 @@ subroutine output_chi_loc(chi_qw,filename_output)
   complex(kind=8) :: chi_qw(ndim2,ndim2,2*iwbmax_small+1)
   integer :: iwb,i,i1
 
-  write(*,*) 'output chi_loc'
+  if (ounit .gt. 0) write(ounit,*) 'output chi_loc'
 
   ! create a format string that works for various orbital dimensions
   write(format_str,'(A,I5,A)') '(I5,2X,E14.7E2,2X',2*ndim2**2,'(E14.7E2,2X))'

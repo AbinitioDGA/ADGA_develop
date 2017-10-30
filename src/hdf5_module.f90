@@ -268,19 +268,27 @@ module hdf5_module
 
 
 
- subroutine read_hk_w2w()
+ subroutine read_hk_w2w(er,erstr)
      use parameters_module
      implicit none
+     integer,intent(out) :: er
+     character(len=*),intent(out) :: erstr
      double precision, allocatable :: hr(:,:), hi(:,:)
      integer :: ik,i,j
      integer :: ndim_test
      double precision :: kx, ky, kz
      complex(kind=8),parameter :: ci = (0d0,1d0)
+
+     er = 0
+     erstr = '' 
      
      open(21, file=filename_hk, status='unknown') ! the filename_hk is taken from parameters_module
      read(21,*) nkp,ndim_test
      if (ndim .ne. ndim_test) then
-       stop "Error: number of dimensions in input file do not coincide with Hamiltonian file"
+       er = 1
+       erstr = "Error: number of dimensions in input file do not coincide with Hamiltonian file"
+       close(21)
+       return
      endif
      allocate(hr(ndim,ndim),hi(ndim,ndim))
      allocate(hk(ndim,ndim,nkp))
@@ -442,9 +450,11 @@ module hdf5_module
   ! close(54)
  end subroutine read_giw
 
- subroutine read_hk_w2dyn()
+ subroutine read_hk_w2dyn(er,erstr)
      use parameters_module
      implicit none
+     integer,intent(out) :: er
+     character(len=*),intent(out) :: erstr
      integer :: ndim_test
      integer :: i,ik
      integer(hid_t) :: file_id,k_id,k_space_id,hk_id,hk_space_id
@@ -453,15 +463,18 @@ module hdf5_module
      double precision, allocatable :: hk_data(:,:,:,:)
      complex(kind=8),parameter :: ci = (0d0,1d0)
 
+     er = 0
+     erstr = ''
+
     ! read k-points:
     call h5fopen_f(filename_1p, h5f_acc_rdonly_f, file_id, err)
     call h5dopen_f(file_id, ".axes/k-points", k_id, err)
     call h5dget_space_f(k_id, k_space_id, err)
     call h5sget_simple_extent_dims_f(k_space_id, k_dims, k_maxdims, err)
     nkp = k_dims(2)
-    allocate(k_data(k_dims(1),k_dims(2))) !indices: 3 ik
-    call h5dread_f(k_id, h5t_native_double, k_data, k_dims, err)
-    call h5dclose_f(k_id, err)
+    !allocate(k_data(k_dims(1),k_dims(2))) !indices: 3 ik
+    !call h5dread_f(k_id, h5t_native_double, k_data, k_dims, err)
+    !call h5dclose_f(k_id, err)
 
 ! write k-points:
 !    open(37, file=trim(output_dir)//'k_points.dat', status='unknown')
@@ -475,7 +488,9 @@ module hdf5_module
     call h5sget_simple_extent_dims_f(hk_space_id, hk_dims, hk_maxdims, err)
     ndim_test = hk_dims(1)
     if (ndim .ne. ndim_test) then
-      stop "Error: number of dimensions in input file do not coincide with Hamiltonian file"
+      er = 1
+      erstr= "Error: number of dimensions in input file do not coincide with Hamiltonian file"
+      return
     endif
     allocate(hk_data(2,hk_dims(1),hk_dims(2),hk_dims(3)))
     call h5dread_f(hk_id, compound_id, hk_data, hk_dims, err)
@@ -1077,7 +1092,7 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   call h5dwrite_f(dset_id_sigmasum,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
   call h5dclose_f(dset_id_sigmasum,err)
 
-  write(*,*) 'nonlocal selfenergy (DGA) written to h5'
+  if (ounit .gt. 0) write(ounit,*) 'nonlocal selfenergy (DGA) written to h5'
 
   ! in order to save memory, the same array is used again, now for the Hartree-Fock contribution.
   do i1=1,ndim

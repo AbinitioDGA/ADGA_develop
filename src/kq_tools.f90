@@ -72,22 +72,30 @@ subroutine generate_q_vol(nqpx,nqpy,nqpz,qdata)
 
 end subroutine generate_q_vol
 
-subroutine generate_q_path(n1,qdata)
+subroutine generate_q_path(n1,qdata,er,erstr)
   implicit none
-  integer :: i,nsegments,iostatus,start,seg_len,i1,i2,n1
+  integer,intent(in) :: n1
+  integer,intent(out) :: qdata(n1**3)
+  integer,intent(out) :: er
+  character(len=*),intent(out) :: erstr
+  integer :: i,nsegments,iostatus,start,seg_len,i1,i2
   character(len=1) :: qpoint_name
   character,allocatable :: qpoints_str(:)
-  integer :: qdata(n1**3)
 !  integer,allocatable :: qpoints(:)
 
+   er = 0
+   erstr = ''
+   qdata = 0
+
   if (.not. (nkpx.eq.nkpy.and.nkpy.eq.nkpz)) then
-    write(*,*) 'Error: condition nkpx==nkpy==nkpz not fulfilled'
-    stop
+    erstr='Error: condition nkpx==nkpy==nkpz not fulfilled'
+    er = 1
+    return
   end if
 
-  write(*,*) 'generating q path from: ',filename_q_path
+  if (ounit .gt. 0) write(ounit,*) 'generating q path from: ',filename_q_path
   nsegments=n_segments()
-  write(*,*) nsegments, 'q segments'
+  if (ounit .gt. 0) write(ounit,*) nsegments, 'q segments'
   
   open(unit=1,file=filename_q_path)
   allocate(qpoints_str(nsegments+1))
@@ -97,7 +105,7 @@ subroutine generate_q_path(n1,qdata)
   end do
   close(1)
 
-  write(*,*) qpoints_str
+  if (ounit .gt. 0) write(ounit,*) qpoints_str
 
   if (nsegments.gt.0) then
   do i=1,nsegments
@@ -108,55 +116,70 @@ subroutine generate_q_path(n1,qdata)
     end if
     i1=(i-1)*n1/2+1+start
     i2=i*n1/2+1
-    write(*,*) i1,i2
-    write(*,*)
+    if (ounit .gt. 0) write(ounit,*) i1,i2
     
 !    call q_path_segment_old(start,i1,i2,qpoints_str(i),qpoints_str(i+1),qdata(i1:i2))
-    call q_path_segment(n1,start,i1,i2,qpoints_str(i),qpoints_str(i+1),qdata(i1:i2))
+    call q_path_segment(n1,start,i1,i2,qpoints_str(i),qpoints_str(i+1),qdata(i1:i2),er,erstr)
+    if (er  .ne. 0) exit
   end do
   else if (nsegments.eq.0) then
     qdata(1)=q_index_from_code(qpoints_str(1))
   else
-    write(*,*) 'Error: wrong number of q path segments, probably negative.'
-    stop
+    er = 2
+    erstr='Error: wrong number of q path segments, probably negative.'
   end if
-!  write(*,*) qdata
 
+  return
 end subroutine generate_q_path
 
 function q_index_from_code(q_code)
   implicit none
-  character(len=1) :: q_code
   integer :: q_index_from_code
+  character,intent(in) :: q_code
 
   q_index_from_code=0
 
-  if (q_code.eq.'G') then
+  select case(q_code)
+  case ('G')
     q_index_from_code=k_index(0,0,0)
-  else if (q_code.eq.'X') then
+  case ('X')
     q_index_from_code=k_index(0,0,nkp1/2)
-  else if (q_code.eq.'M') then
+  case ('M')
     q_index_from_code=k_index(0,nkp1/2,nkp1/2)
-  else if (q_code.eq.'R') then
+  case ('R') 
     q_index_from_code=k_index(nkp1/2,nkp1/2,nkp1/2)
-  else
-    write(*,*) 'Error: unknown q code'
-    stop
-  end if
+  case default
+    ! error
+    q_index_from_code = -1
+  end select
+
+  return
 end function q_index_from_code
 
-subroutine q_path_segment(n1,start,istart,istop,qpoint_1,qpoint_2,segment) 
+subroutine q_path_segment(n1,start,istart,istop,qpoint_1,qpoint_2,segment,er,erstr) 
   implicit none
+  integer,intent(out) :: er
+  character(len=*),intent(out) :: erstr
   character :: qpoint_1,qpoint_2
   integer :: q_ind_1,q_ind_2,q_vec_1(3),q_vec_2(3),distance(3),step(3)
   integer :: start,istart,istop,j,n1
   integer :: segment(istart:istop),i
   integer :: vector(3)
 
+  er = 0
+  erstr = ''
+
   q_ind_1=q_index_from_code(qpoint_1)
   q_ind_2=q_index_from_code(qpoint_2)
 
+  if (q_ind_1 .le. -1 .or. q_ind_2 .le. -1) then
+   er = 1
+   erstr = 'q_path_segment: Error: unknown symbol(s): '//qpoint_1//' '//qpoint_2
+   return
+  endif
+
   call k_vector(q_ind_1,q_vec_1)
+
   call k_vector(q_ind_2,q_vec_2)
 
   distance=q_vec_2-q_vec_1
@@ -248,38 +271,6 @@ subroutine k_vector_3(ik,kx,ky,kz)
   kx=(ik-1)/(nkpy*nkpz)
 end subroutine k_vector_3
 
-subroutine q_path_segment_old(start,istart,istop,qpoint_1,qpoint_2,segment) 
-  implicit none
-  character :: qpoint_1,qpoint_2
-  integer :: start,istart,istop,j
-  integer :: segment(istart:istop),i
-
-  if (qpoint_1.eq.'G' .and. qpoint_2.eq.'X') then
-    do i=istart,istop
-      j=(i-istart+start)*nkp1/nqp1
-      segment(i)=k_index(0,0,j)
-    end do
-  else if (qpoint_1.eq.'X' .and. qpoint_2.eq.'M') then
-    do i=istart,istop
-      j=(i-istart+start)*nkp1/nqp1
-      segment(i)=k_index(0,j,nkp1/2)
-    end do
-  else if (qpoint_1.eq.'M' .and. qpoint_2.eq.'R') then
-    do i=istart,istop
-      j=(i-istart+start)*nkp1/nqp1
-      segment(i)=k_index(j,nkp1/2,nkp1/2)
-    end do
-  else if (qpoint_1.eq.'R' .and. qpoint_2.eq.'G') then
-    do i=istart,istop
-      j=(nkp1/2-i+istart-start)*nkp1/nqp1
-      segment(i)=k_index(j,j,j)
-    end do
-  else
-  write(*,*) qpoint_1,qpoint_2,'not yet implemented'
-  end if
-end subroutine q_path_segment_old
-
-
 subroutine checkk(k,q,ic,dk)
       implicit none
       integer ic
@@ -313,7 +304,7 @@ subroutine index_kq_search(k_data, q_data, index)
          dum = dum+(k_data(i,1)-k_data(i,2))**2.d0
       enddo
       dk = dsqrt(dum)
-      write(*,*)'using internal dk=',dk
+      if (ounit .gt. 0) write(ounit,*)'using internal dk=',dk
 
 
       do ikp=1,nkp  !k
@@ -343,7 +334,7 @@ subroutine index_kq_search(k_data, q_data, index)
 
          
          if (abs(mod(real(ikp),real(500))).lt.0.1d0) then
-            write(*,*)ikp,'/',nkp
+            if (ounit .gt. 0) write(ounit,*)ikp,'/',nkp
          endif
         
 
@@ -354,9 +345,9 @@ subroutine index_kq_search(k_data, q_data, index)
       do ikp=1,nkp
          do jkp=1,nqp
             if ((index(ikp,jkp).lt.1).or.(index(ikp,jkp).gt.nkp)) then
-               write(*,*)ikp,jkp,nkp,index(ikp,jkp)
-               write(*,*)k_data(:,ikp)
-               write(*,*)k_data(:,jkp)
+               if (ounit .gt. 0) write(ounit,*)ikp,jkp,nkp,index(ikp,jkp)
+               if (ounit .gt. 0) write(ounit,*)k_data(:,ikp)
+               if (ounit .gt. 0) write(ounit,*)k_data(:,jkp)
                STOP 'k out of bound'
             endif
 !! Consistency check of new integer-based method
