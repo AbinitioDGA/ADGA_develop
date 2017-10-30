@@ -256,10 +256,15 @@ subroutine read_config(er,erstr)
 end subroutine read_config
 
 
-subroutine init()
+subroutine config_init(er,erstr)
   implicit none
+  integer,intent(out) :: er
+  character(len=*),intent(out) :: erstr
   integer :: i
   real(KIND=8),parameter :: pi = 4d0*atan(1d0)
+
+  er = 0
+  erstr = ''
 
   maxdim = ndim*ndim*2*iwfmax_small
   ndim2 = ndim*ndim
@@ -274,7 +279,9 @@ subroutine init()
   ! Since currently the BZ sum has to go over all points of the Hamiltonian, we
   ! do a consistency check here.
   if (nkpx*nkpy*nkpz .ne. nkp) then
-    stop 'Wrong number of k points in config file.'
+    er = 1
+    erstr = 'Wrong number of k points in config file.'
+    return
   end if
   nkp=nkpx*nkpy*nkpz
 
@@ -282,12 +289,17 @@ subroutine init()
   if (q_vol) then
     nqp = nqpx*nqpy*nqpz
     if (mod(nkpx,nqpx).ne.0 .or. mod(nkpy,nqpy).ne.0 .or. mod(nkpz,nqpz).ne.0) then
-      stop 'mismatch between k- and q-grid!'
+      er = 2
+      erstr = 'mismatch between k- and q-grid!'
+      return
     endif
   end if
 
   if (q_path_susc .or. k_path_eom) then
-    stop 'q paths currently not stable'
+    er = 3
+    erstr = 'q paths currently not stable'
+    return
+
     nkp1=nkpx
     nqp1=nqpx
   end if
@@ -304,7 +316,7 @@ subroutine init()
     iwb_data(i)=pi*2*i/beta
   end do
   
-end subroutine init
+end subroutine config_init
 
 subroutine finalize()
   implicit none
@@ -353,11 +365,15 @@ subroutine check_freq_range(mpi_wrank,master)
 end subroutine check_freq_range
 
 
-subroutine check_config()
+subroutine check_config(er,erstr)
   implicit none
+  integer,intent(out) :: er
+  character(len=*),intent(out) :: erstr
   logical :: there
   integer :: ineq
 
+  er = 0
+  erstr = ''
   exist_p = .false.
   do ineq=1,nineq
     if(ndims(ineq,2) .ne. 0) exist_p=.true.
@@ -366,50 +382,59 @@ subroutine check_config()
   if (read_ext_hk .eqv. .true.) then
     inquire (file=trim(filename_hk), exist=there)
     if (.not. there) then
-      stop "Error: Hamiltonian file does not exist"
+      er = 1
+      erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the Ham.hk file: "//trim(filename_hk)
+      return
     endif
   endif
 
   if (read_ext_u .eqv. .true.) then
     inquire (file=trim(filename_umatrix), exist=there)
     if (.not. there) then
-      stop "Error: Umatrix file does not exist"
+      er = 2
+      erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the Umatrix file: "//trim(filename_umatrix)
+      return
     endif
   endif
 
   if (q_vol .eqv. .false.) then
     inquire (file=trim(filename_q_path), exist=there)
     if (.not. there) then
-      stop "Error: Q-Path file does not exist"
+      er = 3
+      erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the Q-Path file: "//trim(filename_q_path)
+      return
     endif
   endif
 
   if (do_vq .eqv. .true.) then
     inquire (file=trim(filename_vq), exist=there)
     if (.not. there) then
-      stop "Error: V(Q) file does not exist"
+      er = 4
+      erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the V(q) file: "//trim(filename_vq)
+      return
     endif
   endif
 
   inquire (file=trim(filename_1p), exist=there)
   if (.not. there) then
-    stop "Error: One-Particle data file does not exist"
-  endif
-
-  ! inquire (file=trim(filename_umatrix), exist=there)
-  ! if (.not. there) then
-  !   stop "Error: Umatrix file does not exist"
-  ! endif
-
-  if (vertex_type .lt. 0 .or. vertex_type .gt. 2) then
-    stop "Error: Choose appropriate vertex type"
+      er = 5
+      erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the 1P data file: "//trim(filename_1p)
+      return
   endif
 
   inquire (file=trim(filename_vertex_sym), exist=there)
   if (.not. there) then
-    stop "Error: Two-Particle data file does not exist"
+      er = 6
+      erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the 2P data file: "//trim(filename_vertex_sym)
+      return
   endif
 
-  end subroutine check_config
+  if (vertex_type .lt. 0 .or. vertex_type .gt. 2) then
+    er = 7
+    erstr = "Error: Choose appropriate vertex type"
+  endif
+
+  return
+end subroutine check_config
 
 end module config_module

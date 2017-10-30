@@ -991,15 +991,18 @@ end subroutine output_chi_qw_h5
 subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
   use parameters_module
   implicit none
-  character(len=*) :: filename_output
+  character(len=*),intent(in) :: filename_output
+  complex(kind=8),intent(in) :: sigma_sum(:,:,-iwfmax_small:,:)
+  !complex(kind=8),intent(in) :: sigma_sum_hf(ndim,ndim,nkp,3,4,5)
+  complex(kind=8),intent(in) :: sigma_sum_hf(:,:,:)
+  complex(kind=8),intent(in) :: sigma_loc(:,:,-iwfmax_small:)
+  complex(kind=8),intent(in) :: sigma_sum_dmft(:,:,-iwfmax_small:)
   integer(hid_t) :: file_id,grp_id_siwk,dset_id_sigmasum,dspace_id_sigmasum,dset_id_sigmasumhf
   integer(hid_t) :: dspace_id_siw,dset_id_siwloc,dset_id_siwdmft
   integer :: rank_siwk,rank_siw
   integer(hsize_t),dimension(:),allocatable :: dims_siwk,dims_siw
-  complex(kind=8),dimension(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp) :: sigma_sum,sigma_sum_hf
-  complex(kind=8),dimension(ndim,ndim,-iwfmax_small:iwfmax_small-1) :: sigma_loc,sigma_sum_dmft
-  complex(kind=8),dimension(ndim,ndim,nkpz,nkpy,nkpx,2*iwfmax_small) :: siwk_outputarray
-  complex(kind=8),dimension(ndim,ndim,2*iwfmax_small) :: siw_outputarray
+  complex(kind=8) :: siwk_outputarray(ndim,ndim,nkpz,nkpy,nkpx,2*iwfmax_small)
+  complex(kind=8) :: siw_outputarray(ndim,ndim,2*iwfmax_small)
 
   integer :: i1,i2,ikx,iky,ikz,iw
 
@@ -1042,22 +1045,19 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
       do ikz=1,nkpz
         do iky=1,nkpy
           do ikx=1,nkpx
-            do iw=1,2*iwfmax_small
-              siwk_outputarray(i2,i1,ikz,iky,ikx,iw) = &
-               sigma_sum_hf(i1,i2,iw-iwfmax_small-1,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
-            end do
+            siwk_outputarray(i2,i1,ikz,iky,ikx,:) = &
+               sigma_sum_hf(i1,i2,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
           end do
         end do
       end do
     end do
   end do
 
-  ! the dimensions are the same, so we can use the same data space
+  ! the dimensions are the same (not really, but once V(q) depends on w they will), so we can use the same data space
   call h5dcreate_f(grp_id_siwk,'hartree_fock_nonloc',compound_id,dspace_id_sigmasum,dset_id_sigmasumhf,err)
   call h5dwrite_f(dset_id_sigmasumhf,type_r_id,real(siwk_outputarray),dims_siwk,err)
   call h5dwrite_f(dset_id_sigmasumhf,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
   call h5dclose_f(dset_id_sigmasumhf,err)
-
 
   deallocate(dims_siwk)
 
