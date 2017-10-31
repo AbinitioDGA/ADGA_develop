@@ -431,7 +431,7 @@ end if
 
         ! Add the identity to gamma^w (intermediate quantity used in several equations)
         oneplusgammawm = gammawm
-        oneplusgammawm = gammawm
+        oneplusgammawd = gammawd
         do i1=1,ndim2
            do dum=0,2*iwfmax_small-1
               i = i1+dum*ndim2 ! Compound index (i1,iwf)
@@ -563,7 +563,7 @@ end if
       end if
       if (do_eom) then
          !equation of motion
-         call calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind,iwb,iq,v,sigma_nl)
+         call calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind,iwb,iq,v,sigma_nl) 
       end if
      endif ! non-local
      call cpu_time(finish)
@@ -701,7 +701,7 @@ end if
         ! call read_and_add_local_chi_dens(chi_qw_full) ! Add chi^w_dens
         if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
            write(ounit,'(1x,"Orbital sum of Chi^q_d - Chi^q_0 at w = 0, and first q-point (usually q = 0):")') 
-           write(ounit,'(1x,"Sum Chi_d - Chi_0^q: ",2f12.7)') &
+           write(ounit,'(1x,"Sum Chi_d - Chi_0^q : ",2f12.7)') &
                  sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif

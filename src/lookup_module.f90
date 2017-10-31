@@ -103,19 +103,22 @@ module lookup_module
       endif
     enddo
 
-    do i=save_start, lines
-      if (index(trim(file_save(i)),'[') .eq. 1) then
-        if (index(trim(file_save(i)),'[[') .eq. 1) then ! skip subgroups
-          cycle
+    if (save_start .ge. 1) then
+      do i=save_start, lines
+        if (index(trim(file_save(i)),'[') .eq. 1) then
+          if (index(trim(file_save(i)),'[[') .eq. 1) then ! skip subgroups
+            cycle
+          endif
+          save_end=i-1 ! one above the next session
+          exit
         endif
-        save_end=i-1 ! one above the next session
-        exit
-      endif
-    enddo
+      enddo
 
-    if(save_end .eq. 0) then
-      save_end = lines ! if nothing else is found, until the end of the file
+      if(save_end .eq. 0) then
+        save_end = lines ! if nothing else is found, until the end of the file
+      endif
     endif
+    return
   end subroutine group_find
 
   subroutine subgroup_find(search_string, search_start, search_end, save_start, save_end)
