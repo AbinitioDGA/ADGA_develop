@@ -1,2 +1,2 @@
 #!/bin/bash
-grep 'Tr\[Local Greens function\] :' out|awk '{print $4}'
+grep 'Tr\[Local Greens function\]:' output-test/out|awk '{print $5}'

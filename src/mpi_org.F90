@@ -24,6 +24,8 @@ module mpi_org
       call MPI_comm_size(MPI_COMM_WORLD,mpi_wsize,ierr)
       master = 0
       allocate(rct(mpi_wsize),disp(mpi_wsize))
+      rct = 0
+      disp = 0
 #else
       mpi_wrank=0
       mpi_wsize=1
@@ -33,28 +35,26 @@ module mpi_org
 
 
   subroutine mpi_distribute()
-    use parameters_module, ONLY: ounit
+    use parameters_module, ONLY: ounit, verbose, verbstr
     implicit none
     integer :: i,j
 #ifdef MPI
-      rct=0
-      disp=0
+      rct=0  ! Elements per rank
+      disp=0 ! Offset, i.e. disp(1) = 0
       qwstop = 0
-      do i=0,mpi_wrank
-        j = (nqp*(2*iwbmax_small+1) - qwstop)/(mpi_wsize-i)
-        qwstart = qwstop + 1
-        qwstop = qwstop + j
+      do i=1,mpi_wsize -1
+        rct(i) = (nqp*(2*iwbmax_small+1) - disp(i))/(mpi_wsize+1-i)
+        disp(i+1) = disp(i) + rct(i)
       enddo
-      rct(mpi_wrank+1)=(qwstop-qwstart+1)*ndim2**2
-      if (mpi_wrank .eq. master) then
-        call MPI_reduce(MPI_IN_PLACE,rct,mpi_wsize,MPI_INTEGER,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-      else
-        call MPI_reduce(rct,rct,mpi_wsize,MPI_INTEGER,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-      end if
-      if (mpi_wrank .eq. master) then
-        do i=2,mpi_wsize
-          disp(i)=sum(rct(1:i-1))! the first displacing has to be 0
-        end do
+      rct(mpi_wsize) = (nqp*(2*iwbmax_small+1) - disp(mpi_wsize))
+      ! Set qwstart and qsstop
+      qwstart = disp(mpi_wrank+1)+1
+      qwstop = disp(mpi_wrank+1)+rct(mpi_wrank+1)
+
+      ! Multiply rct and disp with ndim2**2 for future use in mpi_gatherv
+      rct = rct*ndim2**2
+      disp = disp*ndim2**2
+      if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Mpi") .ne. 0))) then
         write(ounit,*) 'mpi_distribute: receive ct',rct
         write(ounit,*) 'mpi_distribute: displacing',disp
       end if
@@ -62,7 +62,7 @@ module mpi_org
       qwstart = 1
       qwstop = nqp*(2*iwbmax_small+1)
 #endif
-    if (ounit .gt.  0) write(ounit,*)'mpi_distribute: rank=',mpi_wrank, 'qwstart=', qwstart, 'qwstop=', qwstop
+    if (ounit .ge.  1) write(ounit,*) 'mpi_distribute: average number of iqw points per rank:',dble(sum(rct))/mpi_wsize
   end subroutine mpi_distribute
 
 

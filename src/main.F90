@@ -615,21 +615,21 @@ end if
        sigma_loc = 0
        if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
          write(ounit,'(1x,"Orbital trace of the self-energy at the first negative and positive matsubara: (Re,Im),(Re,Im)")') 
-         write(ounit,'(1x,"Tr[QMC Self-energy]       : ",4f24.11)') sum((/(siw(-1,i),i=1,ndim)/)),sum((/(siw(0,i),i=1,ndim)/))
-         write(ounit,'(1x,"Tr[Local Self-energy]     : ",4f24.11)') sum( (/ (sigma_sum_dmft(i,i,-1),i=1,ndim) /) ), &
+         write(ounit,'(1x,"Tr[QMC Self-energy]:         ",4f24.11)') sum((/(siw(-1,i),i=1,ndim)/)),sum((/(siw(0,i),i=1,ndim)/))
+         write(ounit,'(1x,"Tr[Local Self-energy]:       ",4f24.11)') sum( (/ (sigma_sum_dmft(i,i,-1),i=1,ndim) /) ), &
                                                                     sum( (/ (sigma_sum_dmft(i,i,0),i=1,ndim) /) )
-         write(ounit,'(1x,"Tr[Non-local Self-energy] : ",4f24.11)') sum( (/ (sigma_sum(i,i,-1,1),i=1,ndim) /) ), &
+         write(ounit,'(1x,"Tr[Non-local Self-energy]:   ",4f24.11)') sum( (/ (sigma_sum(i,i,-1,1),i=1,ndim) /) ), &
                                                                     sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) ) 
        endif
        call add_siw_dmft(sigma_sum) 
        call get_sigma_g_loc(sigma_sum, sigma_loc, gloc)
        if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
-         write(ounit,'(1x,"Tr[Total Self-energy]     : ",4f24.11)') sum( (/ (sigma_sum(i,i,-1,1),i=1,ndim) /) ), &
+         write(ounit,'(1x,"Tr[Total Self-energy]:       ",4f24.11)') sum( (/ (sigma_sum(i,i,-1,1),i=1,ndim) /) ), &
                                                                     sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) )
-         write(ounit,'(1x,"Tr[Total loc Self-energy] : ",4f24.11)') sum( (/ (sigma_loc(i,i,-1),i=1,ndim) /) ), &
-                                                                    sum( (/ (sigma_loc(i,i,0),i=1,ndim) /) )
-         write(ounit,'(1x,"Tr[QMC Greens function]   : ",4f24.11)') sum((/(giw(-1,i),i=1,ndim)/)),sum((/(giw(0,i),i=1,ndim)/)) 
-         write(ounit,'(1x,"Tr[Local Greens function] : ",4f24.11)') sum((/(gloc(-1,i,i),i=1,ndim)/)),&
+         write(ounit,'(1x,"Tr[Total local Self-energy]: ",4f24.11)') sum( (/ (sigma_loc(i,i,-1),i=1,ndim) /) ), &
+                                                                     sum( (/ (sigma_loc(i,i,0),i=1,ndim) /) )
+         write(ounit,'(1x,"Tr[QMC Greens function]:     ",4f24.11)') sum((/(giw(-1,i),i=1,ndim)/)),sum((/(giw(0,i),i=1,ndim)/)) 
+         write(ounit,'(1x,"Tr[Local Greens function]:   ",4f24.11)') sum((/(gloc(-1,i,i),i=1,ndim)/)),&
                                                                     sum((/(gloc(0,i,i),i=1,ndim)/))
          call flush(ounit)
        endif
@@ -655,7 +655,7 @@ end if
     if (mpi_wrank .eq. master) then
         if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
            write(ounit,'(1x,"Orbital sum of Chi^w_0 (local bubble) at w = 0:")') 
-           write(ounit,'(1x,"Sum Chi_0^{w=0} : ",2f12.7)') & 
+           write(ounit,'(1x,"Sum Chi_0^{w=0}: ",2f12.7)') & 
                  sum((/((bubble_loc(i+(i-1)*ndim,j+(j-1)*ndim,0),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif
@@ -683,7 +683,7 @@ end if
         ! call output_chi_qw(chi_qw_full,qw,'bubble_nl.dat')
         if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
            write(ounit,'(1x,"Orbital sum of Chi^q_0 - Chi^w_0 at w = 0, and first q-point (usually q = 0):")') 
-           write(ounit,'(1x,"Sum Chi_0^q : ",2f12.7)') &
+           write(ounit,'(1x,"Sum Chi_0^q: ",2f12.7)') &
                  sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif
@@ -702,7 +702,7 @@ end if
         ! call read_and_add_local_chi_dens(chi_qw_full) ! Add chi^w_dens
         if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
            write(ounit,'(1x,"Orbital sum of Chi^q_d - Chi^q_0 at w = 0, and first q-point (usually q = 0):")') 
-           write(ounit,'(1x,"Sum Chi_d - Chi_0^q : ",2f12.7)') &
+           write(ounit,'(1x,"Sum Chi_d - Chi_0^q: ",2f12.7)') &
                  sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif
@@ -721,7 +721,7 @@ end if
         ! call read_and_add_local_chi_magn(chi_qw_full) ! Add chi^w_magn
         if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
            write(ounit,'(1x,"Orbital sum of Chi^q_m at w = 0, and first q-point (usually q = 0):")') 
-           write(ounit,'(1x,"Sum Chi_m : ",2f12.7)') &
+           write(ounit,'(1x,"Sum Chi_m: ",2f12.7)') &
                  sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif

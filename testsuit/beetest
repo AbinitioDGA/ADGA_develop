@@ -65,6 +65,7 @@ def EnforceTrailingSlash(path):
 def read_file(filename):
     with open(filename) as f:
         content = f.readlines()
+    content = strip_comments(content)
     content = remove_empty_rows(content)
     levels,indent_2_level = get_levels(content) # get the level in the tree for each row
     value_types = get_value_types(content)
@@ -72,6 +73,23 @@ def read_file(filename):
     tree = build_tree(content,levels,keys,value_types)
     return tree
 
+def strip_comments(content):
+    '''Comments starting with # are removed'''
+    a = []
+    for row in content: 
+        line = row.split('#')
+        striped_string = line[0].rstrip()
+        if striped_string:
+            a.append(striped_string+'\n')
+    return a 
+
+def remove_empty_rows(content):
+    '''Empty rows are removed'''
+    a = []
+    for row in content: 
+        if not row == '\n':
+            a.append(row)
+    return a 
 def remove_empty_rows(content):
     '''Empty rows are removed'''
     a = []

@@ -1,2 +1,2 @@
 #!/bin/bash
-grep 'Tr\[Total loc Self-energy\] :' output_test/out|awk '{print $3}'
+grep 'Tr\[Total local Self-energy\]:' output-test/out|awk '{print $4}'

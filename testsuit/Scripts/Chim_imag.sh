@@ -1,2 +1,2 @@
 #!/bin/bash
-grep 'Sum Chi_m :' out|awk '{print $5}'
+grep 'Sum Chi_m:' output-test/out|awk '{print $4}'

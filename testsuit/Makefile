@@ -15,6 +15,7 @@ clean:
 
 pristine: 
 	cd Tests/oneband_eom; make clean
+	cd Tests/oneband_eom_large; make clean
 	cd Tests/oneband_chi; make clean
 	cd Tests/oneband_eomchi; make clean
 	cd Tests/oneband_vq_eomchi; make clean
