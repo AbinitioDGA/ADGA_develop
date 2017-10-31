@@ -173,7 +173,7 @@ program main
     ! test umatrix
     if (mpi_wrank .eq. master .and.  (verbose .and. (index(verbstr,"Umatrix") .ne. 0))) then
       open(unit=10,file=trim(output_dir)//"umatrix.dat")
-      write(10,*) 'Umatrix File for the ADGA code : band,band,band,band,Uvalue'
+      write(10,*) 'Umatrix File for the abinitiodga code : band,band,band,band,Uvalue'
       do i=1,ndim
       do j=1,ndim
       do k=1,ndim
@@ -238,7 +238,11 @@ program main
 
   if (ounit .ge. 1) then
     write(ounit,'(1x)')
-    if (.not. do_vq) write(ounit,*) 'Running the calculation without V(q)'
+    if (.not. do_vq) then
+      write(ounit,*) 'Running the calculation without V(q)'
+    else
+      write(ounit,*) 'Running the calculation without V(q)'
+    endif
     write(ounit,'(1x)')
     write(ounit,'(1x,"frequency information:")')
     write(ounit,*) 'iwmax=', iwmax, ' (number of fermionic matsubara frequencies of one-particle quantities)'
@@ -323,7 +327,7 @@ if (do_eom) then
 end if
 
 
-if (mpi_wrank.eq.0) then
+if (mpi_wrank.eq. master .and. (verbose .and. (index(verbstr,"Kpoints") .ne. 0))) then
   open(unit=256,file=trim(output_dir)//'kdata',status='replace')
   do ik=1,nkp
     write(256,*) k_data(:,ik)
@@ -346,7 +350,11 @@ end if
   nonlocal = .not. (debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) ! Do the non-local quantities!
   if (ounit .gt. 0) then
     write(ounit,'(1x)')
-    write(ounit,*) "Starting the main loop:"
+    if (nonlocal) then
+       write(ounit,*) "Starting the main loop:"
+    else
+       write(ounit,*) "Starting the main loop: (Debug: Only local quantities are calculated!)"
+    endif
     if (.not. (verbose .and. (index(verbstr,"Noprogress") .ne. 0))) then
       write(ounit,*) "To supress the progress indicator, use the verbose keyword Noprogress."
     endif
@@ -465,11 +473,9 @@ end if
          ! Get the non-local bubble
          bubble_nl(:,:,iqw) = bubble_nl(:,:,iqw)/(beta**2)  - bubble_loc_tmp
          ! Add gamma^w.chi0^{nl,q} to the q dependent susceptibility
-         do iwf = - iwfmax_small,iwfmax_small-1
-            chi0nl = chi0q - chi0w
-            call calc_chi_qw(chi_qw_dens(:,:,iqw),gammawd,chi0nl)
-            call calc_chi_qw(chi_qw_magn(:,:,iqw),gammawm,chi0nl)
-         enddo
+         chi0nl = chi0q - chi0w ! Temporary array with the large iwfmax dimension
+         call calc_chi_qw(chi_qw_dens(:,:,iqw),gammawd,chi0nl)
+         call calc_chi_qw(chi_qw_magn(:,:,iqw),gammawm,chi0nl)
       end if
 
 !      call cpu_time(finish)
@@ -496,7 +502,6 @@ end if
          enddo
 
          ! compute intermediate quantity chi0^{nl,q}.F^w = (chi0^q-chi0^w).F^w = (chi0*[chi0^w]^{-1}-1)*(chi0^w.F^w):
-         rectanglework = 0.d0
          alpha = 1.d0
          delta = 0.d0
          call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, smallwork, ndim2, chi0wFd_slice, ndim2, delta, rectanglework, ndim2)
@@ -506,7 +511,6 @@ end if
          if (do_eom) gammaqd = gammaqd + rectanglework
 
          !same for the magn channel: chi0^{nl,q}.F^w
-         rectanglework = 0.d0
          alpha = 1.d0
          delta = 0.d0
          call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, smallwork, ndim2, chi0wFm_slice, ndim2, delta, rectanglework, ndim2)
@@ -514,16 +518,16 @@ end if
          bigwork_magn(offset+1:offset+ndim2,:) = -rectanglework
 
          ! compute part containing nonlocal interaction v (only in density channel)
-         ! 2*beta^(-2)*chi0.v
-         smallwork = 2d0/(beta**2)*MATMUL(chi0q(:,:,iwf),v)
-         ! beta^(-2)*(chi0*v)*(1+gamma^w_d)
-         rectanglework = 0.d0
-         alpha = 1.d0
-         delta = 0.d0
-         call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, smallwork, ndim2, oneplusgammawd, ndim2, delta, rectanglework, ndim2)
-         ! add it to our big work array (Nb: with a minus sign):
-         bigwork_dens(offset+1:offset+ndim2,:) = bigwork_dens(offset+1:offset+ndim2,:) - rectanglework
-
+         if (do_vq) then
+            ! 2*beta^(-2)*chi0.v
+            smallwork = 2d0/(beta**2)*MATMUL(chi0q(:,:,iwf),v)
+            ! beta^(-2)*(chi0*v)*(1+gamma^w_d)
+            alpha = 1.d0
+            delta = 0.d0
+            call zgemm('n','n',ndim2,maxdim,ndim2,alpha,smallwork,ndim2,oneplusgammawd,ndim2,delta,rectanglework,ndim2)
+            ! add it to our big work array (Nb: with a minus sign):
+            bigwork_dens(offset+1:offset+ndim2,:) = bigwork_dens(offset+1:offset+ndim2,:) - rectanglework
+         endif
       enddo ! dum1
 
       ! We need to add the identity before the inversion: 
@@ -577,9 +581,6 @@ end if
       endif
      endif
   enddo !iqw
-
-
-!  close(267)
 
   if (do_chi) then
      deallocate(chi0w,chi0nl,bubble_loc_tmp)
