@@ -321,9 +321,10 @@ if (do_eom) then
   allocate(gammaqd(ndim2,maxdim))
   allocate(sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp), sigma_hf(ndim,ndim,nkp))
   allocate(sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1))
-  sigma_nl = 0.d0
-  sigma_hf = 0.d0
-  sigma_dmft = 0.d0
+  gammaqd = 0d0
+  sigma_nl = 0d0
+  sigma_hf = 0d0
+  sigma_dmft = 0d0
 end if
 
 

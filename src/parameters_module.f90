@@ -54,4 +54,24 @@ module parameters_module
   character(len=150), allocatable :: interaction(:)
   integer,allocatable :: interaction_mode(:)
 
+  contains
+
+   subroutine dumpdata(ain,str)
+   complex(KIND=8),intent(in)    :: ain(:,:)
+   character(len=*),intent(in)   :: str
+   integer                       :: i,j
+
+   write(ounit,*) TRIM(ADJUSTL(str))
+   write(ounit,'(1x,"Real:")')
+   do i=1,size(ain,1)
+      write(ounit,'(9999f12.8)') (dble(ain(i,j)),j=1,size(ain,2))
+   enddo
+   write(ounit,'(1x,"Imag:")')
+   do i=1,size(ain,1)
+      write(ounit,'(9999f12.8)') (dimag(ain(i,j)),j=1,size(ain,2))
+   enddo
+
+   return
+   end subroutine dumpdata
+
 end module parameters_module

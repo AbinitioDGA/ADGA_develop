@@ -15,6 +15,7 @@ contains
    complex(kind=8),intent(in)     :: v(ndim2,ndim2)
    complex(kind=8),intent(inout)  :: sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1)
    complex(kind=8),intent(inout)  :: sigma_hf(ndim,ndim,nkp)
+   complex(kind=8)                :: sigma_tmp(ndim,ndim)
    integer :: dum,i,j,iw,iwf,iwf2,l,k,ik,ikq
    integer :: i1,i2,i3,i4
    complex(kind=8) :: alpha, delta
@@ -25,13 +26,19 @@ contains
       ! u(i,j,k,l) = u( i1 = {ki}, i2 = {jl} ), 
       ! so u(i,j,i,j) = u( i1 = {ii}, i2 = {jj} )
       ! and u(i,j,j,i) = u( i1 = {ji}, i2 = {ji} ) (only for equal spins)
+      sigma_tmp = 0
       do i=1,ndim
          i1 = i+(i-1)*ndim ! = {ii}
          do j=1,ndim
             i2 = j+(j-1)*ndim ! = {jj}
             i3 = j+(i-1)*ndim ! = {ji}
-            sigma_dmft(i,i,:) = sigma_dmft(i,i,:) + (2d0*u(i1,i2)-u(i3,i3))*n_dmft(j)
+            sigma_tmp(i,i) = sigma_tmp(i,i) + (2d0*u(i1,i2)-u(i3,i3))*n_dmft(j)
          enddo
+      enddo
+      if (debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) call dumpdata(sigma_tmp,"Static local self-energy:")
+      ! Add it to sigma_dmft
+      do i=1,ndim
+         sigma_dmft(i,i,:) = sigma_dmft(i,i,:) + sigma_tmp(i,i)
       enddo
       ! Calculate the non-local hartree contribution to the self-energy
       if (do_vq) then

@@ -51,18 +51,21 @@ module mpi_org
       qwstart = disp(mpi_wrank+1)+1
       qwstop = disp(mpi_wrank+1)+rct(mpi_wrank+1)
 
+      if (ounit .ge.  1) then
+         write(ounit,'(1x,"mpi_distribute: average number of iqw points per rank (floored):",i20)'),rct(1)
+      endif
+
       ! Multiply rct and disp with ndim2**2 for future use in mpi_gatherv
       rct = rct*ndim2**2
       disp = disp*ndim2**2
       if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Mpi") .ne. 0))) then
-        write(ounit,*) 'mpi_distribute: receive ct',rct
-        write(ounit,*) 'mpi_distribute: displacing',disp
+        write(ounit,*) 'mpi_distribute: receive count (iqw*ndim**2)',rct
+        write(ounit,*) 'mpi_distribute: corresponding displacements',disp
       end if
 #else
       qwstart = 1
       qwstop = nqp*(2*iwbmax_small+1)
 #endif
-    if (ounit .ge.  1) write(ounit,*) 'mpi_distribute: average number of iqw points per rank:',dble(sum(rct))/mpi_wsize
   end subroutine mpi_distribute
 
 
