@@ -2,7 +2,7 @@
 Test Dmft
 
 [Debug]
-Onlydmft Dmft_phbar
+Dmft_phbar
 
 [General]
 calc-susc = F
@@ -12,18 +12,18 @@ calc-eom  = T
 NAt = 1
 
 # Frequency boxes
-N4iwf = 60
-N4iwb = 60
+N4iwf = 20
+N4iwb = 20
 
 # General Files
-HkFile = /home/shared_work/from_matthias/for_patrik/svo/SVO_k20.hk
+HkFile = /home/shared_work/ADGA-srvo3/SVO_k20.hk
 VqFile =
 QpathFile =
 UFile =
 
 # Hamiltonian (k) & Calculation (q) grid
 k-grid = 20 20 20
-q-grid = 1 1 1
+q-grid = 2 2 2
 
 # Calculate the whole q-grid
 qvol = T
@@ -44,10 +44,10 @@ Vdd = 3.5
 Jdd = 0.75
 
 [One-Particle]
-1PFile = /home/shared_work/from_matthias/for_patrik/svo/SVO-VERTEX.hdf5
+1PFile = /home/shared_work/ADGA-srvo3/SVO-VERTEX-2016-07-14-Thu-07-24-43.hdf5
 orb-sym = T
 
 [Two-Particle]
-2PFile = /home/shared_work/from_matthias/for_patrik/svo/vertex_sym_newformat.hdf5
+2PFile = /home/shared_work/ADGA-srvo3/g4iw_asymp_60.hdf5
 # 0: 2PGF, 1: chi_con, 2: chi
 vertex-type = 1

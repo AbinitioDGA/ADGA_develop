@@ -35,7 +35,6 @@ contains
             sigma_tmp(i,i) = sigma_tmp(i,i) + (2d0*u(i1,i2)-u(i3,i3))*n_dmft(j)
          enddo
       enddo
-      if (debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) call dumpdata(sigma_tmp,"Static local self-energy:")
       ! Add it to sigma_dmft
       do i=1,ndim
          sigma_dmft(i,i,:) = sigma_dmft(i,i,:) + sigma_tmp(i,i)
@@ -300,7 +299,7 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
    endif
 
    ! If we only run the dfmt part, then it is highly likely that we want to compare sig_dmft_rep to the original data.
-   if (debug .and. ((index(dbgstr,"Onlydmft") .ne. 0) .or. (index(dbgstr,"Test") .ne. 0))) then
+   if ((debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) .or. (verbose .and. (index(verbstr,"Dmft") .ne. 0))) then
       open(44, file=trim(output_dir)//"siw_dmft_orig.dat", status='unknown')
       do iwf=-iwfmax_small,iwfmax_small-1
          write(44,'(100F12.6)') iw_data(iwf), (real(siw(iwf,i)), aimag(siw(iwf,i)), i=1,ndim)

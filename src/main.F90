@@ -412,7 +412,6 @@ end if
         enddo
 
         ! Calculate chi0^w.F
-        dum = 0
         do dum= 0,2*iwfmax_small-1
            iwf = dum - iwfmax_small
            !compute 1+chi0^w.F = chi_loc*chi0_loc_inv (Nb: Here we assume that chi0_loc_inv is diagonal in the compound index):
