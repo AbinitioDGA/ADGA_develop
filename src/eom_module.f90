@@ -30,7 +30,7 @@ contains
          do j=1,ndim
             i2 = j+(j-1)*ndim ! = {jj}
             i3 = j+(i-1)*ndim ! = {ji}
-            sigma_dmft(i,i,:) = sigma_dmft(i,i,:) - beta*(2d0*u(i1,i2)-u(i3,i3))*n_dmft(j)
+            sigma_dmft(i,i,:) = sigma_dmft(i,i,:) + (2d0*u(i1,i2)-u(i3,i3))*n_dmft(j)
          enddo
       enddo
       ! Calculate the non-local hartree contribution to the self-energy
@@ -43,7 +43,7 @@ contains
             i1 = i+(i-1)*ndim ! = {ii}
             do j=1,ndim
                i2 = j+(j-1)*ndim ! = {jj}
-               sigma_hf(i,i,:) = sigma_hf(i,i,:)-2.d0*beta*v(i1,i2)*n_dmft(j) ! FIXME: non-diagonal n_dmft
+               sigma_hf(i,i,:) = sigma_hf(i,i,:) + 2.d0*v(i1,i2)*n_dmft(j) ! FIXME: non-diagonal n_dmft
             enddo
          enddo
       endif
@@ -60,10 +60,10 @@ contains
                do k=1,ndim
                   i1 = i1+1 ! = {ki}
                   ! vq(i,j,k,l) = v(i1 = {ki},i2 = {jl})
-                  alpha = beta*v(i1,i2)/nqp
+                  alpha = v(i1,i2)/nqp
                   do ik=1,nkp
                      ikq = kq_ind(ik,iq)
-                     sigma_hf(i,l,ik) = sigma_hf(i,l,ik)+alpha*n_fock(ikq,j,k)
+                     sigma_hf(i,l,ik) = sigma_hf(i,l,ik) - alpha*n_fock(ikq,j,k)
                   enddo
                enddo
             enddo
@@ -126,7 +126,7 @@ end subroutine calc_eom_dmft
 !=============================================================================================
 
 !=============================================================================================
-   subroutine calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind,iwb,iq,v,sigma)
+   subroutine calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind,iwb,iq,v,sigma_nl)
    implicit none
    complex(kind=8),intent(in)     :: etaqd(ndim2,maxdim)
    complex(kind=8),intent(in)     :: etaqm(ndim2,maxdim)
@@ -136,7 +136,7 @@ end subroutine calc_eom_dmft
    integer,intent(in)             :: iwb
    integer,intent(in)             :: iq
    complex(kind=8),intent(in)     :: v(ndim2,ndim2)
-   complex(kind=8),intent(inout)  :: sigma(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
+   complex(kind=8),intent(inout)  :: sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
    integer :: dum,i,j,iw,iwf,iwf2,l,k,ik,ikq
    integer :: i1,i2,i3,i4
    complex(kind=8) :: m_tot(ndim2,maxdim)
@@ -149,23 +149,23 @@ end subroutine calc_eom_dmft
 
    !eta term: density part: -1/beta*(U + V^q - U_tilde/2).eta^q_d
    u_work = v + u - 0.5d0*u_tilde
-   alpha = -1.d0/beta
+   alpha = -1.d0/beta/dble(nqp)
    delta = 0.d0
    call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_work, ndim2, etaqd, ndim2, delta, m_tot, ndim2)
 
    !eta term: magnetic part: -1/beta*(-1.5*U_tilde).eta^q_m
-   alpha = 1.5d0/beta
+   alpha = 1.5d0/beta/dble(nqp)
    delta = 1.d0  ! Add to m_tot
    call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_tilde, ndim2, etaqm, ndim2, delta, m_tot, ndim2)
 
    !local part: -1/beta*(-U).gamma^q_d
-   alpha = 1.d0/beta
+   alpha = 1.d0/beta/dble(nqp)
    delta = 1.d0  ! Add to m_tot
    call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u, ndim2, gammaqd, ndim2, delta, m_tot, ndim2)
 
    !v(q) part -1/beta*V.gamma^w_d
    if(do_vq) then
-      alpha = -1.d0/beta
+      alpha = -1.d0/beta/dble(nqp)
       delta = 1.d0
       call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, v, ndim2, gammawd, ndim2, delta, m_tot, ndim2)
    endif
@@ -184,14 +184,15 @@ end subroutine calc_eom_dmft
                do i=1,ndim
                   do j=1,ndim
                      i1 = i1+1 ! compound index {ji} (j fastest)
-                     sigma(i,l,iwf,ik) = sigma(i,l,iwf,ik)+m_tot(i1,i2)*gkiw(j,k)
+                     sigma_nl(i,l,iwf,ik) = sigma_nl(i,l,iwf,ik)+m_tot(i1,i2)*gkiw(j,k)
                   enddo
                enddo
             enddo
          enddo
+         sigma_nl(:,:,-iwf-1,ik) = transpose(conjg(sigma_nl(:,:,iwf,ik)))
       enddo !iwf 
    enddo !ik
-
+   
    return
 end subroutine calc_eom_dynamic
 !=============================================================================================
@@ -257,22 +258,53 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
    integer :: ik, iwf, i, j, iband,nkp_eom,ii, i1, i2, i3, i4
    character(len=50) :: eom_format
    character(len=200) :: filename_siwk
+   integer            :: er
+   character(len=200) :: erstr
 
-   open(44, file=trim(output_dir)//"siw_loc.dat", status='unknown')
-   open(50, file=trim(output_dir)//"siw_dmft_rep.dat", status='unknown')
-
+   open(44, file=trim(output_dir)//"siw_loc_diag.dat", status='unknown')
+   open(50, file=trim(output_dir)//"siw_dmft_rep_diag.dat", status='unknown')
    do iwf=-iwfmax_small,iwfmax_small-1
-      write(50,'(100F12.6)')iw_data(iwf), ((real(sigma_sum_dmft(i,j,iwf)),aimag(sigma_sum_dmft(i,j,iwf)), j=i,ndim), i=1,ndim)
-      write(44,'(100F12.6)')iw_data(iwf), ((real(sigma_loc(i,j,iwf)), aimag(sigma_loc(i,j,iwf)), j=i,ndim), i=1,ndim)
+      write(44,'(100F12.6)') iw_data(iwf), (real(sigma_loc(i,i,iwf)), aimag(sigma_loc(i,i,iwf)), i=1,ndim)
+      write(50,'(100F12.6)') iw_data(iwf), (real(sigma_sum_dmft(i,i,iwf)),aimag(sigma_sum_dmft(i,i,iwf)), i=1,ndim)
    enddo
    close(50)
    close(44)
 
-   open(46, file=trim(output_dir)//"g_loc.dat", status='unknown')
+   open(46, file=trim(output_dir)//"g_loc_diag.dat", status='unknown')
    do iwf=-iwmax,iwmax-1
-      write(46,'(100F12.6)')iw_data(iwf), ((real(gloc(iwf,i,j)), aimag(gloc(iwf,i,j)), j=i,ndim), i=1,ndim)
+      write(46,'(100F12.6)') iw_data(iwf), (real(gloc(iwf,i,i)), aimag(gloc(iwf,i,i)), i=1,ndim)
    enddo
    close(46)
+
+   if (ndim .ge. 2) then
+      open(44, file=trim(output_dir)//"siw_loc_full.dat", status='unknown')
+      open(50, file=trim(output_dir)//"siw_dmft_rep_full.dat", status='unknown')
+      do iwf=-iwfmax_small,iwfmax_small-1
+         write(44,'(100F12.6)') iw_data(iwf), ((real(sigma_loc(i,j,iwf)), aimag(sigma_loc(i,j,iwf)), j=i,ndim), i=1,ndim)
+         write(50,'(100F12.6)') iw_data(iwf), ((real(sigma_sum_dmft(i,j,iwf)),aimag(sigma_sum_dmft(i,j,iwf)), j=i,ndim), i=1,ndim)
+      enddo
+      close(50)
+      close(44)
+      open(46, file=trim(output_dir)//"g_loc_full.dat", status='unknown')
+      do iwf=-iwmax,iwmax-1
+         write(46,'(100F12.6)') iw_data(iwf), ((real(gloc(iwf,i,j)), aimag(gloc(iwf,i,j)), j=i,ndim), i=1,ndim)
+      enddo
+      close(46)
+   endif
+
+   ! If we only run the dfmt part, then it is highly likely that we want to compare sig_dmft_rep to the original data.
+   if (debug .and. ((index(dbgstr,"Onlydmft") .ne. 0) .or. (index(dbgstr,"Test") .ne. 0))) then
+      open(44, file=trim(output_dir)//"siw_dmft_orig.dat", status='unknown')
+      do iwf=-iwfmax_small,iwfmax_small-1
+         write(44,'(100F12.6)') iw_data(iwf), (real(siw(iwf,i)), aimag(siw(iwf,i)), i=1,ndim)
+      enddo
+      close(44)
+      open(44, file=trim(output_dir)//"g_dmft_orig.dat", status='unknown')
+      do iwf=-iwmax,iwmax-1
+         write(44,'(100F12.6)') iw_data(iwf), (real(giw(iwf,i)), aimag(giw(iwf,i)), i=1,ndim)
+      enddo
+      close(44)
+   endif
 
    if (nonlocal) then
       if (verbose .and. (index(verbstr,"Siwk") .ne. 0)) then
@@ -280,7 +312,7 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
          write(filename_siwk,'(A,F5.3,A,F5.3,A,F5.3,A)') 'siwk_',k_data(1,ik),'_',k_data(2,ik),'_',k_data(3,ik),'.dat'
          open(34, file=trim(output_dir)//filename_siwk)
          do iwf=-iwfmax_small,iwfmax_small-1
-           write(34,'(100F12.6)')iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndim), i=1,ndim)
+           write(34,'(100F12.6)') iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndim), i=1,ndim)
          end do
          close(34)
        end do
@@ -301,25 +333,29 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
       close(49)
 
       if (k_path_eom) then
-        nkp_eom=n_segments()*nkp1/2+1
-        allocate(k_data_eom(nkp_eom))
-        call generate_q_path(nkp1,k_data_eom)
-        write(*,*) k_data_eom
-        open(unit=46,file='skiw_path.dat')
-        write(eom_format,'((A)I2(A))') '(I5,2X,F12.6,2X,',2*ndim*(ndim+1)/2,'(F12.6,2X))'
-        do ik=1,nkp_eom
-          do iwf=-iwfmax_small,iwfmax_small-1
-            ii=0
-            do i1=1,ndim
-              do i2=1,i1
-                ii=ii+1
-                sigma_tmp(ii)=sigma_sum(i1,i2,iwf,k_data_eom(ik))
+         nkp_eom=n_segments()*nkp1/2+1
+         allocate(k_data_eom(nkp_eom))
+         call generate_q_path(nkp1,k_data_eom,er,erstr)
+         if (er .ne. 0) then
+            if (ounit .gt. 0) write(ounit,'(a)') TRIM(erstr)
+         else
+            !write(*,*) k_data_eom
+            open(unit=46,file='skiw_path.dat')
+            write(eom_format,'((A)I2(A))') '(I5,2X,F12.6,2X,',2*ndim*(ndim+1)/2,'(F12.6,2X))'
+            do ik=1,nkp_eom
+              do iwf=-iwfmax_small,iwfmax_small-1
+                ii=0
+                do i1=1,ndim
+                  do i2=1,i1
+                    ii=ii+1
+                    sigma_tmp(ii)=sigma_sum(i1,i2,iwf,k_data_eom(ik))
+                  end do
+                end do
+                write(46,eom_format) k_data_eom(ik),iw_data(iwf),sigma_tmp
               end do
             end do
-            write(46,eom_format) k_data_eom(ik),iw_data(iwf),sigma_tmp
-          end do
-        end do
-        close(46)
+            close(46)
+         endif
       end if
    endif
 

@@ -4,38 +4,66 @@ Author: Patrik Thunstrom
 Environment:
     Executable: "./run.sh"
 Properties:
-    Selfenergy:
-        Description: Orbital trace of the self-energy at the first matsubara
-        Script: Scripts/Selfenergy.sh
+    Selfenergy_local_real:
+        Description: Orbital trace of the self-energy at the first matsubara (real part)
+        Script: Scripts/Selfenergy_local_real.sh
         Kind: Float
         Precision: 1.0E-10
-    Selfenergy_eta:
-        Description: Orbital trace of the eta contribution to the self-energy at the first matsubara
-        Script: Scripts/Selfenergy_eta.sh
+    Selfenergy_local_imag:
+        Description: Orbital trace of the self-energy at the first matsubara (imag part)
+        Script: Scripts/Selfenergy_local_imag.sh
         Kind: Float
         Precision: 1.0E-10
-    Selfenergy_gamma:
-        Description: Orbital trace of the gamma contributions to the self-energy at the first matsubara
-        Script: Scripts/Selfenergy_gamma.sh
+    Selfenergy_dfmt_real:
+        Description: Orbital trace of the dmft contribution to the self-energy at the first matsubara (real part)
+        Script: Scripts/Selfenergy_dfmt_real.sh
         Kind: Float
         Precision: 1.0E-10
-    Chiqdens:
-        Description: Orbital trace of Chi^q_dens at the first matsubara and q-point
-        Script: Scripts/Chiqd.sh
+    Selfenergy_dfmt_imag:
+        Description: Orbital trace of the dmft contribution to the self-energy at the first matsubara (imag part)
+        Script: Scripts/Selfenergy_dfmt_imag.sh
+        Kind: Float
+        Precision: 1.0E-10
+    Greens_function_local_real:
+        Description: Orbital trace of the local DGA greens function at the first matsubara (real part)
+        Script: Scripts/Selfenergy_dfmt_real.sh
+        Kind: Float
+        Precision: 1.0E-10
+    Greens_function_local_imag:
+        Description: Orbital trace of the local DGA greens function at the first matsubara (imag part)
+        Script: Scripts/Selfenergy_dfmt_imag.sh
+        Kind: Float
+        Precision: 1.0E-10
+    Chid-Chi0_real:
+        Description: Orbital trace of Chi^q_dens - Chi_0^q at the first matsubara and q-point (real part)
+        Script: Scripts/Chid-Chi0_real.sh
         Kind: Float
         Precision: 1.0E-7
-    Chiqmagn:
-        Description: Orbital trace of Chi^q_magn at the first matsubara and q-point
-        Script: Scripts/Chiqm.sh
+    Chid-Chi0_imag:
+        Description: Orbital trace of Chi^q_dens - Chi_0^q at the first matsubara and q-point (imag part)
+        Script: Scripts/Chid-Chi0_imag.sh
+        Kind: Float
+        Precision: 1.0E-7
+    Chim_real:
+        Description: Orbital trace of Chi^q_magn at the first matsubara and q-point (real part)
+        Script: Scripts/Chim_real.sh
+        Kind: Float
+        Precision: 1.0E-7
+    Chim_imag:
+        Description: Orbital trace of Chi^q_magn at the first matsubara and q-point (imag part)
+        Script: Scripts/Chim_imag.sh
         Kind: Float
         Precision: 1.0E-7
 
 TestCases:
    - Description: One band Bethe lattice without V^q, only eom
      Path: Tests/oneband_eom
-     Selfenergy:  1.0 # Add a reference number here
-     Selfenergy_eta:  1.0 # Add a reference number here
-     Selfenergy_gamma:  1.0 # Add a reference number here
+     Selfenergy_local_real: 1.00001730186 # These numbers needs to be checked..
+     Selfenergy_local_imag: 1.96989211251
+     Selfenergy_dfmt_real: 0.99983600672
+     Selfenergy_dfmt_imag: 0.90423622280
+     Greens_function_local_real: -0.00000233597
+     Greens_function_local_imag: 0.36841750606
    - Description: One band Bethe lattice without V^q, only chi
      Path: Tests/oneband_chi
      Chiqdens:  1.0 # Add a reference number here

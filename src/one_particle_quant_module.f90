@@ -33,13 +33,13 @@ subroutine get_giw()
 
   do iw=0,iwmax-1
      do i=1,ndim
-        giw(-iw-1,i) = real(giw(iw,i),kind=8)-ci*aimag(giw(iw,i))
+        giw(-iw-1,i) = conjg(giw(iw,i)) ! It is diagonal, so no transpose is needed
      enddo
   enddo
 
   giw = giw/dble(nkp)
 
-  if(mpi_wrank .eq. master) then
+  if ((verbose .and. (index(verbstr,"Dmft") .ne. 0)) .and. mpi_wrank .eq. master) then
     open(35, file=trim(output_dir)//"giw_calc.dat", status='unknown')
     do iw=-iwmax,iwmax-1
       write(35,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
@@ -74,15 +74,16 @@ end subroutine get_gkiw
 subroutine get_gloc(sigma_sum, gloc)
   implicit none
 
-  complex(kind=8) :: sigma_sum(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
+  complex(kind=8),intent(in) :: sigma_sum(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
+  complex(kind=8), intent (out) :: gloc(-iwmax:iwmax-1,ndim,ndim)
   integer :: ik, iw, i
   complex(kind=8) :: g(ndim,ndim), g2(ndim,ndim)
-  complex(kind=8), intent (out) :: gloc(-iwmax:iwmax-1,ndim,ndim)
   complex(kind=8),parameter :: ci = (0d0,1d0)
 
   gloc = 0.d0
   do ik=1,nkp
      g(:,:) = -hk(:,:,ik)
+     ! Within the small box, use sigma_sum
      do iw=0,iwfmax_small-1
         do i=1,ndim
            g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)
@@ -95,6 +96,7 @@ subroutine get_gloc(sigma_sum, gloc)
         gloc(iw,:,:) = gloc(iw,:,:)+g2(:,:)
      enddo
 
+     ! Outside the small box, use siw (from QMC)
      do iw=iwfmax_small,iwmax-1
         do i=1,ndim
            g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)
@@ -110,7 +112,7 @@ subroutine get_gloc(sigma_sum, gloc)
   enddo
 
   do iw=0,iwmax-1
-     gloc(-iw-1,:,:) = real(gloc(iw,:,:),kind=8)-ci*aimag(gloc(iw,:,:))
+     gloc(-iw-1,:,:) = TRANSPOSE(conjg(gloc(iw,:,:)))
   enddo
 
   gloc = gloc/dble(nkp)
@@ -226,7 +228,7 @@ subroutine get_ndmft()
   enddo
   n_dmft(:) = 2.d0*real(giw_sum(:))/beta+0.5d0
 
-  if (mpi_wrank .eq. master) then
+  if ((verbose .and. (index(verbstr,"Dmft") .ne. 0)) .and. mpi_wrank .eq. master) then
     open(56, file=trim(output_dir)//"n_dmft.dat", status='unknown')
     write(56,'(100F12.6)') (real(n_dmft(i)),i=1,ndim)
     close(56)
