@@ -39,14 +39,7 @@ subroutine get_giw()
 
   giw = giw/dble(nkp)
 
-  if ((verbose .and. (index(verbstr,"Dmft") .ne. 0)) .and. mpi_wrank .eq. master) then
-    open(35, file=trim(output_dir)//"giw_calc.dat", status='unknown')
-    do iw=-iwmax,iwmax-1
-      write(35,'(100F12.6)') iw_data(iw), (real(giw(iw,i)),aimag(giw(iw,i)),i=1,ndim)
-    enddo
-    close(35)
-  endif
-
+  return
 end subroutine get_giw
 
 

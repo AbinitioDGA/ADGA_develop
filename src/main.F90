@@ -151,14 +151,14 @@ program main
   ! COMPUTE or READ the local single-particle Greens function:
   ! The calculation is necessary if one wants to do calculations with p-bands
   ! since read_giw reads the giw array which only ! contains correlated bands
-  if(.not. exist_p) then
-    if (ounit .ge. 1) write(ounit,*) "Reading giw from file. (The QMC green's function) "
-    call read_giw()  ! w2d greens function G_dmft
-  else
+  call read_siw()  ! w2d self energy
+  if(exist_p .or. (debug .and. (index(dbgstr,"Makegiw") .ne. 0))) then
     if (ounit .ge. 1) write(ounit,*) 'Constructig giw from siw. (The QMC self-energy + Ham.hk) '
     call get_giw() ! writes giw_calc.dat if we have the verbose keyword "Dmft"
+  else
+    if (ounit .ge. 1) write(ounit,*) "Reading giw from file. (The QMC green's function) "
+    call read_giw()  ! w2d greens function G_dmft
   endif
-  call read_siw()  ! w2d self energy
 
   call finalize_h5() ! close the hdf5-fortran interface
 
