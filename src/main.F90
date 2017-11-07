@@ -26,6 +26,7 @@ program main
   complex(kind=8), allocatable ::  oneplusgammawm(:,:), oneplusgammawd(:,:), gammawd(:,:), gammawm(:,:)
   complex(kind=8), allocatable :: chi_qw_dens(:,:,:),chi_qw_magn(:,:,:),bubble_nl(:,:,:),chi_qw_full(:,:,:)
   complex(kind=8), allocatable :: chi_loc_dens(:,:,:),chi_loc_magn(:,:,:),bubble_loc(:,:,:),bubble_loc_tmp(:,:)
+  complex(kind=8), allocatable :: chi_loc_qmc(:,:,:), chi_loc_dens_tmp(:,:), chi_loc_magn_tmp(:,:)
   integer, allocatable :: kq_ind(:,:), qw(:,:)
   complex(kind=8), allocatable :: bigwork_magn(:,:), etaqd(:,:), etaqm(:,:), rectanglework(:,:)
   complex(kind=8), allocatable :: smallwork(:,:), bigwork_dens(:,:)
@@ -85,10 +86,12 @@ program main
   call check_config(er,erstr) 
   if (er .ne. 0) call mpi_stop(erstr,er)
 
+
   ! program introduction
   if (ounit .ge. 1) then
     call date_and_time(date,time,zone,time_date_values)
     call mpi_get_processor_name(hostname,i,j)
+write(ounit,*) 'writing to unit',ounit
     write(ounit,*)
     write(ounit,*)                        '/------------------------------------------------------------------\'
     write(ounit,*)                        '|  Ab initio dynamical vertex approximation program (abinitiodga)  |'
@@ -101,6 +104,7 @@ program main
     if (debug) write(ounit,*) "Debug string: ",trim(ADJUSTL(dbgstr))
   end if
 
+
   ! creation of hdf5 output file
   if (mpi_wrank .eq. master) then
     ! generate a date-time string for output file name
@@ -109,6 +113,7 @@ program main
     ! the file is created later, just before the beginning of the parallel loop.
     ! Thus, the parameters can be written immediately.
   end if
+
 
 !##################  READ W2DYNAMICS HDF5 OUTPUT FILE ##################
 ! open the hdf5-fortran interface
@@ -162,6 +167,7 @@ program main
   endif
 
   call finalize_h5() ! close the hdf5-fortran interface
+
 
   !read umatrix from separate file:
   if (read_ext_u) then
@@ -290,9 +296,7 @@ program main
 ! define qw compound index for mpi:
   call mpi_distribute()
 
-
-
-  allocate(qw(2,nqp*(2*iwbmax+1)))
+  allocate(qw(2,nqp*(2*iwbmax_small+1)))
   i1=0
   do iwb=-iwbmax_small,iwbmax_small
      do iq=1,nqp
@@ -309,12 +313,15 @@ if (do_chi) then
   allocate(chi_qw_dens(ndim2,ndim2,qwstart:qwstop),chi_qw_magn(ndim2,ndim2,qwstart:qwstop))
   allocate(bubble_nl(ndim2,ndim2,qwstart:qwstop))
   allocate(bubble_loc(ndim2,ndim2,-iwbmax_small:iwbmax_small))
-  allocate(bubble_loc_tmp(ndim2,ndim2))
+  allocate(bubble_loc_tmp(ndim2,ndim2),chi_loc_dens_tmp(ndim2,ndim2),chi_loc_magn_tmp(ndim2,ndim2))
+  allocate(chi_loc_dens(ndim2,ndim2,-iwbmax_small:iwbmax_small),chi_loc_magn(ndim2,ndim2,-iwbmax_small:iwbmax_small))
   chi_qw_dens=0.d0
   chi_qw_magn=0.d0
   bubble_nl=0.d0
   bubble_loc=0.d0
   bubble_loc_tmp=0.d0
+  chi_loc_dens=0.d0
+  chi_loc_magn=0.d0
 end if
 
 
@@ -370,6 +377,7 @@ end if
      iq = qw(2,iqw)
      iwb = qw(1,iqw)
 
+
      !read nonlocal interaction v and go into compound index:
      if(do_vq) then
         call read_vq(iq,v,er,erstr)
@@ -398,7 +406,12 @@ end if
         end if
 
         ! Read chi_loc_dens and chi_loc_magn (temporarily stored in chi0wF)
-        call read_vertex(chi0wFd,chi0wFm,iwb)
+        call read_vertex(chi0wFd,chi0wFm,iwb,chi_loc_dens_tmp,chi_loc_magn_tmp)
+        if (iq.eq.1) then
+          chi_loc_dens(:,:,iwb)=chi_loc_dens_tmp
+          chi_loc_magn(:,:,iwb)=chi_loc_magn_tmp
+        end if
+
 
         !time reversal symmetry (which is simply a transpose in our compound index)
         ! TODO: Move this to the preprocessing step!
@@ -660,14 +673,14 @@ end if
                  sum((/((bubble_loc(i+(i-1)*ndim,j+(j-1)*ndim,0),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif
-      ! call output_chi_loc(bubble_loc,'bubble_loc.dat')
+      call output_chi_loc(bubble_loc,'bubble_loc.dat')
       call output_chi_loc_h5(output_filename,'bubble_loc',bubble_loc)
     end if
     deallocate(bubble_loc)
 
     if (nonlocal) then
       if (mpi_wrank .eq. master) then
-        allocate(chi_qw_full(ndim2,ndim2,nqp*(2*iwbmax+1)))
+        allocate(chi_qw_full(ndim2,ndim2,nqp*(2*iwbmax_small+1)))
       else
         allocate(chi_qw_full(1,1,1))
       end if
@@ -684,8 +697,8 @@ end if
         ! call output_chi_qw(chi_qw_full,qw,'bubble_nl.dat')
         if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
            write(ounit,'(1x,"Orbital sum of Chi^q_0 - Chi^w_0 at w = 0, and first q-point (usually q = 0):")') 
-           write(ounit,'(1x,"Sum Chi_0^q: ",2f12.7)') &
-                 sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax+1),i=1,ndim),j=1,ndim)/))
+           write(ounit,'(1x,"Sum Chi_0^q : ",2f12.7)') &
+                 sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif
         call output_chi_qw_h5(output_filename,'bubble_nl',chi_qw_full)
@@ -695,19 +708,53 @@ end if
 #ifdef MPI
       call MPI_gatherv(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,&
                      chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
+      if (mpi_wrank.eq.master) then
+         call MPI_reduce(MPI_IN_PLACE,chi_loc_dens,ndim2*ndim2*(2*iwbmax_small+1),&
+                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+         call MPI_reduce(MPI_IN_PLACE,chi_loc_magn,ndim2*ndim2*(2*iwbmax_small+1),&
+                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+         !call output_chi_loc(chi_loc_dens,'chi_loc_dens.dat')
+         !call output_chi_loc(chi_loc_magn,'chi_loc_magn.dat')
+      else
+         call MPI_reduce(chi_loc_dens,chi_loc_dens,ndim2*ndim2*(2*iwbmax_small+1),&
+                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+         call MPI_reduce(chi_loc_magn,chi_loc_magn,ndim2*ndim2*(2*iwbmax_small+1),&
+                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+         deallocate(chi_loc_dens,chi_loc_magn)
+      end if
 #else
       chi_qw_full = chi_qw_dens
 #endif
       if (mpi_wrank .eq. master) then
         ! TODO: Read the summed up local susceptibility from file and add it to chi_qw_full.
         ! call read_and_add_local_chi_dens(chi_qw_full) ! Add chi^w_dens
+        if (external_chi_loc) then
+          allocate(chi_loc_qmc(ndim2,ndim2,2*iwbmax_small+1))
+          call read_chi_loc(chi_loc_qmc,'dens')
+          call output_chi_loc_h5(output_filename,'dens',chi_loc_qmc)
+          !call output_chi_loc(chi_loc_dens,'chi_loc_dens.dat')
+          !call output_chi_loc(chi_loc_qmc,'chi_loc_dens_qmc.dat')
+          do iw=1,2*iwbmax_small+1
+            do iq=1,nqp
+              chi_qw_full(:,:,iq+nqp*(iw-1))=chi_qw_full(:,:,iq+nqp*(iw-1))+chi_loc_qmc(:,:,iw)
+            end do
+          end do
+        else
+          call output_chi_loc_h5(output_filename,'dens',chi_loc_dens)
+          !call output_chi_loc(chi_loc_dens,'chi_loc_dens.dat')
+          do iw=1,2*iwbmax_small+1
+            do iq=1,nqp
+              chi_qw_full(:,:,iq+nqp*(iw-1))=chi_qw_full(:,:,iq+nqp*(iw-1))+chi_loc_dens(:,:,iw-iwbmax_small-1)
+            end do
+          end do
+        end if
         if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
            write(ounit,'(1x,"Orbital sum of Chi^q_d - Chi^q_0 at w = 0, and first q-point (usually q = 0):")') 
-           write(ounit,'(1x,"Sum Chi_d - Chi_0^q: ",2f12.7)') &
-                 sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax+1),i=1,ndim),j=1,ndim)/))
+           write(ounit,'(1x,"Sum Chi_d - Chi_0^q : ",2f12.7)') &
+                 sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif
-        ! call output_chi_qw(chi_qw_full,qw,'chi_qw_dens.dat')
+        !call output_chi_qw(chi_qw_full,qw,'chi_qw_dens.dat')
         call output_chi_qw_h5(output_filename,'dens',chi_qw_full)
       end if
 
@@ -720,13 +767,32 @@ end if
       if (mpi_wrank .eq. master) then
         ! TODO: Read the summed up local susceptibility from file and add it to chi_qw_full.
         ! call read_and_add_local_chi_magn(chi_qw_full) ! Add chi^w_magn
+        if (external_chi_loc) then
+          call read_chi_loc(chi_loc_qmc,'magn')
+          call output_chi_loc_h5(output_filename,'magn',chi_loc_qmc)
+          !call output_chi_loc(chi_loc_magn,'chi_loc_magn.dat')
+          !call output_chi_loc(chi_loc_qmc,'chi_loc_magn_qmc.dat')
+          do iw=1,2*iwbmax_small+1
+            do iq=1,nqp
+              chi_qw_full(:,:,iq+nqp*(iw-1))=chi_qw_full(:,:,iq+nqp*(iw-1))+chi_loc_qmc(:,:,iw)
+            end do
+          end do
+        else
+          call output_chi_loc_h5(output_filename,'magn',chi_loc_magn)
+          !call output_chi_loc(chi_loc_magn,'chi_loc_magn.dat')
+          do iw=1,2*iwbmax_small+1
+            do iq=1,nqp
+              chi_qw_full(:,:,iq+nqp*(iw-1))=chi_qw_full(:,:,iq+nqp*(iw-1))+chi_loc_magn(:,:,iw-iwbmax_small-1)
+            end do
+          end do
+        end if
         if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
            write(ounit,'(1x,"Orbital sum of Chi^q_m at w = 0, and first q-point (usually q = 0):")') 
-           write(ounit,'(1x,"Sum Chi_m: ",2f12.7)') &
-                 sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax+1),i=1,ndim),j=1,ndim)/))
+           write(ounit,'(1x,"Sum Chi_m : ",2f12.7)') &
+                 sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif
-        ! call output_chi_qw(chi_qw_full,qw,'chi_qw_magn.dat')
+        !call output_chi_qw(chi_qw_full,qw,'chi_qw_magn.dat')
         call output_chi_qw_h5(output_filename,'magn',chi_qw_full)
       end if
 

@@ -577,150 +577,219 @@ module hdf5_module
       enddo
  end subroutine read_dc
 
- subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
-     use parameters_module
-     use aux
-     implicit none
-     integer :: ineq,dimstart,dimend,imembers,ind_grp,b1,b2,b3,b4,ind_iwb
-     integer :: i1,i2,iwf1,iwf2,i,j,k,l
-     integer,intent(in) :: iwb
-     integer(hid_t) :: file_vert_id,grp_magn_id,grp_dens_id,dset_magn_id,dset_dens_id
-     integer :: nmembers,itype
-     integer(hsize_t), dimension(2) :: tmp_dims
-     character(len=100) :: grpname_magn,grpname_dens,name_buffer,name_buffer_dset
-     complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:)
-     complex(kind=8),intent(out) :: chi_loc_magn_full(maxdim,maxdim),chi_loc_dens_full(maxdim,maxdim)
-     double precision, allocatable :: tmp_r(:,:), tmp_i(:,:)
-     complex(kind=8),parameter :: ci = (0d0,1d0)
+subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb,chi_loc_dens,chi_loc_magn)
+  use parameters_module
+  use aux
+  implicit none
+  integer :: ineq,dimstart,dimend,imembers,ind_grp,b1,b2,b3,b4,ind_iwb
+  integer :: i1,i2,iwf1,iwf2,i,j,k,l,ib1,ib2
+  integer,intent(in) :: iwb
+  integer(hid_t) :: file_vert_id,grp_magn_id,grp_dens_id,dset_magn_id,dset_dens_id
+  integer :: nmembers,itype
+  integer(hsize_t), dimension(2) :: tmp_dims
+  character(len=100) :: grpname_magn,grpname_dens,name_buffer,name_buffer_dset
+  complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:)
+  complex(kind=8),intent(out) :: chi_loc_magn_full(maxdim,maxdim),chi_loc_dens_full(maxdim,maxdim)
+  double precision, allocatable :: tmp_r(:,:), tmp_i(:,:)
+  complex(kind=8) :: chi_loc_dens(ndim**2,ndim**2),chi_loc_magn(ndim**2,ndim**2)
+  complex(kind=8),parameter :: ci = (0d0,1d0)
 
-        allocate(g4iw_magn(ndim, ndim, -iwfmax:iwfmax-1, ndim, ndim, -iwfmax:iwfmax-1))
-        allocate(g4iw_dens(ndim, ndim, -iwfmax:iwfmax-1, ndim, ndim, -iwfmax:iwfmax-1))
+  allocate(g4iw_magn(ndim, ndim, -iwfmax:iwfmax-1, ndim, ndim, -iwfmax:iwfmax-1))
+  allocate(g4iw_dens(ndim, ndim, -iwfmax:iwfmax-1, ndim, ndim, -iwfmax:iwfmax-1))
 
-        allocate(tmp_r(-iwfmax:iwfmax-1, -iwfmax:iwfmax-1))
-        allocate(tmp_i(-iwfmax:iwfmax-1, -iwfmax:iwfmax-1))
-        tmp_dims = (/2*iwfmax, 2*iwfmax/)
+  allocate(tmp_r(-iwfmax:iwfmax-1, -iwfmax:iwfmax-1))
+  allocate(tmp_i(-iwfmax:iwfmax-1, -iwfmax:iwfmax-1))
+  tmp_dims = (/2*iwfmax, 2*iwfmax/)
 
-        g4iw_magn = 0.d0
-        g4iw_dens = 0.d0
-        ind_iwb = iwb+iwbmax
+  g4iw_magn = 0.d0
+  g4iw_dens = 0.d0
+  ind_iwb = iwb+iwbmax
 
-        do ineq=1,nineq
-          write(grpname_magn, '("ineq-",I3.3,"/magn/",(I5.5))') ineq, ind_iwb
-          write(grpname_dens, '("ineq-",I3.3,"/dens/",(I5.5))') ineq, ind_iwb
+  do ineq=1,nineq
+    write(grpname_magn, '("ineq-",I3.3,"/magn/",(I5.5))') ineq, ind_iwb
+    write(grpname_dens, '("ineq-",I3.3,"/dens/",(I5.5))') ineq, ind_iwb
 
-          dimstart=1
-          do i=2,ineq
-            dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
-          enddo
-          dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1
+    dimstart=1
+    do i=2,ineq
+      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+    enddo
+    dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1
 
-          call h5open_f(err)
-          call h5fopen_f(filename_vertex_sym, h5f_acc_rdonly_f, file_vert_id, err)
-          call h5gopen_f(file_vert_id, grpname_magn, grp_magn_id, err)
-          call h5gopen_f(file_vert_id, grpname_dens, grp_dens_id, err)
+    call h5open_f(err)
+    call h5fopen_f(filename_vertex_sym, h5f_acc_rdonly_f, file_vert_id, err)
+    call h5gopen_f(file_vert_id, grpname_magn, grp_magn_id, err)
+    call h5gopen_f(file_vert_id, grpname_dens, grp_dens_id, err)
 
-          call h5gn_members_f(file_vert_id, grpname_magn, nmembers, err)
+    call h5gn_members_f(file_vert_id, grpname_magn, nmembers, err)
 
-          do imembers=0,nmembers-1
+    do imembers=0,nmembers-1
 
-             call h5gget_obj_info_idx_f(file_vert_id, grpname_magn, imembers, name_buffer, itype, err)
-             read(name_buffer,'(I5.5)')ind_grp
+       call h5gget_obj_info_idx_f(file_vert_id, grpname_magn, imembers, name_buffer, itype, err)
+       read(name_buffer,'(I5.5)')ind_grp
 
-             call index2component_band(dimend-dimstart+1, ind_grp, b1, b2, b3, b4)
+       call index2component_band(dimend-dimstart+1, ind_grp, b1, b2, b3, b4)
 
-             write(name_buffer_dset, '("ineq-",I3.3,"/magn/",(I5.5),"/",(I5.5),"/value")') ineq, ind_iwb, ind_grp
-             call h5dopen_f(file_vert_id, name_buffer_dset, dset_magn_id, err)
-             call h5dread_f(dset_magn_id, type_r_id, tmp_r, tmp_dims, err)
-             call h5dread_f(dset_magn_id, type_i_id, tmp_i, tmp_dims, err)
+       write(name_buffer_dset, '("ineq-",I3.3,"/magn/",(I5.5),"/",(I5.5),"/value")') ineq, ind_iwb, ind_grp
+       call h5dopen_f(file_vert_id, name_buffer_dset, dset_magn_id, err)
+       call h5dread_f(dset_magn_id, type_r_id, tmp_r, tmp_dims, err)
+       call h5dread_f(dset_magn_id, type_i_id, tmp_i, tmp_dims, err)
 
-             g4iw_magn(dimstart+b1-1,dimstart+b2-1,:,dimstart+b3-1,dimstart+b4-1,:) = (tmp_r(:,:)+ci*tmp_i(:,:))*beta
+       g4iw_magn(dimstart+b1-1,dimstart+b2-1,:,dimstart+b3-1,dimstart+b4-1,:) = (tmp_r(:,:)+ci*tmp_i(:,:))*beta
 
-             call h5dclose_f(dset_magn_id, err)
+       call h5dclose_f(dset_magn_id, err)
 
-             write(name_buffer_dset, '("ineq-",I3.3,"/dens/",(I5.5),"/",(I5.5),"/value")') ineq, ind_iwb, ind_grp
-             call h5dopen_f(file_vert_id, name_buffer_dset, dset_dens_id, err)
-             call h5dread_f(dset_dens_id, type_r_id, tmp_r, tmp_dims, err)
-             call h5dread_f(dset_dens_id, type_i_id, tmp_i, tmp_dims, err)
+       write(name_buffer_dset, '("ineq-",I3.3,"/dens/",(I5.5),"/",(I5.5),"/value")') ineq, ind_iwb, ind_grp
+       call h5dopen_f(file_vert_id, name_buffer_dset, dset_dens_id, err)
+       call h5dread_f(dset_dens_id, type_r_id, tmp_r, tmp_dims, err)
+       call h5dread_f(dset_dens_id, type_i_id, tmp_i, tmp_dims, err)
 
-             g4iw_dens(dimstart+b1-1,dimstart+b2-1,:,dimstart+b3-1,dimstart+b4-1,:) = (tmp_r(:,:)+ci*tmp_i(:,:))*beta
+       g4iw_dens(dimstart+b1-1,dimstart+b2-1,:,dimstart+b3-1,dimstart+b4-1,:) = (tmp_r(:,:)+ci*tmp_i(:,:))*beta
 
-             call h5dclose_f(dset_dens_id, err)
-
-
-          enddo ! members
-
-          call h5gclose_f(grp_dens_id, err)
-          call h5gclose_f(grp_magn_id, err)
-          call h5fclose_f(file_vert_id, err)
-          call h5close_f(err)
-
-        enddo ! loop for inequivalent atoms
-
-        !compute chi_loc (go into compound index and subtract straight term):
-        chi_loc_magn_full = 0.d0
-        chi_loc_dens_full = 0.d0
-
-        i2 = 0
-        do iwf2=-iwfmax_small,iwfmax_small-1
-           do l=1,ndim
-              do k=1,ndim
-                 i2 = i2+1
-                 i1 = 0
-                 do iwf1=-iwfmax_small,iwfmax_small-1
-                    do i=1,ndim
-                       do j=1,ndim
-                          i1 = i1+1
-                          chi_loc_magn_full(i1,i2) = g4iw_magn(i,j,iwf1,k,l,iwf2)
-                          chi_loc_dens_full(i1,i2) = g4iw_dens(i,j,iwf1,k,l,iwf2)
-
-                          ! Depending on the type of vertex read, disconnected contributions need to be added/removed in order to
-                          ! obtain \chi
-                          if (vertex_type .eq. full_g4) then
-                            !full 2-particle GF:
-                            !straight term G(\nu)G(\nu') is subtracted (twice) only in the dens channel and only for iw=0:
-                            if((iwb .eq. 0) .and. i==j .and. k==l)then
-                              if(index2ineq(nineq,ndims,i,j,k,l) .gt. 0) then ! substracted in the correlated subspace
-                                chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l)
-                              endif
-                            endif
-
-                            if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
-                              if(index2ineq(nineq,ndims,i,j,k,l) .eq. 0) then ! add bubble term only if not in the same correlated subspace
-                                chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
-                                chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
-                              endif
-                            endif
-
-                          else if (vertex_type .eq. connected_g4) then
-                            !G_conn:
-                            !bubble term -G(\nu)G(\nu-\omega) is added in both channels
-                            if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then ! add all possible bubble terms
-                              chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
-                              chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
-                            endif
-                          else if (vertex_type .eq. chi_g4) then
-
-                            if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
-                              if(index2ineq(nineq,ndims,i,j,k,l) .eq. 0) then ! add bubble term only if not in the same correlated subspace
-                                chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
-                                chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
-                              endif
-                            endif
-
-                          endif
-
-                       enddo
-                    enddo
-                 enddo
-              enddo
-           enddo
-        enddo
-
-        deallocate(g4iw_magn, g4iw_dens, tmp_r, tmp_i)
-
- end subroutine read_vertex
+       call h5dclose_f(dset_dens_id, err)
 
 
+    enddo ! members
+
+    call h5gclose_f(grp_dens_id, err)
+    call h5gclose_f(grp_magn_id, err)
+    call h5fclose_f(file_vert_id, err)
+    call h5close_f(err)
+
+  enddo ! loop for inequivalent atoms
+
+  !compute chi_loc (go into compound index and subtract straight term):
+  chi_loc_magn_full = 0.d0
+  chi_loc_dens_full = 0.d0
+  chi_loc_magn = 0.d0
+  chi_loc_dens = 0.d0
+
+  i2 = 0
+  do iwf2=-iwfmax_small,iwfmax_small-1
+     ib2=0
+     do l=1,ndim
+        do k=1,ndim
+           ib2=ib2+1
+           i2 = i2+1
+           i1 = 0
+           do iwf1=-iwfmax_small,iwfmax_small-1
+              ib1=0
+              do i=1,ndim
+                 do j=1,ndim
+                    i1 = i1+1
+                    ib1=ib1+1
+                    chi_loc_magn_full(i1,i2) = g4iw_magn(i,j,iwf1,k,l,iwf2)
+                    chi_loc_dens_full(i1,i2) = g4iw_dens(i,j,iwf1,k,l,iwf2)
+
+                    ! Depending on the type of vertex read, disconnected contributions need to be added/removed in order to
+                    ! obtain \chi
+                    if (vertex_type .eq. full_g4) then
+                      !full 2-particle GF:
+                      !straight term G(\nu)G(\nu') is subtracted (twice) only in the dens channel and only for iw=0:
+                      if((iwb .eq. 0) .and. i==j .and. k==l)then
+                        if(index2ineq(nineq,ndims,i,j,k,l) .gt. 0) then ! substracted in the correlated subspace
+                          chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-2.d0*beta*giw(iwf1,i)*giw(iwf2,l)
+                        endif
+                      endif
+
+                      if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
+                        if(index2ineq(nineq,ndims,i,j,k,l) .eq. 0) then ! add bubble term only if not in the same correlated subspace
+                          chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
+                          chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
+                        endif
+                      endif
+
+                    else if (vertex_type .eq. connected_g4) then
+                      !G_conn:
+                      !bubble term -G(\nu)G(\nu-\omega) is added in both channels
+                      if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then ! add all possible bubble terms
+                        chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
+                        chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
+                      endif
+                    else if (vertex_type .eq. chi_g4) then
+
+                      if((iwf2 .eq. iwf1) .and. i==l .and. j==k)then
+                        if(index2ineq(nineq,ndims,i,j,k,l) .eq. 0) then ! add bubble term only if not in the same correlated subspace
+                          chi_loc_dens_full(i1,i2) = chi_loc_dens_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
+                          chi_loc_magn_full(i1,i2) = chi_loc_magn_full(i1,i2)-beta*giw(iwf1,i)*giw(iwf2-iwb,j)
+                        endif
+                      endif
+
+                    endif
+                    chi_loc_dens(ib1,ib2)=chi_loc_dens(ib1,ib2)+chi_loc_dens_full(i1,i2)/beta**2
+                    chi_loc_magn(ib1,ib2)=chi_loc_magn(ib1,ib2)+chi_loc_magn_full(i1,i2)/beta**2
+                 enddo ! j
+              enddo ! i
+           enddo ! iwf1
+        enddo ! k
+     enddo ! l
+  enddo ! iwf2
+
+  deallocate(g4iw_magn, g4iw_dens, tmp_r, tmp_i)
+
+end subroutine read_vertex
+
+
+subroutine read_chi_loc(chi_loc_qmc,channel)
+  use parameters_module
+  use aux
+  implicit none
+
+  complex(kind=8) :: chi_loc_qmc(ndim2,ndim2,2*iwbmax_small+1)
+  character(len=*) :: channel
+  character(len=100) :: grpname,bgroup_name
+  integer(hid_t) :: file_id,grp_id,dset_id
+  integer(hsize_t), dimension(1) :: p2_dims
+  integer :: ineq,dimstart,dimend,i,ngroups,igr,b1,b2,b3,b4,ind_grp,itype
+  double precision, dimension(2*n2iwb+1) :: tmp_r, tmp_i
+  complex(kind=8),parameter :: ci = (0d0,1d0)
+
+  p2_dims=(/2*n2iwb+1/)
+write(*,*) p2_dims
+
+  chi_loc_qmc=0.d0
+
+  do ineq=1,nineq
+
+    dimstart=1
+    do i=2,ineq
+      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+    enddo
+    dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1
+
+    write(grpname,'("ineq-",I3.3,"/",(A),"/")') ineq,channel
+    write(*,*) grpname
+    call h5open_f(err)
+    call h5fopen_f(filename_chi_loc, h5f_acc_rdonly_f, file_id, err)
+    call h5gopen_f(file_id, grpname, grp_id, err)
+    call h5gn_members_f(file_id, grpname, ngroups, err)
+
+    do igr=0,ngroups-1
+      call h5gget_obj_info_idx_f(file_id, grpname, igr, bgroup_name, itype, err)
+      read(bgroup_name,'(I5.5)') ind_grp
+
+      call index2component_band(dimend-dimstart+1, ind_grp, b1, b2, b3, b4)
+
+      call h5dopen_f(grp_id, bgroup_name, dset_id, err)
+      call h5dread_f(dset_id, type_r_id, tmp_r, p2_dims, err)
+      call h5dread_f(dset_id, type_i_id, tmp_i, p2_dims, err)
+
+      chi_loc_qmc(dimstart+(b1-1)*ndims(ineq,1)+b2-1,dimstart+(b4-1)*ndims(ineq,1)+b3-1,:) &
+                 = (   tmp_r(n2iwb-iwbmax_small+1:n2iwb+iwbmax_small+1) &
+                   +ci*tmp_i(n2iwb-iwbmax_small+1:n2iwb+iwbmax_small+1))
+
+      call h5dclose_f(dset_id, err)
+    enddo ! band groups
+  end do ! ineq
+  call h5gclose_f(grp_id,err)
+  call h5fclose_f(file_id,err)
+  call h5close_f(err)
+write(*,*) 'read chi loc'
+  open(unit=157,file='chi_loc_qmc_'//trim(channel)//'.dat')
+  do i=1,2*iwbmax_small+1
+    write(157,*) real(chi_loc_qmc(1,1,i))
+  end do
+  close(157)
+end subroutine read_chi_loc
 
 ! This subroutine creates the HDF5 output file and initializes its structure
 subroutine init_h5_output(filename_output)
