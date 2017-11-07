@@ -25,7 +25,6 @@ module parameters_module
   integer :: nqp,nkp_eom, idp
   integer,allocatable :: q_data(:),k_data_eom(:)
   logical :: orb_sym
-  logical,parameter :: full_chi0 = .false. ! Acculumate chi0 over all fermionic matsubaras, not only within the small box.
   logical :: do_eom,do_chi,do_vq
   logical :: q_path_susc,k_path_eom,q_vol,read_ext_hk, read_ext_u
   integer :: vertex_type

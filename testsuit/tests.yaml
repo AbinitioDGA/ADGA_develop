@@ -54,6 +54,26 @@ Properties:
         Script: Scripts/Chim_imag.sh
         Kind: Float
         Precision: 1.0E-7
+    Chi0w_real:
+        Description: Orbital trace of Chi_0^{w=0} (real part)
+        Script: Scripts/Chi0w_real.sh
+        Kind: Float
+        Precision: 1.0E-7
+    Chi0w_imag:
+        Description: Orbital trace of Chi_0^{w=0} (imag part)
+        Script: Scripts/Chi0w_imag.sh
+        Kind: Float
+        Precision: 1.0E-7
+    Chi0q_real:
+        Description: Orbital trace of Chi_0^{w=0} (real part)
+        Script: Scripts/Chi0q_real.sh
+        Kind: Float
+        Precision: 1.0E-7
+    Chi0q_imag:
+        Description: Orbital trace of Chi_0^{w=0} (imag part)
+        Script: Scripts/Chi0q_imag.sh
+        Kind: Float
+        Precision: 1.0E-7
 
 TestCases:
    - Description: One band Bethe lattice without V^q, only eom
@@ -64,11 +84,16 @@ TestCases:
      Selfenergy_dfmt_imag: 0.90423622280
      Greens_function_local_real: -0.00000233597
      Greens_function_local_imag: 0.36841750606
-
-#   - Description: One band Bethe lattice without V^q, only chi
-#     Path: Tests/oneband_chi
-#     Chiqdens:  1.0 # Add a reference number here
-#     Chiqmagn:  1.0 # Add a reference number here
+   - Description: One band Bethe lattice without V^q, only chi
+     Path: Tests/oneband_chi
+     Chid-Chi0_real: 0.0039725
+     Chid-Chi0_imag: 0.0
+     Chim_real:   -0.0371120
+     Chim_imag:   0.0
+     Chi0w_real:  0.2972489
+     Chi0w_imag:  0.0
+     Chi0q_real:  -0.0187845
+     Chi0q_imag:  0.0
 #   - Description: One band Bethe lattice without V^q, both eom and chi
 #     Path: Tests/oneband_eomchi
 #     Selfenergy:  1.0 # Add a reference number here

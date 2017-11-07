@@ -98,6 +98,7 @@ program main
     write(ounit,*)                        '\------------------------------------------------------------------/'
     write(ounit,*)
     if (verbose) write(ounit,*) "Verbose string: ",trim(ADJUSTL(verbstr))
+    if (debug) write(ounit,*) "Debug string: ",trim(ADJUSTL(dbgstr))
   end if
 
   ! creation of hdf5 output file
@@ -303,8 +304,8 @@ program main
 
 !distribute the qw compound index:
 if (do_chi) then
-  allocate(chi0w(ndim2,ndim2,iwstart:iwstop))
-  allocate(chi0nl(ndim2,ndim2,iwstart:iwstop))
+  allocate(chi0w(ndim2,ndim2,-iwbmax_small:iwbmax_small))
+  allocate(chi0nl(ndim2,ndim2,-iwbmax_small:iwbmax_small))
   allocate(chi_qw_dens(ndim2,ndim2,qwstart:qwstop),chi_qw_magn(ndim2,ndim2,qwstart:qwstop))
   allocate(bubble_nl(ndim2,ndim2,qwstart:qwstop))
   allocate(bubble_loc(ndim2,ndim2,-iwbmax_small:iwbmax_small))

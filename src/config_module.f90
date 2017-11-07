@@ -262,13 +262,16 @@ subroutine config_init(er,erstr)
   character(len=*),intent(out) :: erstr
   integer :: i
   real(KIND=8),parameter :: pi = 4d0*atan(1d0)
+  logical :: chi0flag
 
   er = 0
   erstr = ''
+  ! Check if we should use the big range for chi0^w and chi0^q
+  chi0flag = (debug .and. (index(dbgstr,"Bubble") .ne. 0))
 
   maxdim = ndim*ndim*2*iwfmax_small
   ndim2 = ndim*ndim
-  if (full_chi0 .and. do_chi) then
+  if (chi0flag .and. do_chi) then
     iwstart=min(-iwmax+iwbmax,-iwfmax_small)
     iwstop=max(iwmax-iwbmax-1,iwfmax_small-1)
   else

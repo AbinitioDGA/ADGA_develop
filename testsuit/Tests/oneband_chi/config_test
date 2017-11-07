@@ -32,6 +32,9 @@ Output = output-test
 [Verbose]
 Test
 
+#[Debug]
+#Bubble
+
 [Atoms]
 [[1]]
 Interaction = Kanamori
