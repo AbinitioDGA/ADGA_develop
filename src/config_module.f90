@@ -92,9 +92,11 @@ subroutine read_config(er,erstr)
   q_vol=.true.
   k_path_eom=.false.
   q_path_susc=.false.
+  external_chi_loc=.false.
   output_dir='output/'
   filename_hk=''; filename_1p=''; filename_vertex_sym=''
   filename_vq=''; filename_q_path=''; filename_umatrix=''
+  filename_chi_loc=''
   nineq=1
   iwfmax_small=-1; iwbmax_small=-1 ! maximum number of frequencies -- see check_freq_range
 
@@ -110,6 +112,7 @@ subroutine read_config(er,erstr)
   call int_find('NAt', nineq, search_start, search_end)
   call int_find('N4iwf', iwfmax_small, search_start, search_end)
   call int_find('N4iwb', iwbmax_small, search_start, search_end)
+  call int_find('N2iwb',n2iwb,search_start,search_end)
   call string_find('HkFile', filename_hk, search_start, search_end)
   if (trim(adjustl(filename_hk)) .eq. '') then
     read_ext_hk = .false.
@@ -249,7 +252,12 @@ subroutine read_config(er,erstr)
   endif
   call string_find('2PFile', filename_vertex_sym, search_start, search_end)
   call int_find('vertex-type', vertex_type, search_start, search_end)
-
+  call string_find('chi_loc_file',filename_chi_loc, search_start,search_end)
+  if (trim(adjustl(filename_chi_loc)) .eq. '') then
+    external_chi_loc = .false.
+  else
+    external_chi_loc = .true.
+  endif
 
   deallocate(file_save)
   return

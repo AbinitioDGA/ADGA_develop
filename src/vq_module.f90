@@ -14,12 +14,13 @@ subroutine read_vq(iq, v,er,erstr)
   integer, intent(in) :: iq
   complex(kind=8), intent(out) :: v(ndim2,ndim2)
   integer,intent(out) :: er
-  character(len=*),intent(out) :: erstr
+  !character(len=*),intent(out) :: erstr
   complex(kind=8) :: vq(ndim,ndim,ndim,ndim)
   integer(hid_t) :: vq_file_id, grp_id, iq_id, iq_space_id
   integer :: err, ind, i, j, k, l, i1, i2
-  integer :: nmembers, imembers, itype
+  integer :: nmembers, imembers, itype!,er
   character(len=20) :: name_buffer
+  character(len=*) :: erstr
   integer(hsize_t), dimension(2) :: iq_dims, iq_maxdims
   integer(hsize_t), dimension(1) :: vq_dims
   double precision :: vq_tmp_r(nqp), vq_tmp_i(nqp)

@@ -159,7 +159,8 @@ def get_symgroups(gr,nd,sym_type=None,**kwargs):
 
 def read_and_add(h5in,h5out,ineq,igr,channel,symgroups,target=None,n4iwb=None,**kwargs):
   if target=='1freq':
-    x = h5in['ineq-{:03}/ph/{:05}'.format(ineq+1,igr)].value/float(2.*len(symgroups))
+    # HACK: the minus should be already in asymptotics.py
+    x = -h5in['ineq-{:03}/ph/{:05}'.format(ineq+1,igr)].value/float(2.*len(symgroups))
     for gr in symgroups:
       h5out['ineq-{:03}/{}/{:05}'.format(ineq+1,channel,gr)][...]+=x
   elif target=='2freq':
