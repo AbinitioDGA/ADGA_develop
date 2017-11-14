@@ -34,7 +34,7 @@ def component2index_band(Nbands, N, b):
 def ask_for_input():
   conf={}
   print "Which quantity do you want to symmetrize?"
-  targ=int(raw_input("1 -> 1 frequency (b), 2 -> 2 frequencies (bf), 3 -> 3 frequencies (bff)"))
+  targ=int(raw_input("1 -> 1 frequency (b), 2 -> 2 frequencies (bf), 3 -> 3 frequencies (ffb): "))
   if targ==1:
     conf['target']='1freq'
   elif targ==2:
@@ -42,16 +42,16 @@ def ask_for_input():
   elif targ==3:
     conf['target']='3freq'
 
-  nineq=int(raw_input('Number of inequivalent atoms:'))
+  nineq=int(raw_input('Number of inequivalent atoms: '))
   conf['nineq']=nineq
-  filename_nosym=raw_input('Filename of the not symmetrized data:')
+  filename_nosym=raw_input('Filename of the not symmetrized data: ')
   conf['infile']=filename_nosym
-  Nbands=map(int,raw_input('Number of orbitals in each inequivalent atom:').split())
+  Nbands=map(int,raw_input('Number of correlated orbitals in each inequivalent atom (seperated by spaces): ').split())
   conf['Nbands']=Nbands
   if len(Nbands) != nineq:
     print 'Provide number of orbitals for each inequivalent atom!'
     sys.exit()
-  filename_sym=raw_input('Outputfile for symmetrized Vertex:')
+  filename_sym=raw_input('Outputfile for symmetrized Vertex: ')
   conf['outfile']=filename_sym
   conf['sym_type']=raw_input('SU2 symmetry only (s) or SU2 AND orbital symmetry (o)?: ')
   return conf
@@ -66,7 +66,7 @@ def get_groups(infile='infile.hdf5',Nbands=[1],target=1,nineq=1,**kwargs):
     elif target=='2freq':
       pass
     elif target=='3freq':
-      gr_str=f['ineq-{:03}'.format(ineq+1)].keys()
+      gr_str=f['worm-last/ineq-{:03}/g4iw-worm'.format(ineq+1)].keys()
     f.close()
     groups.append([])
     bgroups.append([])
@@ -92,7 +92,8 @@ def get_fbox(infile=None,target=None,**kwargs):
   elif target=='2freq':
     pass
   elif target=='3freq':
-    n4iwb,n4iwf,_ = f['ineq-001/00001/value'].shape
+    # new worm format -- f f b
+    _,n4iwf,n4iwb = f['worm-last/ineq-001/g4iw-worm/00001/value'].shape # always here
     conf['n4iwf']=n4iwf//2
     conf['n4iwb']=n4iwb//2
   f.close()
@@ -106,8 +107,8 @@ def initialize_output(f1,h5f,bgroups=None,nineq=None,n2iwb=None,n4iwf=None,n4iwb
 
     if target=='1freq':
       for bgr in [d['bgroup'] for d in bgroups[ineq]]:
-        dset_dens['{:05}'.format(bgr)]=np.zeros((2*n2iwb+1),dtype=np.complex)
-        dset_magn['{:05}'.format(bgr)]=np.zeros((2*n2iwb+1),dtype=np.complex)
+        dset_dens['{:05}'.format(bgr)]=np.zeros((2*n2iwb+1),dtype=np.complex128)
+        dset_magn['{:05}'.format(bgr)]=np.zeros((2*n2iwb+1),dtype=np.complex128)
     elif target=='2freq':
       pass
     elif target=='3freq':
@@ -117,8 +118,8 @@ def initialize_output(f1,h5f,bgroups=None,nineq=None,n2iwb=None,n4iwf=None,n4iwb
         dset_d1=dset_dens.create_group('{:05}'.format(iwb))
         dset_m1=dset_magn.create_group('{:05}'.format(iwb))
         for bgr in [d['bgroup'] for d in bgroups[ineq]]:
-          dset_d1['{:05}/value'.format(bgr)]=np.zeros((2*n4iwf,2*n4iwf),dtype=np.complex)
-          dset_m1['{:05}/value'.format(bgr)]=np.zeros((2*n4iwf,2*n4iwf),dtype=np.complex)
+          dset_d1['{:05}/value'.format(bgr)]=np.zeros((2*n4iwf,2*n4iwf),dtype=np.complex128)
+          dset_m1['{:05}/value'.format(bgr)]=np.zeros((2*n4iwf,2*n4iwf),dtype=np.complex128)
 
 
 def get_symgroups(gr,nd,sym_type=None,**kwargs):
@@ -166,10 +167,10 @@ def read_and_add(h5in,h5out,ineq,igr,channel,symgroups,target=None,n4iwb=None,**
   elif target=='2freq':
     pass
   elif target=='3freq':
-    x = h5in['ineq-{:03}/{:05}/value'.format(ineq+1,igr)].value/float(2.*len(symgroups))
+    x = h5in['worm-last/ineq-{:03}/g4iw-worm/{:05}/value'.format(ineq+1,igr)].value/float(2.*len(symgroups))
     for iwb in xrange(2*n4iwb+1):
       for gr in symgroups:
-        h5out['ineq-{:03}/{}/{:05}/{:05}/value'.format(ineq+1,channel,iwb,gr)][...]+=x[iwb]
+        h5out['ineq-{:03}/{}/{:05}/{:05}/value'.format(ineq+1,channel,iwb,gr)][...]+=x[...,iwb].transpose()
 
 conf=ask_for_input()
 #conf={'nineq': 1, 'target': '3freq', 'sym_type': 'o', 'outfile': 'out.hdf5', 'Nbands': [3,3], 'infile': 'vertex_full_newformat.hdf5'}
