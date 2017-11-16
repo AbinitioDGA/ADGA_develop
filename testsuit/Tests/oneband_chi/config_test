@@ -33,7 +33,7 @@ Output = output-test
 Test
 
 #[Debug]
-#Bubble
+#Onlydmft
 
 [Atoms]
 [[1]]

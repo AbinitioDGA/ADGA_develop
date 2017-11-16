@@ -1,3 +1,6 @@
+[Verbose]
+Time
+
 [General]
 calc-susc = T
 calc-eom  = T

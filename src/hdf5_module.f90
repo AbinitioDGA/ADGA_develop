@@ -58,15 +58,17 @@ module hdf5_module
 !=====================================================================================
 
 !=====================================================================================
-   subroutine read_axes(file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
+   subroutine read_and_write_axes(file_id,newfile_id)
+     ! We read and write at the same time to avoid allocatable input and output arguments.
      use parameters_module
      implicit none
-     double precision, allocatable :: iwb_array(:),iwf_array(:)
-     integer(hsize_t), dimension(1), intent(out) :: dim_iwb, dim_iwf
+     integer(hid_t),intent(in)      :: file_id
+     integer(hid_t),intent(in)      :: newfile_id
+     integer(hid_t)                 :: dspace_iwb_id, dspace_iwf_id
+     double precision, allocatable  :: iwb_array(:), iwf_array(:) 
+     integer(hsize_t), dimension(1) :: dim_iwb, dim_iwf
      integer(hsize_t), dimension(1) :: dim_iwf_max, dim_iwb_max
-     integer(hid_t) :: axes_id,iwb_id,iwf_id
-     integer(hid_t), intent(out) :: dspace_iwb_id, dspace_iwf_id
-     integer(hid_t) :: file_id
+     integer(hid_t)                 :: axes_id,iwb_id,iwf_id
  
      ! read fermionic Matsubara frequencies iwf:
      call h5dopen_f(file_id, ".axes/iwf-g4", iwf_id, err)
@@ -86,19 +88,8 @@ module hdf5_module
      call h5dread_f(iwb_id, h5t_native_double, iwb_array, dim_iwb, err)
      call h5dclose_f(iwb_id, err)
    
-   end subroutine read_axes
-
-
-   subroutine write_axes(file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
-     use parameters_module
-     integer(hid_t) :: file_id
-     double precision, intent(in):: iwb_array(-iwbmax:iwbmax), iwf_array(-iwfmax:iwfmax-1)
-     integer(hsize_t),dimension(1) :: dim_iwb, dim_iwf
-     integer(hid_t) :: axes_id, iwb_id, iwf_id
-     integer(hid_t), intent(in) :: dspace_iwb_id, dspace_iwf_id
-
      !write Matsubara frequency axes:
-     call h5gcreate_f(file_id, ".axes", axes_id, err)
+     call h5gcreate_f(newfile_id, ".axes", axes_id, err)
      call h5dcreate_f(axes_id, "iwb-g4", h5t_native_double, dspace_iwb_id, iwb_id, err)
      call h5dcreate_f(axes_id, "iwf-g4", h5t_native_double, dspace_iwf_id, iwf_id, err)
 
@@ -109,7 +100,7 @@ module hdf5_module
      call h5dclose_f(iwf_id, err)
      call h5gclose_f(axes_id, err)
 
-   end subroutine write_axes
+   end subroutine read_and_write_axes
 !============================================================================================
 
 !===========================================================================================
@@ -225,16 +216,17 @@ module hdf5_module
 !===========================================================================================
 
 
- subroutine get_freq_range(mpi_wrank,master)
-     use parameters_module
+ subroutine get_freq_range(iwmax,iwfmax,iwbmax)
+     use parameters_module, Only: ounit,filename_1p,filename_vertex_sym
      implicit none
+     integer,intent(out) :: iwmax,iwfmax,iwbmax
      integer :: mpi_wrank, master
      integer(hid_t) :: file_id
      integer(hsize_t), dimension(1) :: iw_dims,iw_maxdims,dim_iwb,dim_iwf,dim_iwf_max,dim_iwb_max
      integer(hid_t) :: iw_id,iwb_id,iwf_id,iw_space_id,dspace_iwb_id,dspace_iwf_id
  
      ! read frequency range of one-particle quantities
-     if (mpi_wrank .eq. master) then
+     if (ounit .ge. 1) then
        write(ounit,*) 'one particle quantities in ',filename_1p
      endif
      call h5fopen_f(filename_1p, h5f_acc_rdonly_f, file_id, err)
@@ -245,7 +237,7 @@ module hdf5_module
      call h5dclose_f(iw_id, err)
      call h5fclose_f(file_id,err)
 
-     if (mpi_wrank .eq. master) then
+     if (ounit .ge. 1) then
        write(ounit,*) 'two particle quantities in ',filename_vertex_sym
      endif
      call h5fopen_f(filename_vertex_sym, h5f_acc_rdonly_f, file_id, err)
@@ -264,6 +256,7 @@ module hdf5_module
      call h5dclose_f(iwb_id, err)
      call h5fclose_f(file_id,err)
 
+   return
  end subroutine get_freq_range
 
 
@@ -577,10 +570,11 @@ module hdf5_module
       enddo
  end subroutine read_dc
 
-subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb,chi_loc_dens,chi_loc_magn)
+subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
   use parameters_module
   use aux
   implicit none
+  complex(kind=8),intent(out) :: chi_loc_magn_full(maxdim,maxdim),chi_loc_dens_full(maxdim,maxdim)
   integer :: ineq,dimstart,dimend,imembers,ind_grp,b1,b2,b3,b4,ind_iwb
   integer :: i1,i2,iwf1,iwf2,i,j,k,l,ib1,ib2
   integer,intent(in) :: iwb
@@ -589,9 +583,7 @@ subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb,chi_loc_dens,chi_
   integer(hsize_t), dimension(2) :: tmp_dims
   character(len=100) :: grpname_magn,grpname_dens,name_buffer,name_buffer_dset
   complex(kind=8), allocatable :: g4iw_magn(:,:,:,:,:,:), g4iw_dens(:,:,:,:,:,:)
-  complex(kind=8),intent(out) :: chi_loc_magn_full(maxdim,maxdim),chi_loc_dens_full(maxdim,maxdim)
   double precision, allocatable :: tmp_r(:,:), tmp_i(:,:)
-  complex(kind=8) :: chi_loc_dens(ndim**2,ndim**2),chi_loc_magn(ndim**2,ndim**2)
   complex(kind=8),parameter :: ci = (0d0,1d0)
 
   allocate(g4iw_magn(ndim, ndim, -iwfmax:iwfmax-1, ndim, ndim, -iwfmax:iwfmax-1))
@@ -660,8 +652,6 @@ subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb,chi_loc_dens,chi_
   !compute chi_loc (go into compound index and subtract straight term):
   chi_loc_magn_full = 0.d0
   chi_loc_dens_full = 0.d0
-  chi_loc_magn = 0.d0
-  chi_loc_dens = 0.d0
 
   i2 = 0
   do iwf2=-iwfmax_small,iwfmax_small-1
@@ -715,8 +705,6 @@ subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb,chi_loc_dens,chi_
                       endif
 
                     endif
-                    chi_loc_dens(ib1,ib2)=chi_loc_dens(ib1,ib2)+chi_loc_dens_full(i1,i2)/beta**2
-                    chi_loc_magn(ib1,ib2)=chi_loc_magn(ib1,ib2)+chi_loc_magn_full(i1,i2)/beta**2
                  enddo ! j
               enddo ! i
            enddo ! iwf1
@@ -809,8 +797,9 @@ subroutine init_h5_output(filename_output)
   integer(hsize_t),dimension(2) :: dims_dc,dims_g
   integer(hsize_t),dimension(5) :: dims_hk_arr
   complex(kind=8), dimension(:,:,:,:,:),allocatable :: hk_arr
-  write(ounit,*) 'initialize output file'
-
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'initialize output file'
+  endif
   call h5open_f(err)
   call h5fcreate_f(filename_output, h5f_acc_trunc_f, file_id, err)
 
@@ -938,7 +927,9 @@ subroutine init_h5_output(filename_output)
   call h5gclose_f(grp_id_input,err)
   call h5fclose_f(file_id,err)
 
-  write(ounit,*) 'hdf5 output initialized'
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'hdf5 output initialized'
+  endif
 end subroutine init_h5_output
 
 
@@ -1005,7 +996,9 @@ subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
   call h5close_f(err)
  
   deallocate(dims_chi_loc,cdims)
-  if (ounit .gt. 0) write(ounit,*) 'local susceptibility ',channel,' written to h5'
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'local susceptibility ',channel,' written to h5'
+  endif
 
   return
 end subroutine output_chi_loc_h5
@@ -1099,7 +1092,9 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
   call h5close_f(err)
  
   deallocate(dims_chi_qw,cdims,dims_chi_slice,stride,block,offset_chi_slice)
-  if (ounit .gt. 0) write(ounit,*) 'nonlocal susceptibility ',channel,' written to h5'
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'nonlocal susceptibility ',channel,' written to h5'
+  endif
   return
 end subroutine output_chi_qw_h5
 
@@ -1161,7 +1156,9 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   call h5dwrite_f(dset_id_sigmasum,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
   call h5dclose_f(dset_id_sigmasum,err)
 
-  if (ounit .gt. 0) write(ounit,*) 'nonlocal selfenergy (DGA) written to h5'
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'nonlocal selfenergy (DGA) written to h5'
+  endif
 
   ! in order to save memory, the same array is used again, now for the Hartree-Fock contribution.
   do i1=1,ndim
@@ -1183,7 +1180,9 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   call h5dclose_f(dset_id_sigmasumhf,err)
   call h5gclose_f(grp_id_siwk,err)
 
-  if (ounit .gt. 0) write(ounit,*) 'nonlocal selfenergy (HF) written to h5'
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'nonlocal selfenergy (HF) written to h5'
+  endif
   deallocate(dims_siwk)
 
   rank_siw=3
@@ -1206,7 +1205,9 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   call h5dwrite_f(dset_id_siwloc,type_i_id,aimag(siw_outputarray),dims_siw,err)
   call h5dclose_f(dset_id_siwloc,err)
 
-  if (ounit .gt. 0) write(ounit,*) 'local selfenergy (KSUM) written to h5'
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'local selfenergy (KSUM) written to h5'
+  endif
 
   do i1=1,ndim
     do i2=1,ndim
@@ -1221,7 +1222,9 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   call h5dwrite_f(dset_id_siwdmft,type_i_id,aimag(siw_outputarray),dims_siw,err)
   call h5dclose_f(dset_id_siwdmft,err)
 
-  if (ounit .gt. 0) write(ounit,*) 'local selfenergy (DMFT) written to h5'
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'local selfenergy (DMFT) written to h5'
+  endif
   deallocate(dims_siw)
 
   call h5gclose_f(grp_id_siwk,err)

@@ -1,2 +1,2 @@
 #!/bin/bash
-grep 'Sum Chi_m:' output-test/out|awk '{print $3}'
+grep 'Sum Chi_m^q:' output-test/out|awk '{print $3}'

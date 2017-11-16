@@ -15,8 +15,6 @@ program symmetrize_vertex
   integer(hid_t) :: grp_id, g4iw_id, g4err_id
   integer         :: nmembers, imembers, itype
   integer(hid_t) :: dset_dens_id, dset_magn_id, dset_err_id
-  integer(hid_t) :: dspace_iwb_id, dspace_iwf_id
-  integer(hsize_t), dimension(1) :: dim_iwb, dim_iwf
   integer(hsize_t), dimension(3) :: g4iw_dims, g4iw_maxdims, g4err_dims, g4iw_dims_t, g4err_dims_t
   integer, parameter :: rank = 2, rank_iw = 1
   
@@ -27,7 +25,6 @@ program symmetrize_vertex
   integer :: iwb, iwf, iwf1, iwf2 
   logical :: su2_only
   logical, allocatable :: create_comp(:,:)
-  double precision, allocatable :: iwb_array(:), iwf_array(:)
   integer :: ichannel, ntot, ind_band, icount
   integer, allocatable :: ind_band_list(:)
   character(len=150), allocatable :: filename_vertex_ineq(:)
@@ -98,8 +95,9 @@ program symmetrize_vertex
 ! create new file for the symmetrised vertex:
       call h5fcreate_f(filename_vertex_sym, h5f_acc_trunc_f, new_file_id, err)
 ! get fermionic and bosonic Matsubara axes: 
-      call read_axes(file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
-      call write_axes(new_file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
+      call read_and_write_axes(file_id,new_file_id)
+      !call read_axes(file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
+      !call write_axes(new_file_id, iwb_array, iwf_array, dspace_iwb_id, dspace_iwf_id, dim_iwb, dim_iwf)
     endif
 
 ! write magn/iwb and dens/iwb in the output file vertex_sym.hdf5: 

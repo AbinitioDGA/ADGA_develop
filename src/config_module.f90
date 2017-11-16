@@ -316,14 +316,14 @@ subroutine config_init(er,erstr)
   end if
 
   ! create arrays with Matsubara frequencies
-  allocate(iw_data(-iwmax:iwmax-1),iwb_data(-iwbmax:iwbmax),iwf_data(-iwfmax:iwfmax-1))
+  allocate(iw_data(-iwmax:iwmax-1),iwb_data(-iwbmax_small:iwbmax_small),iwf_data(-iwfmax_small:iwfmax_small-1))
   do i=-iwmax,iwmax-1
     iw_data(i)=pi*(2*i+1)/beta
   end do
-  do i=-iwfmax,iwfmax-1
+  do i=-iwfmax_small,iwfmax_small-1
     iwf_data(i)=pi*(2*i+1)/beta
   end do
-  do i=-iwbmax,iwbmax
+  do i=-iwbmax_small,iwbmax_small
     iwb_data(i)=pi*2*i/beta
   end do
   
@@ -343,7 +343,7 @@ subroutine check_freq_range(mpi_wrank,master)
     iwfmax_small = iwfmax
     if (ounit .gt. 0) then
       write(ounit,*) 'Calculating with maximum number of fermionic frequencies &
-                  =', iwfmax
+                  =', iwfmax_small
     endif
   endif
 
@@ -351,7 +351,7 @@ subroutine check_freq_range(mpi_wrank,master)
     iwbmax_small = iwbmax
     if (ounit .gt. 0) then
       write(ounit,*) 'Calculating with maximum number of bosonic frequencies &
-                  =', iwbmax
+                  =', iwbmax_small
     endif
   endif
 
@@ -360,7 +360,7 @@ subroutine check_freq_range(mpi_wrank,master)
     if (ounit .gt. 0) then
       write(ounit,*) 'Error: Wrong input for fermionic frequencies'
       write(ounit,*) 'Calculating with maximum number of fermionic frequencies &
-                  =', iwfmax
+                  =', iwfmax_small
     endif
   endif
 
@@ -369,7 +369,7 @@ subroutine check_freq_range(mpi_wrank,master)
     if (ounit .gt. 0) then
       write(ounit,*) 'Error: Wrong input for bosonic frequencies'
       write(ounit,*) 'Calculating with maximum number of bosonic frequencies &
-                  =', iwbmax
+                  =', iwbmax_small
     endif
   endif
 

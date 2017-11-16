@@ -141,7 +141,7 @@ subroutine get_chi0_loc_inv(iwf, iwb, chi0_loc)
   i1 = 0
   do i=1,ndim
      do j=1,ndim
-        i1=i1+1
+        i1=i1+1 ! orbital compound index {ji}
         chi0_loc(i1,i1) = -1.d0/(beta*giw(iwf,i)*giw(iwf-iwb,j))
      enddo
   enddo

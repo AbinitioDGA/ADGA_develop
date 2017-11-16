@@ -126,35 +126,34 @@ subroutine create_u(u, u_tilde)
   allocate(Umat(ndim,ndim,ndim,ndim))
   Umat=0.d0
 
+  ineq = 0
   do i=1,ndim
   do j=1,ndim
   do k=1,ndim
   do l=1,ndim
 
     ineq=index2ineq(nineq,ndims,i,j,k,l) 
-    if (ineq .eq. 0) then ! not on the same impurity
-      goto 100
-    endif
+    if (ineq .eq. 0) cycle ! not on the same impurity
   
     ! DD - VALUES
     if (index2cor(nineq,ndims,i,j,k,l)) then
       if (i .eq. j .and. k .eq. l)  then
         if (i .eq. k) then
           Umat(i,j,k,l) = Udd(ineq) ! onsite density-density -- 1 1 1 1
-          goto 100
+          cycle
         else if (interaction_mode(ineq) .eq. 1) then
           Umat(i,j,k,l) = Jdd(ineq) ! kanamori double hopping -- 1 1 2 2
-          goto 100
+          cycle
         endif
       endif
 
       if (i .eq. k .and. j .eq. l) then
         Umat(i,j,k,l) = Vdd(ineq) ! screened density density -- 1 2 1 2
-        goto 100
+        cycle
       endif
       if (i .eq. l .and. j .eq. k .and. interaction_mode(ineq) .eq. 1) then
         Umat(i,j,k,l) = Jdd(ineq) ! kanamori spin flip -- 1 2 2 1
-        goto 100
+        cycle
       endif
 
     ! PP - VALUES
@@ -162,20 +161,20 @@ subroutine create_u(u, u_tilde)
       if (i .eq. j .and. k .eq. l)  then
         if (i .eq. k) then
           Umat(i,j,k,l) = Upp(ineq) ! onsite density-density -- 1 1 1 1
-          goto 100
+          cycle
         else if (interaction_mode(ineq) .eq. 1) then
           Umat(i,j,k,l) = Jpp(ineq) ! kanamori double hopping -- 1 1 2 2
-          goto 100
+          cycle
         endif
       endif
 
       if (i .eq. k .and. j .eq. l) then
         Umat(i,j,k,l) = Vpp(ineq) ! screened density density -- 1 2 1 2
-        goto 100
+        cycle
       endif
       if (i .eq. l .and. j .eq. k .and. interaction_mode(ineq) .eq. 1) then
         Umat(i,j,k,l) = Jpp(ineq) ! kanamori spin flip -- 1 2 2 1
-        goto 100
+        cycle
       endif
 
     ! DP - VALUES
@@ -183,25 +182,22 @@ subroutine create_u(u, u_tilde)
       if (i .eq. j .and. k .eq. l)  then
         if (i .eq. k) then
           Umat(i,j,k,l) = Udp(ineq) ! onsite density-density -- 1 1 1 1
-          goto 100
+          cycle
         else if (interaction_mode(ineq) .eq. 1) then
           Umat(i,j,k,l) = Jdp(ineq) ! kanamori double hopping -- 1 1 2 2
-          goto 100
+          cycle
         endif
       endif
 
       if (i .eq. k .and. j .eq. l) then
         Umat(i,j,k,l) = Vdp(ineq) ! screened density density -- 1 2 1 2
-        goto 100
+        cycle
       endif
       if (i .eq. l .and. j .eq. k .and. interaction_mode(ineq) .eq. 1) then
         Umat(i,j,k,l) = Jdp(ineq) ! kanamori spin flip -- 1 2 2 1
-        goto 100
+        cycle
       endif
     endif
-
-  100 continue
-  ! 100 WRITE(10,'(4I10,F15.8)') I,J,K,L,UMAT(I,J,K,L)
 
   enddo
   enddo
