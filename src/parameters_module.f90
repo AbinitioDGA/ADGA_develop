@@ -13,7 +13,7 @@ module parameters_module
   integer :: nkp, ndim, ndim2, maxdim, nineq
   integer, allocatable :: ndims(:,:)
   integer :: nkpx,nkpy,nkpz,nkp1,nqpx,nqpy,nqpz,nqp1
-  integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,nk_frac,n2iwb
+  integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,nk_frac,n2iwb,n3iwf,n3iwb
   double precision, allocatable :: iw_data(:), iwb_data(:), iwf_data(:)
   integer :: iwstart,iwstop
   double precision :: mu, beta
@@ -27,7 +27,7 @@ module parameters_module
   logical :: orb_sym
   logical :: do_eom,do_chi,do_vq
   logical :: q_path_susc,k_path_eom,q_vol,read_ext_hk, read_ext_u
-  logical :: external_chi_loc
+  logical :: external_chi_loc,external_threelegs
   integer :: vertex_type
   logical :: exist_p
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
@@ -36,7 +36,7 @@ module parameters_module
 
   character(len=150) :: filename_vr ! filename of extrapolated V(r)
   character(len=150) :: filename_vertex, filename_vertex_sym
-  character(len=150) :: filename_chi_loc
+  character(len=150) :: filename_chi_loc,filename_threelegs
   character(len=150) :: filename_umatrix, filename_vq
   character(len=150) :: filename_1p
   character(len=150) :: filename_hk, output_dir, filename_q_path

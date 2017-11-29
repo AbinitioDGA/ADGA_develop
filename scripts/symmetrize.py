@@ -64,7 +64,7 @@ def get_groups(infile='infile.hdf5',Nbands=[1],target=1,nineq=1,**kwargs):
     if target=='1freq':
       gr_str=f['ineq-{:03}/ph'.format(ineq+1)].keys()
     elif target=='2freq':
-      pass
+      gr_str=f['ineq-{:03}'.format(ineq+1)].keys()
     elif target=='3freq':
       gr_str=f['worm-last/ineq-{:03}/g4iw-worm'.format(ineq+1)].keys()
     f.close()
@@ -90,16 +90,20 @@ def get_fbox(infile=None,target=None,**kwargs):
     print n2iwb
     conf['n2iwb']=n2iwb//2
   elif target=='2freq':
-    pass
+    n3iwf,n3iwb = f['ineq-001/00001'].shape
+    conf['n3iwf'],conf['n3iwb'] = n3iwf//2,n3iwb//2
+    n3iwf,n3iwb=conf['n3iwf'],conf['n3iwb']
   elif target=='3freq':
     # new worm format -- f f b
     _,n4iwf,n4iwb = f['worm-last/ineq-001/g4iw-worm/00001/value'].shape # always here
     conf['n4iwf']=n4iwf//2
     conf['n4iwb']=n4iwb//2
+    n4iwf,n4iwb=conf['n4iwf'],conf['n4iwb']
+    
   f.close()
 
 
-def initialize_output(f1,h5f,bgroups=None,nineq=None,n2iwb=None,n4iwf=None,n4iwb=None,target=None,**kwargs):
+def initialize_output(f1,h5f,bgroups=None,nineq=None,n2iwb=None,n3iwf=None,n3iwb=None,n4iwf=None,n4iwb=None,target=None,**kwargs):
   for ineq in xrange(nineq):
     dset_ineq=h5f.create_group('ineq-{:03}'.format(ineq+1))
     dset_dens=dset_ineq.create_group('dens')
@@ -110,7 +114,12 @@ def initialize_output(f1,h5f,bgroups=None,nineq=None,n2iwb=None,n4iwf=None,n4iwb
         dset_dens['{:05}'.format(bgr)]=np.zeros((2*n2iwb+1),dtype=np.complex128)
         dset_magn['{:05}'.format(bgr)]=np.zeros((2*n2iwb+1),dtype=np.complex128)
     elif target=='2freq':
-      pass
+      for iwb in xrange(2*n3iwb+1):
+        dset_d1=dset_dens.create_group('{:05}'.format(iwb))
+        dset_m1=dset_magn.create_group('{:05}'.format(iwb))
+        for bgr in [d['bgroup'] for d in bgroups[ineq]]:
+          dset_d1['{:05}'.format(bgr)]=np.zeros((2*n3iwf),dtype=np.complex128)
+          dset_m1['{:05}'.format(bgr)]=np.zeros((2*n3iwf),dtype=np.complex128)
     elif target=='3freq':
       if ineq==0:
         f1.copy('.axes',h5f)
@@ -158,14 +167,16 @@ def get_symgroups(gr,nd,sym_type=None,**kwargs):
 
   return channel,symgroups
 
-def read_and_add(h5in,h5out,ineq,igr,channel,symgroups,target=None,n4iwb=None,**kwargs):
+def read_and_add(h5in,h5out,ineq,igr,channel,symgroups,target=None,n3iwb=None,n4iwb=None,**kwargs):
   if target=='1freq':
-    # HACK: the minus should be already in asymptotics.py
-    x = -h5in['ineq-{:03}/ph/{:05}'.format(ineq+1,igr)].value/float(2.*len(symgroups))
+    x = h5in['ineq-{:03}/ph/{:05}'.format(ineq+1,igr)].value/float(2.*len(symgroups))
     for gr in symgroups:
       h5out['ineq-{:03}/{}/{:05}'.format(ineq+1,channel,gr)][...]+=x
   elif target=='2freq':
-    pass
+    x = h5in['ineq-{:03}/{:05}'.format(ineq+1,igr)].value/float(2.*len(symgroups))
+    for iwb in xrange(2*n3iwb+1):
+      for gr in symgroups:
+        h5out['ineq-{:03}/{}/{:05}/{:05}'.format(ineq+1,channel,iwb,gr)][...]+=x[:,iwb]
   elif target=='3freq':
     x = h5in['worm-last/ineq-{:03}/g4iw-worm/{:05}/value'.format(ineq+1,igr)].value/float(2.*len(symgroups))
     for iwb in xrange(2*n4iwb+1):

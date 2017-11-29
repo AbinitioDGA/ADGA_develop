@@ -40,7 +40,7 @@ program main
   complex(kind=8), allocatable :: sigma_nl(:,:,:,:), sigma_hf(:,:,:), sigma_dmft(:,:,:)
   complex(kind=8), allocatable :: sigma_sum(:,:,:,:), sigma_sum_hf(:,:,:), sigma_sum_dmft(:,:,:), sigma_loc(:,:,:)
 ! variables for date-time string
-  character(20) :: date,time,zone
+  character(20) :: date,time,zone,iwb_str
   character(200) :: output_filename,erstr ! Filename and error string
   integer,dimension(8) :: time_date_values
   logical :: verbose_extra
@@ -396,6 +396,7 @@ end if
      !read nonlocal interaction v and go into compound index:
      if(do_vq) then
         call read_vq(iq,v,er,erstr)
+        write(*,*) v
         if (er .ne. 0) call mpi_stop(erstr,er)
        ! v = v-u  !otherwise, local U would be included twice
      else
@@ -436,8 +437,10 @@ end if
            enddo
         enddo
 
+
+
         ! Calculate chi0^w.F
-        do dum= 0,2*iwfmax_small-1
+        do dum = 0,2*iwfmax_small-1
            iwf = dum - iwfmax_small
            !compute 1+chi0^w.F = chi_loc*chi0_loc_inv (Nb: Here we assume that chi0_loc_inv is diagonal in the compound index):
            do i2=1,ndim2
@@ -450,22 +453,31 @@ end if
            enddo
         enddo
 
-        !sum up the left fermionic frequency to get gamma^w  
-        ! TODO: Get this quantity directly from QMC, i.e. not from chi0^w.F^w.
+
+
         gammawm = 0.d0
         gammawd = 0.d0
-        do i1=1,ndim2
-           do dum=0,2*iwfmax_small-1
-              i = i1+dum*ndim2 ! Compound index (i1,iwf)
-              gammawm(i1,:) = gammawm(i1,:)+chi0wFm(i,:)
-              gammawd(i1,:) = gammawd(i1,:)+chi0wFd(i,:)
-           enddo
-        enddo
+
+        if (external_threelegs) then ! read gamma^w from external file
+          call read_threeleg(gammawm,'magn',iwb)
+          call read_threeleg(gammawd,'dens',iwb)
+
+        else ! calculate gamma^w=chi0^w.F^w
+          do i1=1,ndim2
+             do dum=0,2*iwfmax_small-1
+                i = i1+dum*ndim2 ! Compound index (i1,iwf)
+                gammawm(i1,:) = gammawm(i1,:)+chi0wFm(i,:)
+                gammawd(i1,:) = gammawd(i1,:)+chi0wFd(i,:)
+             enddo
+          enddo
+        end if
+
         if (iq.eq.1 .and. do_chi .and. .not. external_chi_loc) then
            ! Sum up from the right (chi_loc_dens and chi_loc_ magn have already been initialized to zero)
             call calc_chi_qw(chi_loc_dens(:,:,iwb),gammawd,chi0w)
             call calc_chi_qw(chi_loc_magn(:,:,iwb),gammawm,chi0w)
         end if
+
 
 
         ! Add the identity to gamma^w (intermediate quantity used in several equations)

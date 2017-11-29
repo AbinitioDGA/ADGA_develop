@@ -18,7 +18,7 @@ import numpy as np
 import h5py
 import sys
 import optparse
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 
 # not very pythonic utility function to unravel the band-spin compound index
@@ -39,7 +39,7 @@ def index2component_general(Nbands, N, ind):
     b[i] = (bs[i]-s[i])//2
     ind_tmp = ind_tmp - tmp[i+1]*bs[i]
   
-  return bs,b,s
+  return tuple(bs),tuple(b),tuple(s)
 
 # compute a compound index from orbital indices only. 
 def component2index_band(Nbands, N, b):
@@ -56,7 +56,6 @@ def componentBS2index_general(Nbands, N, bs):
   return ind
 
 
-
 def read_parameters(conf):
   #parameters
   if conf['do_p2']:
@@ -64,7 +63,7 @@ def read_parameters(conf):
   elif conf['do_p3']:
     h5file=conf['input_p3']
   conf['beta'] = h5file[".config"].attrs["general.beta"]
-  conf['nbands'] = h5file[".config"].attrs["atoms.1.nd"]
+  conf['nbands'] = h5file[".config"].attrs["atoms.{}.nd".format(conf['ineq'])]
   conf['niw'] = h5file[".config"].attrs["qmc.niw"]
   if conf['do_p2']:
     conf['n2iwb'] = conf['input_p2'][".config"].attrs["qmc.n2iwb"]
@@ -72,12 +71,14 @@ def read_parameters(conf):
     conf['n3iwb'] = conf['input_p3'][".config"].attrs["qmc.n3iwb"]
     conf['n3iwf'] = conf['input_p3'][".config"].attrs["qmc.n3iwf"]
   
-def read_giw(conf,options):
 
+def read_giw(conf,options):
   nbands=conf['nbands']
+
   def extract_giw_worm(grp):
     giw_arr = grp['giw-worm/value'].value
     giw_arr = giw_arr.reshape((2*nbands,2*nbands,giw_arr.shape[-1]))
+    niw = giw_arr.shape[-1]//2
     giw = np.zeros(shape=(2*nbands,2*niw),dtype=complex)
     #extracting diagonal from worm quantity
     for ibs in xrange(2*nbands):
@@ -85,7 +86,7 @@ def read_giw(conf,options):
     return giw
 
   if conf['ext_giw']:
-    ineq_grp=conf['input_giw'][options.giw_iter+'/ineq-001']
+    ineq_grp=conf['input_giw'][options.giw_iter+('/ineq-{:03}'.format(conf['ineq']))]
     keys=ineq_grp.keys()
     if 'giw-worm' in keys:
       giw=extract_giw_worm(ineq_grp)
@@ -95,7 +96,7 @@ def read_giw(conf,options):
       sys.exit('Error: no giw found in giw file!')
 
   elif conf['do_p2']:
-    ineq_grp=conf['input_p2']['stat-001/ineq-001']
+    ineq_grp=conf['input_p2']['stat-001/ineq-{:03}'.format(conf['ineq'])]
     keys=ineq_grp.keys()
     if 'giw-worm' in keys:
       giw=extract_giw_worm(grp)
@@ -103,7 +104,7 @@ def read_giw(conf,options):
       giw=ineq_grp['giw/value'].value.reshape((2*nbands,-1))
 
   elif conf['do_p3']:
-    ineq_grp=conf['input_p3']['stat-001/ineq-001']
+    ineq_grp=conf['input_p3']['stat-001/ineq-{:03}'.format(conf['ineq'])]
     keys=ineq_grp.keys()
     if 'giw-worm' in keys:
       giw=extract_giw_worm(grp)
@@ -138,6 +139,22 @@ def slice_center(subsize, size):
         return cslice
 
 
+def read_p3(ineq=None,input_p3=None,nbands=None,**kwargs):
+  if 'stat-001' in input_p3.keys():
+    p3 = input_p3["stat-001/ineq-{:03}/p3iw-worm/value".format(ineq)].value
+  elif 'worm-001' in input_p3.keys():
+    base_gr=input_p3["worm-001/ineq-{:03}/p3iw-worm".format(ineq)]
+    groups=base_gr.keys()
+    nf,nb=base_gr[groups[0]+'/value'].shape
+    nf_small,nb_small=nf//2,nb//2+1
+    #p3=np.zeros((2*nbands,2*nbands,2*nbands,2*nbands,nf_small,nb_small),dtype=np.complex) # nf,nb
+    p3=np.zeros((2*nbands,2*nbands,2*nbands,2*nbands,nf,nb),dtype=np.complex) # nf,nb
+    for gr in groups:
+      bs,_,_=index2component_general(nbands,4,int(gr))
+      #p3[bs]=base_gr[gr+'/value'].value[nf//2-nf_small//2:nf//2+nf_small//2,nb//2-nb_small//2:nb//2+nb_small//2+1]
+      p3[bs]=base_gr[gr+'/value'].value
+    return p3
+
 
 
 parser = optparse.OptionParser(usage = "%prog [OPTIONS] <hdf-file>")
@@ -147,6 +164,8 @@ parser.add_option("--giw-file",dest="giw_file",help="w2dynamics hdf5 file contai
 parser.add_option("--giw-iter",dest="giw_iter",help="iteration name, where giw can be found in external file, e.g. stat-001")
 parser.add_option("--threeleg-file",dest="threeleg_file",help="output file name for threeleg vertex")
 parser.add_option("--susc-file",dest="susc_file",help="output file name for one-frequency susceptibility")
+parser.add_option("--ineq",dest="ineq",default=1,type=int,help="number of inequivalent atom, larger or equal to 1.")
+
 options, args = parser.parse_args()
 
 
@@ -154,6 +173,7 @@ options, args = parser.parse_args()
 conf={}
 conf['do_p2']=False
 conf['do_p3']=False
+conf['ineq'],ineq=options.ineq,options.ineq
 
 if options.p2_file is not None:
   conf['input_p2']=h5py.File(options.p2_file,'r')
@@ -177,11 +197,11 @@ niw=conf['niw']
 
 if conf['do_p2']:# subtract density terms to get susceptibility
   print 'processing p2...'
-  p2 = conf['input_p2']["stat-001/ineq-001/p2iw-worm/value"].value
+  p2 = conf['input_p2']["stat-001/ineq-{:03}/p2iw-worm/value".format(ineq)].value
   n2iwb=p2.shape[0]//2
   conf['n2iwb']=n2iwb
   # density 
-  occ = conf['input_p2']["stat-001/ineq-001/occ/value"].value
+  occ = conf['input_p2']["stat-001/ineq-{:03}/occ/value".format(ineq)].value
   dens = np.diagonal(np.diagonal(occ,0,-4,-2),0,-3,-2)
   dens = dens.reshape(2*nbands)
   k1 = p2
@@ -200,7 +220,7 @@ if conf['do_p2']:# subtract density terms to get susceptibility
       for bs3 in xrange(2*nbands):
         for bs4 in xrange(2*nbands):
           if np.any(k1[bs1,bs2,bs3,bs4]!=0.):
-             gr_name='ineq-001/{:05}'.format(componentBS2index_general(nbands,4,[bs1,bs2,bs3,bs4]))
+             gr_name='ineq-{:03}/{:05}'.format(ineq,componentBS2index_general(nbands,4,[bs1,bs2,bs3,bs4]))
              f_susc[gr_name]=k1[bs1,bs2,bs3,bs4]
 
   f_susc.close()
@@ -209,7 +229,8 @@ if conf['do_p2']:# subtract density terms to get susceptibility
 
 if conf['do_p3']:# subtract all disconnected terms to get threeleg vertex
   print 'processing p3...'
-  p3 = conf['input_p3']["stat-001/ineq-001/p3iw-worm/value"].value
+  #p3 = conf['input_p3']["worm-001/ineq-001/p3iw-worm/value"].value
+  p3 = read_p3(**conf)
   n3iwf,n3iwb=p3.shape[-2:]
   n3iwf=n3iwf//2
   n3iwb=n3iwb//2
@@ -217,32 +238,46 @@ if conf['do_p3']:# subtract all disconnected terms to get threeleg vertex
   conf['n3iwb']=n3iwb
   gg_ph=get_gg_ph(giw,**conf)
   # density 
-  occ = conf['input_p3']["stat-001/ineq-001/occ/value"].value
+  try:
+    occ = conf['input_p3']["stat-001/ineq-{:03}/occ/value".format(ineq)].value
+  except KeyError:
+    occ = conf['input_giw']["dmft-last/ineq-{:03}/occ/value".format(ineq)].value
   dens = np.diagonal(np.diagonal(occ,0,-4,-2),0,-3,-2)
   dens = dens.reshape(2*nbands)
+  print dens
+
   k2 = np.zeros_like(p3,dtype=complex)
   k2 = -conf['beta']*p3
 
+  # subtract disconnected terms
   for i in xrange(2*nbands):
-     for j in xrange(2*nbands):
-        for k in xrange(2*nbands):
-           for l in xrange(2*nbands):
+    for j in xrange(2*nbands):
+      for k in xrange(2*nbands):
+        for l in xrange(2*nbands):
               
-              # straight terms
-              if i==j and k==l:
-                 k2[i,j,k,l,:,n3iwb] -= giw[i,slice_center(2*n3iwf,2*niw)]*(1-dens[k])*conf['beta']
-    
-              # cross terms
-              if i==l and j==k:
-                 k2[i,j,k,l,:,:] -= gg_ph[i,k]
+          # straight terms
+          if i==j and k==l:
+            k2[i,j,k,l,:,n3iwb] -= giw[i,slice_center(2*n3iwf,2*niw)]*(1-dens[k])*conf['beta']
+  
+          # cross terms
+          if i==l and j==k:
+            k2[i,j,k,l,:,:] -= gg_ph[i,k]
 
-  fout=h5py.File(options.threeleg_file,'w')
+
+  # amputate 2 legs
+  for i in xrange(2*nbands):
+    for j in xrange(2*nbands):
+      for k in xrange(2*nbands):
+        for l in xrange(2*nbands):
+          k2[i,j,k,l,...]=np.divide(k2[i,j,k,l,...],gg_ph[i,j])
+           
+  
+  fout=h5py.File(options.threeleg_file,'a')
   for bs1 in xrange(2*nbands):
     for bs2 in xrange(2*nbands):
       for bs3 in xrange(2*nbands):
         for bs4 in xrange(2*nbands):
           if np.any(k2[bs1,bs2,bs3,bs4]!=0.):
-             gr_name='ineq-001/{:05}'.format(componentBS2index_general(nbands,4,[bs1,bs2,bs3,bs4]))
+             gr_name='ineq-{:03}/{:05}'.format(ineq,componentBS2index_general(nbands,4,[bs1,bs2,bs3,bs4]))
              fout[gr_name]=k2[bs1,bs2,bs3,bs4]
   fout.close()
-
