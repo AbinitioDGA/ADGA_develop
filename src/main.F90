@@ -754,7 +754,7 @@ end if
     ! First the local bubble
     if (mpi_wrank .eq. master) then
       if (.not. external_chi_loc) then
-         ! Add the local bubble to chi_loc!
+         ! Add the local bubble to chi_loc! (Since it is included in the external chi_loc)
          chi_loc_dens = chi_loc_dens + bubble_loc
          chi_loc_magn = chi_loc_magn + bubble_loc
       endif
@@ -794,7 +794,7 @@ end if
       if (mpi_wrank .eq. master) then
         ! call output_chi_qw(chi_qw_full,qw,'bubble_nl.dat')
         if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
-           write(ounit,'(1x,"Orbital sum of non-local Chi at w = 0 and first q-point (nl = purely non-local):")') 
+           write(ounit,'(1x,"Orbital sum of non-local Chi0 at w = 0 and first q-point (nl = purely non-local):")') 
            write(ounit,'(1x,"Sum Chi_0^q  - Chi_0^w: ",2f12.7)') &
                  sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small*nqp+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
@@ -805,7 +805,26 @@ end if
       !--------------------
       !   Density channel
       !--------------------
-      ! the non-local chi^q_d part: Chi^q_d - Chi^q_0
+      if (verbose .and. ((index(verbstr,"Test") .ne. 0) .or. (index(verbstr,"Extra") .ne. 0))) then
+         ! the non-local chi^q_d part: Chi^q_d - Chi^q_0
+#ifdef MPI
+         call MPI_gatherv(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,&
+                        chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
+#else
+         chi_qw_full = chi_qw_dens
+#endif
+         if (mpi_wrank .eq. master) then
+           if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
+              write(ounit,'(1x,"Sum Chi_d^nl - Chi_0^q: ",2f12.7)') &
+                    sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small*nqp+1),i=1,ndim),j=1,ndim)/))
+              call flush(ounit)
+           endif
+           ! Print to file
+           if (index(verbstr,"Extra") .ne. 0) call output_chi_qw_h5(output_filename,'dens-nl',chi_qw_full)
+         endif
+      endif
+      ! Add the purely non-local bubble
+      chi_qw_dens = chi_qw_dens + bubble_nl
 #ifdef MPI
       call MPI_gatherv(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,&
                      chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
@@ -813,18 +832,14 @@ end if
       chi_qw_full = chi_qw_dens
 #endif
       if (mpi_wrank .eq. master) then
-        if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
-           write(ounit,'(1x,"Sum Chi_d^nl - Chi_0^q: ",2f12.7)') &
-                 sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small*nqp+1),i=1,ndim),j=1,ndim)/))
-           call flush(ounit)
-        endif
+        ! Add the local susceptibility
         do iw=1,2*iwbmax_small+1
           do iq=1,nqp
             chi_qw_full(:,:,iq+nqp*(iw-1))=chi_qw_full(:,:,iq+nqp*(iw-1))+chi_loc_dens(:,:,iw-iwbmax_small-1)
           end do
         end do
         if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
-           write(ounit,'(1x,"Sum Chi_d^q  - Chi_0^q: ",2f12.7)') &
+           write(ounit,'(1x,"Sum Chi_d^q:            ",2f12.7)') &
                  sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small*nqp+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif
@@ -836,6 +851,26 @@ end if
       !--------------------
       !   Magnetic channel
       !--------------------
+      if (verbose .and. ((index(verbstr,"Test") .ne. 0) .or. (index(verbstr,"Extra") .ne. 0))) then
+         ! the non-local chi^q_m part: Chi^q_m - Chi^q_0
+#ifdef MPI
+         call MPI_gatherv(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,&
+                     chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
+#else
+         chi_qw_full = chi_qw_magn
+#endif
+         if (mpi_wrank .eq. master) then
+           if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
+              write(ounit,'(1x,"Sum Chi_m^nl - Chi_0^q:  ",2f12.7)') &
+                    sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small*nqp+1),i=1,ndim),j=1,ndim)/))
+              call flush(ounit)
+           endif
+           ! Print to file
+           if (index(verbstr,"Extra") .ne. 0) call output_chi_qw_h5(output_filename,'magn-nl',chi_qw_full)
+         endif
+      endif
+      ! Add the purely non-local bubble
+      chi_qw_magn = chi_qw_magn + bubble_nl
 #ifdef MPI
       call MPI_gatherv(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,&
                      chi_qw_full,rct,disp,MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
@@ -843,11 +878,7 @@ end if
       chi_qw_full = chi_qw_magn
 #endif
       if (mpi_wrank .eq. master) then
-        if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
-           write(ounit,'(1x,"Sum Chi_m^nl:           ",2f12.7)') &
-                 sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small*nqp+1),i=1,ndim),j=1,ndim)/))
-           call flush(ounit)
-        endif
+        ! Add the local susceptibility
         do iw=1,2*iwbmax_small+1
           do iq=1,nqp
             chi_qw_full(:,:,iq+nqp*(iw-1))=chi_qw_full(:,:,iq+nqp*(iw-1))+chi_loc_magn(:,:,iw-iwbmax_small-1)

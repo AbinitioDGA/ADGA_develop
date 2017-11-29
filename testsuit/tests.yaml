@@ -44,24 +44,24 @@ Properties:
         Script: Scripts/nl_Chid-Chi0_imag.sh
         Kind: Float
         Precision: 1.0E-7
-    nl_Chim_real:
+    nl_Chim-Chi0_real:
         Description: Orbital trace of the non-local part of Chi^q_magn at the first matsubara and q-point (real part)
-        Script: Scripts/nl_Chim_real.sh
+        Script: Scripts/nl_Chim-Chi0_real.sh
         Kind: Float
         Precision: 1.0E-7
-    nl_Chim_imag:
+    nl_Chim-Chi0_imag:
         Description: Orbital trace of the non-local part of Chi^q_magn at the first matsubara and q-point (imag part)
-        Script: Scripts/nl_Chim_imag.sh
+        Script: Scripts/nl_Chim-Chi0_imag.sh
         Kind: Float
         Precision: 1.0E-7
-    Chid-Chi0_real:
-        Description: Orbital trace of Chi^q_dens - Chi_0^q at the first matsubara and q-point (real part)
-        Script: Scripts/Chid-Chi0_real.sh
+    Chid_real:
+        Description: Orbital trace of Chi^q_dens at the first matsubara and q-point (real part)
+        Script: Scripts/Chid_real.sh
         Kind: Float
         Precision: 1.0E-7
-    Chid-Chi0_imag:
-        Description: Orbital trace of Chi^q_dens - Chi_0^q at the first matsubara and q-point (imag part)
-        Script: Scripts/Chid-Chi0_imag.sh
+    Chid_imag:
+        Description: Orbital trace of Chi^q_dens at the first matsubara and q-point (imag part)
+        Script: Scripts/Chid_imag.sh
         Kind: Float
         Precision: 1.0E-7
     Chim_real:
@@ -84,14 +84,14 @@ Properties:
         Script: Scripts/Chi0w_imag.sh
         Kind: Float
         Precision: 1.0E-7
-    Chi0q_real:
-        Description: Orbital trace of Chi_0^q at w = 0 and first q-point (real part)
-        Script: Scripts/Chi0q_real.sh
+    Chi0q-Chi0w_real:
+        Description: Orbital trace of Chi_0^q - Chi_0^w at w = 0 and first q-point (real part)
+        Script: Scripts/Chi0q-Chi0w_real.sh
         Kind: Float
         Precision: 1.0E-7
-    Chi0q_imag:
-        Description: Orbital trace of Chi_0^q at w = 0 and first q-point (imag part)
-        Script: Scripts/Chi0q_imag.sh
+    Chi0q-Chi0w_imag:
+        Description: Orbital trace of Chi_0^q - Chi0^w at w = 0 and first q-point (imag part)
+        Script: Scripts/Chi0q-Chi0w_imag.sh
         Kind: Float
         Precision: 1.0E-7
 
@@ -108,16 +108,16 @@ TestCases:
      Path: Tests/oneband_chi
      nl_Chid-Chi0_real: 0.0083099
      nl_Chid-Chi0_imag: 0.0
-     nl_Chim_real:   -1.0350108
-     nl_Chim_imag:   0.0
-     Chid-Chi0_real: 0.0484602
-     Chid-Chi0_imag: 0.0
-     Chim_real:   1.6345507
+     nl_Chim-Chi0_real:   -1.0350108
+     nl_Chim-Chi0_imag:   0.0
+     Chid_real: 0.032534
+     Chid_imag: 0.0
+     Chim_real:   1.6186245
      Chim_imag:   0.0
      Chi0w_real:  0.2943906
      Chi0w_imag:  0.0
-     Chi0q_real:  -0.0159262
-     Chi0q_imag:  0.0
+     Chi0q-Chi0w_real:  -0.0159262
+     Chi0q-Chi0w_imag:  0.0
 
 #   - Description: One band Bethe lattice without V^q, both eom and chi
 #     Path: Tests/oneband_eomchi
