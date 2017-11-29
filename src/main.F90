@@ -39,7 +39,7 @@ program main
   complex(kind=8), allocatable :: sigma_nl(:,:,:,:), sigma_hf(:,:,:), sigma_dmft(:,:,:)
   complex(kind=8), allocatable :: sigma_sum(:,:,:,:), sigma_sum_hf(:,:,:), sigma_sum_dmft(:,:,:), sigma_loc(:,:,:)
 ! variables for date-time string
-  character(20) :: date,time,zone
+  character(20) :: date,time,zone,iwb_str
   character(200) :: output_filename,erstr ! Filename and error string
   integer,dimension(8) :: time_date_values
   logical :: verbose_extra
@@ -206,8 +206,8 @@ write(ounit,*) 'writing to unit',ounit
   allocate(smallwork(ndim2,ndim2))
   allocate(chi0(ndim2,ndim2))
   ! medium arrays
-  allocate(chi0q(ndim2,ndim2,-iwfmax:iwfmax-1))
-  allocate(chi0w_inv(ndim2,ndim2,-iwfmax:iwfmax-1))
+  allocate(chi0q(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
+  allocate(chi0w_inv(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
   allocate(gammawd(ndim2,maxdim), gammawm(ndim2,maxdim))
   allocate(oneplusgammawd(ndim2,maxdim))
   allocate(oneplusgammawm(ndim2,maxdim))
@@ -308,8 +308,8 @@ write(ounit,*) 'writing to unit',ounit
 
 !distribute the qw compound index:
 if (do_chi) then
-  allocate(chi0w(ndim2,ndim2,-iwbmax_small:iwbmax_small))
-  allocate(chi0nl(ndim2,ndim2,-iwbmax_small:iwbmax_small))
+  allocate(chi0w(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
+  allocate(chi0nl(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
   allocate(chi_qw_dens(ndim2,ndim2,qwstart:qwstop),chi_qw_magn(ndim2,ndim2,qwstart:qwstop))
   allocate(bubble_nl(ndim2,ndim2,qwstart:qwstop))
   allocate(bubble_loc(ndim2,ndim2,-iwbmax_small:iwbmax_small))
@@ -381,6 +381,7 @@ end if
      !read nonlocal interaction v and go into compound index:
      if(do_vq) then
         call read_vq(iq,v,er,erstr)
+        write(*,*) v
         if (er .ne. 0) call mpi_stop(erstr,er)
        ! v = v-u  !otherwise, local U would be included twice
      else
@@ -407,10 +408,14 @@ end if
 
         ! Read chi_loc_dens and chi_loc_magn (temporarily stored in chi0wF)
         call read_vertex(chi0wFd,chi0wFm,iwb,chi_loc_dens_tmp,chi_loc_magn_tmp)
+
+write(*,*) 'read vertex'
+
         if (iq.eq.1) then
           chi_loc_dens(:,:,iwb)=chi_loc_dens_tmp
           chi_loc_magn(:,:,iwb)=chi_loc_magn_tmp
         end if
+
 
 
         !time reversal symmetry (which is simply a transpose in our compound index)
@@ -425,8 +430,10 @@ end if
            enddo
         enddo
 
+
+
         ! Calculate chi0^w.F
-        do dum= 0,2*iwfmax_small-1
+        do dum = 0,2*iwfmax_small-1
            iwf = dum - iwfmax_small
            !compute 1+chi0^w.F = chi_loc*chi0_loc_inv (Nb: Here we assume that chi0_loc_inv is diagonal in the compound index):
            do i2=1,ndim2
@@ -439,17 +446,25 @@ end if
            enddo
         enddo
 
-        !sum up the left fermionic frequency to get gamma^w  
-        ! TODO: Get this quantity directly from QMC, i.e. not from chi0^w.F^w.
+
+
         gammawm = 0.d0
         gammawd = 0.d0
-        do i1=1,ndim2
-           do dum=0,2*iwfmax_small-1
-              i = i1+dum*ndim2 ! Compound index (i1,iwf)
-              gammawm(i1,:) = gammawm(i1,:)+chi0wFm(i,:)
-              gammawd(i1,:) = gammawd(i1,:)+chi0wFd(i,:)
-           enddo
-        enddo
+        if (external_threelegs) then ! read gamma^w from external file
+          call read_threeleg(gammawm,'magn',iwb)
+          call read_threeleg(gammawd,'dens',iwb)
+
+        else ! calculate gamma^w=chi0^w.F^w
+          do i1=1,ndim2
+             do dum=0,2*iwfmax_small-1
+                i = i1+dum*ndim2 ! Compound index (i1,iwf)
+                gammawm(i1,:) = gammawm(i1,:)+chi0wFm(i,:)
+                gammawd(i1,:) = gammawd(i1,:)+chi0wFd(i,:)
+             enddo
+          enddo
+        end if
+
+
 
         ! Add the identity to gamma^w (intermediate quantity used in several equations)
         oneplusgammawm = gammawm

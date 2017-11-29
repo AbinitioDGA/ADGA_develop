@@ -729,17 +729,108 @@ subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb,chi_loc_dens,chi_
 end subroutine read_vertex
 
 
+subroutine read_threeleg(gamma_loc_qmc,channel,iwb)
+  use parameters_module
+  use aux
+  implicit none
+
+  complex(kind=8),intent(out) :: gamma_loc_qmc(ndim2,maxdim)
+  complex(kind=8) :: gamma_loc_qmc_tmp(ndim,ndim,ndim,ndim,0:2*n3iwf-1)
+  character(len=*),intent(in) :: channel
+  integer,intent(in) :: iwb
+  character(len=100) :: grpname,bgroup_name
+  integer(hid_t) :: file_id,grp_id,dset_id
+  integer(hsize_t), dimension(1) :: p3_dims
+  integer :: ineq,dimstart,dimend,i,ngroups,igr,b1,b2,b3,b4,ind_grp,itype,ind_iwb,iwf
+  integer :: j,k,l,i1,i2
+  double precision, dimension(2*n3iwf) :: tmp_r, tmp_i
+  complex(kind=8),parameter :: ci = (0d0,1d0)
+
+  p3_dims=(/2*n3iwf/)
+  ind_iwb=iwb+n3iwb
+
+
+! Just for testing, it is possible to have iwfmax_small > n3iwf, just comment out the following lines.
+! It sets the outer elements to 0, which strictly speaking is wrong. 
+  if (iwfmax_small .gt. n3iwf) then
+    write(*,*) iwfmax_small,n3iwf
+    stop 'Error: iwfmax_small must be smaller than n3iwf.'
+  end if
+
+  if (ind_iwb .lt. 0) then
+    stop 'ind_iwb has to be zero or positive in subroutine read_threelegs'
+  end if
+
+  gamma_loc_qmc=0.d0
+  gamma_loc_qmc_tmp=0.d0
+  gamma_loc_qmc_tmp_2=0.d0
+
+  do ineq=1,nineq
+    dimstart=1
+    do i=2,ineq
+      dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+    end do
+    dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1
+
+    write(grpname,'("ineq-",I3.3,"/",(A),"/",I5.5)') ineq,channel,ind_iwb
+
+    write(*,*) grpname
+    call h5open_f(err)
+    call h5fopen_f(filename_threelegs,h5f_acc_rdonly_f,file_id,err)
+    call h5gopen_f(file_id,grpname,grp_id,err)
+    call h5gn_members_f(file_id,grpname,ngroups,err)
+
+    do igr=0,ngroups-1
+      call h5gget_obj_info_idx_f(file_id, grpname, igr, bgroup_name, itype, err)
+      read(bgroup_name,'(I5.5)') ind_grp
+
+      call index2component_band(dimend-dimstart+1, ind_grp, b1, b2, b3, b4)
+
+      call h5dopen_f(grp_id, bgroup_name, dset_id, err)
+      call h5dread_f(dset_id, type_r_id, tmp_r, p3_dims, err)
+      call h5dread_f(dset_id, type_i_id, tmp_i, p3_dims, err)
+      call h5dclose_f(dset_id, err)
+
+      gamma_loc_qmc_tmp(dimstart+b1-1,dimstart+b2-1,dimstart+b3-1,dimstart+b4-1,:) = (tmp_r+ci*tmp_i)
+    enddo ! band groups
+  end do ! ineq
+  call h5gclose_f(grp_id,err)
+  call h5fclose_f(file_id,err)
+  call h5close_f(err)
+  
+
+
+  ! go to compound index
+  i1=0
+  do i=1,ndim
+    do j=1,ndim
+      i1=i1+1
+      do iwf=0,2*iwfmax_small-1
+        do k=1,ndim
+          do l=1,ndim
+            i2=i2+1
+            gamma_loc_qmc(i1,i2) = gamma_loc_qmc_tmp(i,j,l,k,n3iwf+iwf-iwfmax_small)
+          end do
+        end do
+      end do
+    end do
+  end do
+end subroutine read_threeleg
+
+
 subroutine read_chi_loc(chi_loc_qmc,channel)
   use parameters_module
   use aux
   implicit none
 
-  complex(kind=8) :: chi_loc_qmc(ndim2,ndim2,2*iwbmax_small+1)
-  character(len=*) :: channel
+  complex(kind=8),intent(out) :: chi_loc_qmc(ndim2,ndim2,2*iwbmax_small+1)
+  complex(kind=8) :: chi_loc_qmc(ndim,ndim,ndim,ndim,2*iwbmax_small+1)
+  character(len=*),intent(in) :: channel
   character(len=100) :: grpname,bgroup_name
   integer(hid_t) :: file_id,grp_id,dset_id
   integer(hsize_t), dimension(1) :: p2_dims
   integer :: ineq,dimstart,dimend,i,ngroups,igr,b1,b2,b3,b4,ind_grp,itype
+  integer :: j,k,l,i1,i2
   double precision, dimension(2*n2iwb+1) :: tmp_r, tmp_i
   complex(kind=8),parameter :: ci = (0d0,1d0)
 
@@ -773,7 +864,7 @@ write(*,*) p2_dims
       call h5dread_f(dset_id, type_r_id, tmp_r, p2_dims, err)
       call h5dread_f(dset_id, type_i_id, tmp_i, p2_dims, err)
 
-      chi_loc_qmc(dimstart+(b1-1)*ndims(ineq,1)+b2-1,dimstart+(b4-1)*ndims(ineq,1)+b3-1,:) &
+      chi_loc_qmc_tmp(dimstart+b1-1,dimstart+b2-1,dimstart+b3-1,dimstart+b4-1,:) &
                  = (   tmp_r(n2iwb-iwbmax_small+1:n2iwb+iwbmax_small+1) &
                    +ci*tmp_i(n2iwb-iwbmax_small+1:n2iwb+iwbmax_small+1))
 
@@ -783,6 +874,22 @@ write(*,*) p2_dims
   call h5gclose_f(grp_id,err)
   call h5fclose_f(file_id,err)
   call h5close_f(err)
+
+  ! go to compound index
+  i1=0
+  do i=1,ndim
+    do j=1,ndim
+      i1=i1+1
+      i2=0
+      do k=1,ndim
+        do l=1,ndim
+          i2=i2+1
+          chi_loc_qmc(i1,i2,:) = chi_loc_tmp(i,j,l,k,:)
+        end do
+      end do
+    end do
+  end do
+
 write(*,*) 'read chi loc'
   open(unit=157,file='chi_loc_qmc_'//trim(channel)//'.dat')
   do i=1,2*iwbmax_small+1
