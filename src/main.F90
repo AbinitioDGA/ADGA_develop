@@ -334,6 +334,9 @@ if (do_chi) then
   endif
 end if
 
+if (external_threelegs) then
+  write(ounit,*) "Reading the local threeleg vertex gamma^w from file."
+end if
 
 if (do_eom) then
   allocate(gammaqd(ndim2,maxdim))

@@ -761,7 +761,7 @@ subroutine read_threeleg(gamma_loc_qmc,channel,iwb)
 
     write(grpname,'("ineq-",I3.3,"/",(A),"/",I5.5)') ineq,channel,ind_iwb
 
-    write(*,*) grpname
+    !write(*,*) grpname
     call h5open_f(err)
     call h5fopen_f(filename_threelegs,h5f_acc_rdonly_f,file_id,err)
     call h5gopen_f(file_id,grpname,grp_id,err)
@@ -792,6 +792,7 @@ subroutine read_threeleg(gamma_loc_qmc,channel,iwb)
   do i=1,ndim
     do j=1,ndim
       i1=i1+1
+      i2=0
       do iwf=0,2*iwfmax_small-1
         do k=1,ndim
           do l=1,ndim
