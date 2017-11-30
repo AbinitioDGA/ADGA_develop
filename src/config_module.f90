@@ -95,6 +95,7 @@ subroutine read_config(er,erstr)
   external_chi_loc=.false.
   external_threelegs=.false.
   susc_full_output=.false.
+  gzip_compression=4 ! h5py default standard -- ranges from 0 to 9
   output_dir='output/'
   filename_hk=''; filename_1p=''; filename_vertex_sym=''
   filename_vq=''; filename_q_path=''; filename_umatrix=''
@@ -257,14 +258,14 @@ subroutine read_config(er,erstr)
   call string_find('2PFile', filename_vertex_sym, search_start, search_end)
   call int_find('vertex-type', vertex_type, search_start, search_end)
 
-  call string_find('chi_loc_file',filename_chi_loc, search_start,search_end)
+  call string_find('chi-loc-file',filename_chi_loc, search_start,search_end)
   if (trim(adjustl(filename_chi_loc)) .eq. '') then
     external_chi_loc = .false.
   else
     external_chi_loc = .true.
   endif
 
-  call string_find('threeleg_file',filename_threelegs,search_start,search_end)
+  call string_find('threeleg-file',filename_threelegs,search_start,search_end)
   if (trim(adjustl(filename_threelegs)) .eq. '') then
     external_threelegs = .false.
   else
@@ -273,7 +274,8 @@ subroutine read_config(er,erstr)
 
   call group_find('[Output]', search_start, search_end)
   if (search_start .gt. 0) then ! group was found -- this is an optional group
-    call bool_find('susc_full_output', susc_full_output, search_start, search_end)
+    call bool_find('susc-full-output', susc_full_output, search_start, search_end)
+    call int_find('gzip-compression', gzip_compression, search_start, search_end)
   endif
 
   deallocate(file_save)
