@@ -1039,7 +1039,7 @@ subroutine init_h5_output(filename_output)
 end subroutine init_h5_output
 
 
-subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
+subroutine output_chi_loc_full_h5(filename_output,channel,chi_loc)
   use parameters_module
   implicit none
   character(len=*) :: filename_output,channel
@@ -1103,14 +1103,80 @@ subroutine output_chi_loc_h5(filename_output,channel,chi_loc)
  
   deallocate(dims_chi_loc,cdims)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
-   write(ounit,*) 'local susceptibility ',channel,' written to h5'
+   write(ounit,*) 'full local susceptibility ',channel,' written to h5'
   endif
 
   return
-end subroutine output_chi_loc_h5
+end subroutine output_chi_loc_full_h5
+
+subroutine output_chi_loc_reduced_h5(filename_output,channel,chi_loc)
+  use parameters_module
+  implicit none
+  character(len=*) :: filename_output,channel
+  integer :: err,rank_chi_loc
+  integer :: i1,i2,i3,i4,iwb
+  integer(hsize_t),dimension(:),allocatable :: dims_chi_loc,cdims
+  integer(hid_t) :: file_id,grp_id_chi_loc
+  integer(hid_t) :: dspace_id_chi_loc
+  integer(hid_t) :: dset_id_chi_loc
+  integer(hid_t) :: plist_id
+  complex(kind=8),dimension(ndim**2,ndim**2,2*iwbmax_small+1) :: chi_loc
+  complex(kind=8),dimension(2*iwbmax_small+1,ndim,ndim) :: chi_loc_outputarray
+
+  rank_chi_loc=3
+  allocate(dims_chi_loc(rank_chi_loc),cdims(rank_chi_loc))
+  dims_chi_loc=(/ 2*iwbmax_small+1,ndim,ndim/)
+  !cdims = (/ 2*iwbmax_small+1,1,1,1,1 /) ! chunk dimensions chosen like this, because for certain bands, the whole chunk is 0 then.
+  !cdims = (/ 2*iwbmax_small+1,ndim,ndim,ndim,ndim /) ! effectively no chunking, best compression but might become too large
+  cdims = (/ 1,ndim,ndim /) ! strangely this leads to compression nearly as good as in "no chunking"
 
 
-subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
+  ! reshape and transpose the array, i.e. break up the compound index
+  do i1=1,ndim
+    i2 = i1
+    do i3=1,ndim
+      i4 = i3
+      do iwb=1,2*iwbmax_small+1
+        chi_loc_outputarray(iwb,i3,i1) = chi_loc(ndim*(i1-1)+i2,ndim*(i4-1)+i3,iwb)
+      end do
+    end do
+  end do
+
+  
+  call h5open_f(err)                                              ! open hdf5 fortran interface
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)      ! open output file
+  call h5gopen_f(file_id,'susceptibility/loc',grp_id_chi_loc,err) ! open group for chi_loc
+
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_loc,err)            ! prepare the data space
+  call h5sset_extent_simple_f(dspace_id_chi_loc,rank_chi_loc,dims_chi_loc,dims_chi_loc,err)
+
+  call h5pcreate_f(H5P_DATASET_CREATE_F,plist_id,err)             ! create property list for the dataset
+  call h5pset_chunk_f(plist_id,rank_chi_loc,cdims,err)            ! set size of chunks, in which the data are written
+  call h5pset_deflate_f(plist_id,9,err)                           ! select DEFLATE (GZIP) in compression level 9 (highest)
+  call h5pset_fletcher32_f(plist_id,err)                          ! use Fletcher32 checksum filter
+
+  call h5dcreate_f(grp_id_chi_loc,channel,compound_id,    &       ! create dataset with name <channel>
+                 & dspace_id_chi_loc,dset_id_chi_loc,err, & 
+                 & dcpl_id=plist_id)                              ! use the property list defined above
+  call h5dwrite_f(dset_id_chi_loc,type_r_id,real(chi_loc_outputarray),dims_chi_loc,err)
+  call h5dwrite_f(dset_id_chi_loc,type_i_id,aimag(chi_loc_outputarray),dims_chi_loc,err)
+
+  call h5sclose_f(dspace_id_chi_loc,err)
+  call h5pclose_f(plist_id,err)
+  call h5dclose_f(dset_id_chi_loc,err)
+  call h5gclose_f(grp_id_chi_loc,err)
+  call h5close_f(err)
+ 
+  deallocate(dims_chi_loc,cdims)
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'reduced local susceptibility ',channel,' written to h5'
+  endif
+
+  return
+end subroutine output_chi_loc_reduced_h5
+
+
+subroutine output_chi_qw_full_h5(filename_output,channel,chi_qw)
   use parameters_module
   implicit none
   character(len=*) :: filename_output,channel
@@ -1199,11 +1265,74 @@ subroutine output_chi_qw_h5(filename_output,channel,chi_qw)
  
   deallocate(dims_chi_qw,cdims,dims_chi_slice,stride,block,offset_chi_slice)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
-   write(ounit,*) 'nonlocal susceptibility ',channel,' written to h5'
+   write(ounit,*) 'full nonlocal susceptibility ',channel,' written to h5'
   endif
   return
-end subroutine output_chi_qw_h5
+end subroutine output_chi_qw_full_h5
 
+subroutine output_chi_qw_reduced_h5(filename_output,channel,chi_qw)
+  use parameters_module
+  implicit none
+  character(len=*) :: filename_output,channel
+  integer :: err,rank_chi_qw
+  integer :: iwb,iqx,iqy,iqz,i1,i2,i3,i4
+  integer(kind=8),dimension(:),allocatable :: dims_chi_qw,cdims
+  integer(hid_t) :: file_id,grp_id_chi_qw,plist_id
+  integer(hid_t) :: dspace_id_chi_qw,dspace_id_chi_slice
+  integer(hid_t) :: dset_id_chi_qw
+  complex(kind=8),dimension(ndim**2,ndim**2,nqp*(2*iwbmax_small+1)) :: chi_qw
+  complex(kind=8),dimension(2*iwbmax_small+1,nqpz,nqpy,nqpx,ndim,ndim) :: chi_outputarray
+
+  rank_chi_qw=6 
+  allocate(dims_chi_qw(rank_chi_qw),cdims(rank_chi_qw))
+  dims_chi_qw=(/ 2*iwbmax_small+1,nqpz,nqpy,nqpx,ndim,ndim /)
+  cdims=(/ 1,nqpz,nqpy,nqpx,ndim,ndim /)
+
+  do iwb=1,2*iwbmax_small+1
+    do iqz=1,nqpz
+      do iqy=1,nqpy
+        do iqx=1,nqpx
+          do i1=1,ndim
+            i2 = i1
+            do i3=1,ndim
+              i4 = i3
+              chi_outputarray(iwb,iqz,iqy,iqx,i3,i1) = &
+              chi_qw(ndim*(i1-1)+i2,ndim*(i4-1)+i3,(iwb-1)*nqp+(iqz-1)+(iqy-1)*nqpz+(iqx-1)*nqpy*nqpz+1)
+            end do ! i3
+          end do ! i1
+        end do ! nqpx
+      end do ! nqpy
+    end do ! nqpz
+  end do ! iwb
+
+  call h5open_f(err)
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+  call h5gopen_f(file_id,'susceptibility/nonloc',grp_id_chi_qw,err)
+
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi_qw,err)
+  call h5sset_extent_simple_f(dspace_id_chi_qw,rank_chi_qw,dims_chi_qw,dims_chi_qw,err)
+
+  call h5pcreate_f(H5P_DATASET_CREATE_F,plist_id,err)
+  call h5pset_chunk_f(plist_id,rank_chi_qw,cdims,err)
+  call h5pset_deflate_f(plist_id,9,err)
+  call h5pset_fletcher32_f(plist_id,err)
+
+  call h5dcreate_f(grp_id_chi_qw,channel,compound_id,dspace_id_chi_qw,dset_id_chi_qw,err,dcpl_id=plist_id)
+  call h5dwrite_f(dset_id_chi_qw,type_r_id,real(chi_outputarray),dims_chi_qw,err) ! this is overwritten anyway
+  call h5dwrite_f(dset_id_chi_qw,type_i_id,aimag(chi_outputarray),dims_chi_qw,err)
+
+  call h5sclose_f(dspace_id_chi_qw,err)
+  call h5pclose_f(plist_id,err)
+  call h5dclose_f(dset_id_chi_qw,err)
+  call h5gclose_f(grp_id_chi_qw,err)
+  call h5close_f(err)
+ 
+  deallocate(dims_chi_qw,cdims)
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'reduced nonlocal susceptibility ',channel,' written to h5'
+  endif
+  return
+end subroutine output_chi_qw_reduced_h5
 
 subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
   use parameters_module

@@ -30,6 +30,7 @@ module parameters_module
   logical :: external_chi_loc,external_threelegs
   integer :: vertex_type
   logical :: exist_p
+  logical :: susc_full_output
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
   integer :: nr ! number of r-points in extrapolated V(r)
   real(kind=8) :: a,b,c ! lattice spacing

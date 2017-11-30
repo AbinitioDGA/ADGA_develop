@@ -94,6 +94,7 @@ subroutine read_config(er,erstr)
   q_path_susc=.false.
   external_chi_loc=.false.
   external_threelegs=.false.
+  susc_full_output=.false.
   output_dir='output/'
   filename_hk=''; filename_1p=''; filename_vertex_sym=''
   filename_vq=''; filename_q_path=''; filename_umatrix=''
@@ -268,6 +269,11 @@ subroutine read_config(er,erstr)
     external_threelegs = .false.
   else
     external_threelegs = .true.
+  endif
+
+  call group_find('[Output]', search_start, search_end)
+  if (search_start .gt. 0) then ! group was found -- this is an optional group
+    call bool_find('susc_full_output', susc_full_output, search_start, search_end)
   endif
 
   deallocate(file_save)

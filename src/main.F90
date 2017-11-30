@@ -782,9 +782,15 @@ end if
          call flush(ounit)
       endif
       call output_chi_loc(bubble_loc,'bubble_loc.dat')
-      call output_chi_loc_h5(output_filename,'bubble_loc',bubble_loc)
-      call output_chi_loc_h5(output_filename,'magn',chi_loc_magn)
-      call output_chi_loc_h5(output_filename,'dens',chi_loc_dens)
+      if (susc_full_output) then
+        call output_chi_loc_full_h5(output_filename,'bubble_loc',bubble_loc)
+        call output_chi_loc_full_h5(output_filename,'magn',chi_loc_magn)
+        call output_chi_loc_full_h5(output_filename,'dens',chi_loc_dens)
+      else
+        call output_chi_loc_reduced_h5(output_filename,'bubble_loc',bubble_loc)
+        call output_chi_loc_reduced_h5(output_filename,'magn',chi_loc_magn)
+        call output_chi_loc_reduced_h5(output_filename,'dens',chi_loc_dens)
+      endif
     end if
     deallocate(bubble_loc)
 
@@ -811,7 +817,12 @@ end if
                  sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small*nqp+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif
-        call output_chi_qw_h5(output_filename,'bubble_nl',chi_qw_full)
+        if (susc_full_output) then
+          call output_chi_qw_full_h5(output_filename,'bubble_nl',chi_qw_full)
+        else
+          call output_chi_qw_reduced_h5(output_filename,'bubble_nl',chi_qw_full)
+        endif
+
       end if
 
       !--------------------
@@ -832,7 +843,7 @@ end if
               call flush(ounit)
            endif
            ! Print to file
-           if (index(verbstr,"Extra") .ne. 0) call output_chi_qw_h5(output_filename,'dens-nl',chi_qw_full)
+           if (index(verbstr,"Extra") .ne. 0) call output_chi_qw_full_h5(output_filename,'dens-nl',chi_qw_full)
          endif
       endif
       ! Add the purely non-local bubble
@@ -856,7 +867,12 @@ end if
            call flush(ounit)
         endif
         !call output_chi_qw(chi_qw_full,qw,'chi_qw_dens.dat')
-        call output_chi_qw_h5(output_filename,'dens',chi_qw_full)
+        if (susc_full_output) then
+          call output_chi_qw_full_h5(output_filename,'dens',chi_qw_full)
+        else
+          call output_chi_qw_reduced_h5(output_filename,'dens',chi_qw_full)
+        endif
+
       end if
       deallocate(chi_loc_dens)
 
@@ -878,7 +894,7 @@ end if
               call flush(ounit)
            endif
            ! Print to file
-           if (index(verbstr,"Extra") .ne. 0) call output_chi_qw_h5(output_filename,'magn-nl',chi_qw_full)
+           if (index(verbstr,"Extra") .ne. 0) call output_chi_qw_full_h5(output_filename,'magn-nl',chi_qw_full)
          endif
       endif
       ! Add the purely non-local bubble
@@ -902,7 +918,11 @@ end if
            call flush(ounit)
         endif
         !call output_chi_qw(chi_qw_full,qw,'chi_qw_magn.dat')
-        call output_chi_qw_h5(output_filename,'magn',chi_qw_full)
+        if (susc_full_output) then
+          call output_chi_qw_full_h5(output_filename,'magn',chi_qw_full)
+        else
+          call output_chi_qw_reduced_h5(output_filename,'magn',chi_qw_full)
+        endif
       end if
       deallocate(chi_loc_magn)
 
