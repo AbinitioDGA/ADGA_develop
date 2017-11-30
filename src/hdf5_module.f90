@@ -751,7 +751,6 @@ subroutine read_threeleg(gamma_loc_qmc,channel,iwb)
 
   gamma_loc_qmc=0.d0
   gamma_loc_qmc_tmp=0.d0
-  gamma_loc_qmc_tmp_2=0.d0
 
   do ineq=1,nineq
     dimstart=1
@@ -812,7 +811,7 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
   implicit none
 
   complex(kind=8),intent(out) :: chi_loc_qmc(ndim2,ndim2,2*iwbmax_small+1)
-  complex(kind=8) :: chi_loc_qmc(ndim,ndim,ndim,ndim,2*iwbmax_small+1)
+  complex(kind=8) :: chi_loc_qmc_tmp(ndim,ndim,ndim,ndim,2*iwbmax_small+1)
   character(len=*),intent(in) :: channel
   character(len=100) :: grpname,bgroup_name
   integer(hid_t) :: file_id,grp_id,dset_id
@@ -823,9 +822,9 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
   complex(kind=8),parameter :: ci = (0d0,1d0)
 
   p2_dims=(/2*n2iwb+1/)
-write(*,*) p2_dims
 
   chi_loc_qmc=0.d0
+  chi_loc_qmc_tmp=0.d0
 
   do ineq=1,nineq
 
@@ -872,7 +871,7 @@ write(*,*) p2_dims
       do k=1,ndim
         do l=1,ndim
           i2=i2+1
-          chi_loc_qmc(i1,i2,:) = chi_loc_tmp(i,j,l,k,:)
+          chi_loc_qmc(i1,i2,:) = chi_loc_qmc_tmp(i,j,l,k,:)
         end do
       end do
     end do
