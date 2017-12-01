@@ -899,11 +899,13 @@ subroutine init_h5_output(filename_output)
   integer(kind=8) :: chi_qw_dims(3),chi_loc_dims(3)
   integer(hid_t) :: dspace_scalar_id,dset_id_mu,dset_id_beta,dset_id_1,dspace_vec_id
   integer(hid_t) :: dspace_dc_id,dset_dc_id,dspace_id_g,dspace_id_s,dset_id_g,dset_id_s,dset_id_hk,dspace_id_hk
+  integer(hid_t) :: dset_id_ndmft, dspace_id_ndmft
+  integer(hid_t) :: dset_id_nfock, dspace_id_nfock
   integer(hsize_t),dimension(0) :: dims_scalar
   integer(hsize_t),dimension(1) :: dims_vec
   integer(hsize_t),dimension(2) :: dims_dc,dims_g
-  integer(hsize_t),dimension(5) :: dims_hk_arr
-  complex(kind=8), dimension(:,:,:,:,:),allocatable :: hk_arr
+  integer(hsize_t),dimension(5) :: dims_hk_arr, dims_nfock
+  complex(kind=8), dimension(:,:,:,:,:),allocatable :: hk_arr, nfock_arr
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
    write(ounit,*) 'initialize output file'
   endif
@@ -992,8 +994,37 @@ subroutine init_h5_output(filename_output)
   call h5dwrite_f(dset_id_hk,type_r_id,real(hk_arr),dims_hk_arr,err)
   call h5dwrite_f(dset_id_hk,type_i_id,aimag(hk_arr),dims_hk_arr,err)
   call h5dclose_f(dset_id_hk,err)
-  
 
+! create dataspace for for ndmft
+  dims_vec=(/ndim/)
+  call h5screate_simple_f(1,dims_vec,dspace_id_ndmft,err)
+
+! write dmft
+  call h5dcreate_f(grp_id_input,'n_dmft',H5T_NATIVE_DOUBLE,dspace_id_ndmft,dset_id_ndmft,err)
+  call h5dwrite_f(dset_id_ndmft,H5T_NATIVE_DOUBLE,real(n_dmft),dims_vec,err)
+  call h5dclose_f(dset_id_ndmft,err)
+
+! create dataspace for for nfock
+  dims_nfock=(/nkpz,nkpy,nkpx,ndim,ndim/)
+  allocate(nfock_arr(nkpz,nkpy,nkpx,ndim,ndim))
+  do i1=1,ndim
+    do i2=1,ndim
+      do ikx=1,nkpx
+        do iky=1,nkpy
+          do ikz=1,nkpz
+            nfock_arr(ikz,iky,ikx,i2,i1) = n_fock(ikz+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz,i1,i2)
+          enddo
+        enddo
+      enddo
+    enddo
+  enddo
+
+  call h5screate_simple_f(5,dims_nfock,dspace_id_nfock,err)
+
+! write dmft
+  call h5dcreate_f(grp_id_input,'n_fock',H5T_NATIVE_DOUBLE,dspace_id_nfock,dset_id_nfock,err)
+  call h5dwrite_f(dset_id_nfock,H5T_NATIVE_DOUBLE,real(n_fock),dims_nfock,err)
+  call h5dclose_f(dset_id_nfock,err)
 
 
 ! write iw,iwfmax,iwbmax,nkp,nqp etc.
