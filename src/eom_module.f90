@@ -203,7 +203,6 @@ end subroutine calc_eom_dmft
 end subroutine calc_eom_dynamic
 !=============================================================================================
 
-
 !=============================================================================================
 subroutine add_siw_dmft(sigma_sum)
   implicit none
@@ -220,35 +219,7 @@ subroutine add_siw_dmft(sigma_sum)
     enddo
 
  end subroutine add_siw_dmft
-!===============================================================================================
-
-
-
-subroutine get_sigma_g_loc(sigma_sum, sigma_loc, gloc)
-  implicit none
-  complex(kind=8), intent(out) :: sigma_loc(ndim, ndim,-iwfmax_small:iwfmax_small-1)
-  complex(kind=8), intent(out) :: gloc(-iwmax:iwmax-1,ndim,ndim)
-  complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
-  integer :: ik, iband, iw
-
-  sigma_loc = 0.d0
-  do ik=1,nkp
-     sigma_loc(:,:,:) = sigma_loc(:,:,:)+sigma_sum(:,:,:,ik)
-  enddo
-  sigma_loc = sigma_loc/dble(nkp)
-
-  call get_gloc(sigma_sum, gloc)
-
-  n_dga = 0.d0
-  do iw=0,iwmax-1
-     do iband=1,ndim
-        n_dga(iband) = n_dga(iband)+gloc(iw,iband,iband)
-     enddo
-  enddo
-
-  n_dga = 2.d0*n_dga/beta+0.5d0
-
-end subroutine get_sigma_g_loc
+!=============================================================================================
 
 !==============================================================================================
 subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, nonlocal)

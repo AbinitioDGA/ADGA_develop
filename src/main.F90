@@ -194,7 +194,7 @@ program main
     deallocate(Umat)
   endif
 
-  allocate(n_dmft(ndim), n_fock(nkp,ndim,ndim), n_dga(ndim))
+  allocate(n_dmft(ndim), n_fock(nkp,ndim,ndim), n_dga(ndim), n_dga_k(nkp,ndim,ndim))
 
 !compute DMFT filling n_dmft
   call get_ndmft() ! writes n_dmft.dat if we have the verbose keyword "Dmft"
@@ -248,7 +248,7 @@ program main
     if (.not. do_vq) then
       write(ounit,*) 'Running the calculation without V(q)'
     else
-      write(ounit,*) 'Running the calculation without V(q)'
+      write(ounit,*) 'Running the calculation with V(q)'
     endif
     write(ounit,'(1x)')
     write(ounit,'(1x,"Frequency information:")')
@@ -399,7 +399,6 @@ end if
      !read nonlocal interaction v and go into compound index:
      if(do_vq) then
         call read_vq(iq,v,er,erstr)
-        write(*,*) v
         if (er .ne. 0) call mpi_stop(erstr,er)
        ! v = v-u  !otherwise, local U would be included twice
      else
@@ -723,8 +722,8 @@ end if
          write(ounit,'(1x,"Tr[Non-local Self-energy]:   ",4f24.11)') sum( (/ (sigma_sum(i,i,-1,1),i=1,ndim) /) ), &
                                                                     sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) ) 
        endif
-       call add_siw_dmft(sigma_sum) 
-       call get_sigma_g_loc(sigma_sum, sigma_loc, gloc)
+       call add_siw_dmft(sigma_sum)  !add the dmft-selfenergy
+       call get_sigma_g_loc(sigma_sum, sigma_loc, gloc) ! calculate the k-summed dga selfenergy and k-summed dga(dmft) greens-function
        if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
          write(ounit,'(1x,"Tr[Total Self-energy]:       ",4f24.11)') sum( (/ (sigma_sum(i,i,-1,1),i=1,ndim) /) ), &
                                                                     sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) )
@@ -736,8 +735,11 @@ end if
          write(ounit,'(1x)')
          call flush(ounit)
        endif
+
+       call get_ndga(sigma_sum) ! calculate the k-dependent and k-summed dga occupation
+       call output_occ_h5(output_filename)
        call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, nonlocal)
-       if (nonlocal) call output_eom_hdf5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+       if (nonlocal) call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
        deallocate(gloc,sigma_loc)
      end if
      deallocate(sigma_nl, sigma_sum, sigma_sum_dmft, sigma_sum_hf)

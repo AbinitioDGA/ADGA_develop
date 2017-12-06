@@ -7,7 +7,11 @@ module one_particle_quant_module
 
   contains
 
+! calculation of greens functions
+!=========================================================================== 
 subroutine get_giw()
+  ! calculation of dmft impurity greens function with orbital diagonal self energy
+  ! we do the inversion and then only use the diagonal elements
   implicit none
   integer :: ik, iw, i
   complex(kind=8) :: g(ndim,ndim), g2(ndim,ndim)
@@ -44,6 +48,8 @@ end subroutine get_giw
 
 
 subroutine get_gkiw(ikq, iwf, iwb, gkiw)
+  ! calculation of lattice greens function with dmft selfenergy
+  ! at a specific k-point ikq and a fermionic frequency iwf-iwb
   implicit none
   integer :: i
   integer :: iwf, iwb, ikq
@@ -63,26 +69,54 @@ subroutine get_gkiw(ikq, iwf, iwb, gkiw)
 
 end subroutine get_gkiw
 
-
-subroutine get_gloc(sigma_sum, gloc)
+subroutine get_gkiw_dga(ik, iwf, skiw, gkiw)
+  ! calculation of lattice greens function with any selfenergy
+  ! skiw(ndim,ndim) at a specific k-point ik and fermionic frequency iwf
   implicit none
+  integer :: i
+  integer, intent(in) :: iwf, ik
+  complex(kind=8), intent(in) :: skiw(ndim,ndim)
+  complex(kind=8), intent(out) :: gkiw(ndim,ndim)
+  complex(kind=8),parameter :: ci = (0d0,1d0)
 
+
+  gkiw(:,:) = -hk(:,:,ik)-skiw(:,:)
+  do i=1,ndim
+     gkiw(i,i) = ci*iw_data(iwf)+mu-hk(i,i,ik)-dc(1,i)-skiw(i,i)
+  enddo
+  call inverse_matrix(gkiw)
+
+end subroutine get_gkiw_dga
+
+
+subroutine get_sigma_g_loc(sigma_sum, sigma_loc, gloc)
+  ! calculation of the k-summed dga self-energy
+  ! calculation of the k-summed greens function with the dga selfenergy
+  ! inside the vertex box and the dmft selfenergy outisde of it
+  implicit none
   complex(kind=8),intent(in) :: sigma_sum(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
+  complex(kind=8), intent(out) :: sigma_loc(ndim, ndim,-iwfmax_small:iwfmax_small-1)
   complex(kind=8), intent (out) :: gloc(-iwmax:iwmax-1,ndim,ndim)
+
   integer :: ik, iw, i
   complex(kind=8) :: g(ndim,ndim), g2(ndim,ndim)
   complex(kind=8),parameter :: ci = (0d0,1d0)
 
+  ! k-summed dga self-energy
+  sigma_loc = 0.d0
+  do ik=1,nkp
+     sigma_loc(:,:,:) = sigma_loc(:,:,:)+sigma_sum(:,:,:,ik)
+  enddo
+  sigma_loc = sigma_loc/dble(nkp)
+
+  ! k-summed dga (+dmft) greens-function
   gloc = 0.d0
   do ik=1,nkp
-     g(:,:) = -hk(:,:,ik)
-     ! Within the small box, use sigma_sum
+     ! Within the small box, use sigma_sum (not orbital diagonal)
      do iw=0,iwfmax_small-1
+        g(:,:) = -hk(:,:,ik) - sigma_sum(:,:,iw,ik)
         do i=1,ndim
-           g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)
-        enddo
-        do i=1,ndim
-           g(i,i) = g(i,i)-sigma_sum(i,i,iw,ik)
+           g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)-sigma_sum(i,i,iw,ik)
         enddo
         g2 = g(:,:)
         call inverse_matrix(g2)
@@ -91,11 +125,9 @@ subroutine get_gloc(sigma_sum, gloc)
 
      ! Outside the small box, use siw (from QMC)
      do iw=iwfmax_small,iwmax-1
+        g(:,:) = -hk(:,:,ik)
         do i=1,ndim
-           g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)
-        enddo
-        do i=1,ndim
-           g(i,i) = g(i,i)-siw(iw,i)
+           g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)-siw(iw,i)
         enddo
         g2 = g(:,:)
         call inverse_matrix(g2)
@@ -104,15 +136,17 @@ subroutine get_gloc(sigma_sum, gloc)
 
   enddo
 
+  ! we use G^dagger (nu) = G(-nu)
   do iw=0,iwmax-1
      gloc(-iw-1,:,:) = TRANSPOSE(conjg(gloc(iw,:,:)))
   enddo
 
   gloc = gloc/dble(nkp)
-end subroutine get_gloc
+end subroutine get_sigma_g_loc
 
 
-! 
+! calculation of susceptibilities
+!=========================================================================== 
 subroutine get_chi0_loc(iwf, iwb, chi0_loc)
   implicit none
   integer :: i, j, k, l, i1, i2
@@ -209,6 +243,8 @@ subroutine accumulate_chi0(ik, ikq, iwf, iwb, chi0)
 end subroutine accumulate_chi0
 
 
+! calculation of occupations
+!=========================================================================== 
 subroutine get_ndmft()
   implicit none
   integer :: iw,i
@@ -256,5 +292,53 @@ subroutine get_nfock()
     close(110)
   endif
 end subroutine get_nfock
+
+subroutine get_ndga(sigma_sum)
+  implicit none
+  integer :: ik,iw,i
+  complex(kind=8), intent(in) :: sigma_sum(ndim,ndim,-iwfmax_small:iwfmax_small-1, nkp)
+  complex(kind=8) :: gkiw(ndim,ndim)
+  complex(kind=8) :: skiw(ndim,ndim)
+
+  ! we calculate n_dga_k with the dga selfenergy in the vertex area and
+  ! with the dmft selfenergy outside (diagonal)
+  n_dga_k = 0.d0
+  n_dga = 0.d0
+  gkiw = 0.d0
+  do ik=1,nkp
+     do iw=0,iwfmax_small-1
+        call get_gkiw_dga(ik, iw, sigma_sum(:,:,iw,ik), gkiw)
+        n_dga_k(ik,:,:) = n_dga_k(ik,:,:)+real(gkiw(:,:))
+     enddo
+     do iw=iwfmax_small,iwmax-1
+        skiw = 0.d0
+        do i=1,ndim
+          skiw(i,i) = siw(iw,i) ! orbital diagonal
+        enddo
+        call get_gkiw_dga(ik, iw, skiw(:,:), gkiw)
+        n_dga_k(ik,:,:) = n_dga_k(ik,:,:)+real(gkiw(:,:))
+     enddo
+     n_dga_k(ik,:,:) = 2.d0*n_dga_k(ik,:,:)/beta
+     do i=1,ndim
+        n_dga_k(ik,i,i) = n_dga_k(ik,i,i)+0.5d0
+        n_dga(i) = n_dga(i) + n_dga_k(ik,i,i)
+     enddo
+  enddo
+
+  n_dga = n_dga/dble(nkp)
+
+  if (mpi_wrank .eq. master) then
+    open(110, file=trim(output_dir)//"n_dga_k.dat", status='unknown')
+    write(110,*) '### kx, ky, kz, n_dga(k,i,i)'
+    do ik=1,nkp
+      write(110,'(100F12.6)') k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_dga_k(ik,i,i)),i=1,ndim)
+    enddo
+    close(110)
+
+    open(111, file=trim(output_dir)//"n_dga.dat", status='unknown')
+    write(111,'(100F12.6)') (real(n_dga(i)),i=1,ndim)
+    close(111)
+  endif
+end subroutine get_ndga
 
 end module

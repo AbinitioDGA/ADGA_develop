@@ -892,7 +892,7 @@ subroutine init_h5_output(filename_output)
   implicit none
 
   integer :: err,i1,i2,ikx,iky,ikz
-  integer(hid_t) :: file_id,grp_id_input,grp_id_susc,grp_id_se
+  integer(hid_t) :: file_id,grp_id_input,grp_id_susc,grp_id_se,grp_id_occ,grp_id_green
   integer(hid_t) :: grp_id_chi_qw,grp_id_chi_loc
   integer(hid_t) :: grp_id_se_loc,grp_id_se_nonloc
   character(len=*) :: filename_output
@@ -923,6 +923,7 @@ subroutine init_h5_output(filename_output)
   end if
   
   if (do_eom) then
+    call h5gcreate_f(file_id,'occupation',grp_id_occ,err)
     call h5gcreate_f(file_id,'selfenergy',grp_id_se,err)
     call h5gcreate_f(grp_id_se,'nonloc',grp_id_se_nonloc,err)
     call h5gclose_f(grp_id_se_nonloc,err)
@@ -1022,7 +1023,7 @@ subroutine init_h5_output(filename_output)
   call h5screate_simple_f(5,dims_nfock,dspace_id_nfock,err)
 
 ! write dmft
-  call h5dcreate_f(grp_id_input,'n_fock',H5T_NATIVE_DOUBLE,dspace_id_nfock,dset_id_nfock,err)
+  call h5dcreate_f(grp_id_input,'n_dmft_k',H5T_NATIVE_DOUBLE,dspace_id_nfock,dset_id_nfock,err)
   call h5dwrite_f(dset_id_nfock,H5T_NATIVE_DOUBLE,real(n_fock),dims_nfock,err)
   call h5dclose_f(dset_id_nfock,err)
 
@@ -1366,7 +1367,7 @@ subroutine output_chi_qw_reduced_h5(filename_output,channel,chi_qw)
   return
 end subroutine output_chi_qw_reduced_h5
 
-subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+subroutine output_eom_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
   use parameters_module
   implicit none
   character(len=*),intent(in) :: filename_output
@@ -1427,13 +1428,14 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
    write(ounit,*) 'nonlocal selfenergy (DGA) written to h5'
   endif
 
-  ! in order to save memory, the same array is used again, now for the Hartree-Fock contribution.
+  ! in order to save memory, the same array is used again, now for the non-local Hartree-Fock contribution.
   do i1=1,ndim
     do i2=1,ndim
       do ikz=1,nkpz
         do iky=1,nkpy
           do ikx=1,nkpx
-             siwk_outputarray(:,ikz,iky,ikx,i2,i1) = sigma_sum_hf(i1,i2,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
+            ! that is, the non-local Hartree-Fock term depends at the moment only on vec(k) and not on the frequency nu 
+            siwk_outputarray(:,ikz,iky,ikx,i2,i1) = sigma_sum_hf(i1,i2,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
           end do
         end do
       end do
@@ -1498,6 +1500,135 @@ subroutine output_eom_hdf5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigm
   call h5fclose_f(file_id,err)
   call h5close_f(err)
 
-end subroutine output_eom_hdf5
+end subroutine output_eom_h5
+
+subroutine output_occ_h5(filename_output)
+  use parameters_module
+  implicit none
+  character(len=*),intent(in) :: filename_output
+  integer :: err
+  integer(hid_t) :: file_id, grp_id_occ
+  integer(hid_t) :: dspace_id_ndga, dspace_id_ndga_k
+  integer(hid_t) :: dset_id_ndga, dset_id_ndga_k
+  integer(hid_t) :: dspace_id
+  integer(hsize_t),dimension(1) :: dims_ndga
+  integer(hsize_t),dimension(5) :: dims_ndga_k
+  complex(kind=8), allocatable :: ndga_k_arr(:,:,:,:,:)
+  integer :: i1,i2,ikx,iky,ikz
+
+
+  call h5open_f(err)
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+  call h5gopen_f(file_id,'occupation',grp_id_occ,err)
+
+  dims_ndga = (/ndim/)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_ndga,err)
+  call h5sset_extent_simple_f(dspace_id_ndga,1,dims_ndga,dims_ndga,err)
+  call h5dcreate_f(grp_id_occ,'n_dga',H5T_NATIVE_DOUBLE, dspace_id_ndga, dset_id_ndga,err)
+  call h5dwrite_f(dset_id_ndga, H5T_NATIVE_DOUBLE, real(n_dga), dims_ndga, err)
+  call h5dclose_f(dset_id_ndga, err)
+
+  dims_ndga_k = (/nkpz,nkpy,nkpx,ndim,ndim/)
+  allocate(ndga_k_arr(nkpz,nkpy,nkpx,ndim,ndim))
+  do i1=1,ndim
+    do i2=1,ndim
+      do ikx=1,nkpx
+        do iky=1,nkpy
+          do ikz=1,nkpz
+            ndga_k_arr(ikz,iky,ikx,i2,i1) = n_dga_k(ikz+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz,i1,i2)
+          enddo
+        enddo
+      enddo
+    enddo
+  enddo
+
+  ! WE HAVE TO CONTINUE PLEASE
+
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_ndga_k,err)
+  call h5sset_extent_simple_f(dspace_id_ndga_k,5,dims_ndga_k,dims_ndga_k,err)
+  call h5dcreate_f(grp_id_occ,'n_dga_k',H5T_NATIVE_DOUBLE, dspace_id_ndga_k, dset_id_ndga_k,err)
+  call h5dwrite_f(dset_id_ndga_k, H5T_NATIVE_DOUBLE, real(ndga_k_arr), dims_ndga_k, err)
+  call h5dclose_f(dset_id_ndga_k, err)
+
+  call h5gclose_f(grp_id_occ,err)
+  deallocate(ndga_k_arr)
+
+ 
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'dga occupation written to h5'
+  endif
+
+end subroutine output_occ_h5
+
+! if one ever wants to output the 'dga greensfunction' here is the routine for that
+
+! subroutine output_green_h5(filename_output)
+!   use parameters_module
+!   implicit none
+!   character(len=*),intent(in) :: filename_output
+!   integer :: err
+!   integer(hid_t) :: file_id, grp_id_green
+!   integer(hid_t) :: dspace_id_green, dspace_id_green_sum
+!   integer(hid_t) :: dset_id_green, dset_id_green_sum
+!   integer(hid_t) :: dspace_id
+!   integer(hsize_t),dimension(6) :: dims_green
+!   integer(hsize_t),dimension(3) :: dims_green_sum
+!   complex(kind=8), allocatable :: green_k_arr(:,:,:,:,:,:)
+!   complex(kind=8), allocatable :: green_arr(:,:,:)
+!   integer :: i1,i2,ikx,iky,ikz,iw
+
+
+!   call h5open_f(err)
+!   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+!   call h5gopen_f(file_id,'greenfunction',grp_id_green,err)
+
+!   dims_green = (/2*iwfmax_small,nkpz,nkpy,nkpx,ndim,ndim/)
+!   dims_green_sum = (/2*iwfmax_small,ndim,ndim/)
+!   allocate(green_k_arr(2*iwfmax_small,nkpz,nkpy,nkpx,ndim,ndim))
+!   allocate(green_arr(2*iwfmax_small,ndim,ndim))
+
+!   ! for convenience we calculate the local dga green function
+!   green_arr = 0.d0
+
+!   do i1=1,ndim
+!     do i2=1,ndim
+!       do ikx=1,nkpx
+!         do iky=1,nkpy
+!           do ikz=1,nkpz
+!             do iw=1,2*iwfmax_small
+!               green_k_arr(iw,ikz,iky,ikx,i2,i1) = gkiw_dga(iw-iwfmax_small-1,ikz+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz,i1,i2)
+!               green_arr(iw,i2,i1) = green_arr(iw,i2,i1) + green_k_arr(iw,ikz,iky,ikx,i2,i1)
+!             enddo
+!           enddo
+!         enddo
+!       enddo
+!     enddo
+!   enddo
+
+!   green_arr = green_arr / nkp
+
+!   call h5screate_f(H5S_SIMPLE_F,dspace_id_green,err)
+!   call h5sset_extent_simple_f(dspace_id_green,6,dims_green,dims_green,err)
+!   call h5dcreate_f(grp_id_green,'g_dga_iwk',compound_id, dspace_id_green, dset_id_green,err)
+!   call h5dwrite_f(dset_id_green, type_r_id, real(green_k_arr), dims_green, err)
+!   call h5dwrite_f(dset_id_green, type_i_id, aimag(green_k_arr), dims_green, err)
+!   call h5dclose_f(dset_id_green, err)
+
+!   call h5screate_f(H5S_SIMPLE_F,dspace_id_green_sum,err)
+!   call h5sset_extent_simple_f(dspace_id_green_sum,3,dims_green_sum,dims_green_sum,err)
+!   call h5dcreate_f(grp_id_green,'g_dga_iw_ksum',compound_id, dspace_id_green_sum, dset_id_green_sum,err)
+!   call h5dwrite_f(dset_id_green_sum, type_r_id, real(green_arr), dims_green, err)
+!   call h5dwrite_f(dset_id_green_sum, type_i_id, aimag(green_arr), dims_green, err)
+!   call h5dclose_f(dset_id_green_sum, err)
+
+!   call h5gclose_f(grp_id_green,err)
+!   deallocate(green_k_arr)
+!   deallocate(green_arr)
+ 
+!   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+!    write(ounit,*) 'dga occupation written to h5'
+!   endif
+
+!   end subroutine output_green_h5
 
 end module hdf5_module
