@@ -227,11 +227,13 @@ program main
 
   if (q_path_susc .and. do_chi .and. (.not. q_vol)) then
     if (do_eom) call mpi_stop('Error: it is currently not possible to use both do_eom and q_path_susc',er)
-    nqp=n_segments()*nqp1/2+1
-    allocate(q_data(nqp))
-    call generate_q_path(nqp1,q_data,er,erstr)
+    !nqp=n_segments()*nqp1/2+1
+    !allocate(q_data(nqp))
+    !call generate_q_path(nqp1,q_data,er,erstr)
     if (er .ne. 0) call mpi_stop(erstr,er)
-    write(ounit,*) 'q path with',n_segments(),'segments and',nqp,'points.'
+    !write(ounit,*) 'q path with',n_segments(),'segments and',nqp,'points.'
+    call qdata_from_file()
+    write(*,*) q_data
   else
     if (q_path_susc .and. q_vol) then
       write(ounit,*) 'Warning: q_path_susc .and. q_vol currently has the same effect as only q_vol.'
@@ -288,6 +290,8 @@ program main
   call cpu_time(start)
   allocate(kq_ind(nkp,nqp))
 !  call index_kq_search(k_data, q_data, kq_ind) ! old method, assumes cubic case
+close(101)
+close(101)
   call index_kq(kq_ind) ! new method
   call cpu_time(finish)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Time") .ne. 0))) then

@@ -99,6 +99,7 @@ subroutine read_config(er,erstr)
   output_dir='output/'
   filename_hk=''; filename_1p=''; filename_vertex_sym=''
   filename_vq=''; filename_q_path=''; filename_umatrix=''
+  filename_qdata=''
   filename_chi_loc=''; filename_threelegs=''
   nineq=1
   iwfmax_small=-1; iwbmax_small=-1 ! maximum number of frequencies -- see check_freq_range
@@ -131,6 +132,7 @@ subroutine read_config(er,erstr)
     do_vq = .true.
   endif
   call string_find('QpathFile', filename_q_path, search_start, search_end)
+  call string_find('QDataFile', filename_qdata, search_start, search_end)
   call int3_find('k-grid', nkpx, nkpy, nkpz, search_start, search_end)
   call int3_find('q-grid', nqpx, nqpy, nqpz, search_start, search_end)
   call bool_find('qvol', q_vol, search_start, search_end)
@@ -325,7 +327,7 @@ subroutine config_init(er,erstr)
     endif
   end if
 
-  if (q_path_susc .or. k_path_eom) then
+  if (k_path_eom) then
     er = 3
     erstr = 'q paths currently not stable'
     return
@@ -428,7 +430,7 @@ subroutine check_config(er,erstr)
   endif
 
   if (q_vol .eqv. .false.) then
-    inquire (file=trim(filename_q_path), exist=there)
+    inquire (file=trim(filename_qdata), exist=there)
     if (.not. there) then
       er = 3
       erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the Q-Path file: "//trim(filename_q_path)

@@ -5,9 +5,11 @@ module kq_tools
   interface k_vector
     module procedure k_vector_1, k_vector_3
   end interface k_vector
+
   interface k_index
     module procedure k_index_1, k_index_3
   end interface k_index
+
 contains
 
 function n_segments()
@@ -381,6 +383,35 @@ subroutine index_kq_search(k_data, q_data, index)
       !enddo
 
 end subroutine index_kq_search
+
+subroutine qdata_from_file()
+  use parameters_module
+
+  implicit none
+  integer :: iostatus,iq
+  character(100) :: str_tmp
+  real(kind=8) :: qx,qy,qz
+
+  iostatus=0
+  open(unit=101,file=filename_qdata)
+  
+  nqp=-1
+  do while (iostatus.eq.0)
+    read(101,*,iostat=iostatus) str_tmp
+    nqp=nqp+1
+  end do
+  close(101)
+  write(*,*) nqp,' q points'
+
+  allocate(q_data(nqp))
+  open(unit=101,file=filename_qdata)
+  do iq=1,nqp
+    read(101,*) qx,qy,qz ! read q points as real numbers in interval [0,1)
+    q_data(iq) = k_index(nint(qx*nkpx),nint(qy*nkpy),nint(qz*nkpz)) ! round to nearest integers
+  end do
+  close(101)
+
+end subroutine qdata_from_file
 
 
 
