@@ -90,7 +90,6 @@ subroutine read_config(er,erstr)
   do_chi=.false.
   do_eom=.true.
   q_vol=.true.
-  k_path_eom=.false.
   q_path_susc=.false.
   external_chi_loc=.false.
   external_threelegs=.false.
@@ -98,8 +97,7 @@ subroutine read_config(er,erstr)
   gzip_compression=4 ! h5py default standard -- ranges from 0 to 9
   output_dir='output/'
   filename_hk=''; filename_1p=''; filename_vertex_sym=''
-  filename_vq=''; filename_q_path=''; filename_umatrix=''
-  filename_qdata=''
+  filename_vq=''; filename_qdata=''; filename_umatrix=''
   filename_chi_loc=''; filename_threelegs=''
   nineq=1
   iwfmax_small=-1; iwbmax_small=-1 ! maximum number of frequencies -- see check_freq_range
@@ -131,13 +129,16 @@ subroutine read_config(er,erstr)
   else
     do_vq = .true.
   endif
-  call string_find('QpathFile', filename_q_path, search_start, search_end)
   call string_find('QDataFile', filename_qdata, search_start, search_end)
+  if (trim(adjustl(filename_qdata)) .eq. '') then
+    q_path_susc = .false.
+    q_vol = .true.
+  else
+    q_path_susc = .true.
+    q_vol = .false.
+  end if
   call int3_find('k-grid', nkpx, nkpy, nkpz, search_start, search_end)
   call int3_find('q-grid', nqpx, nqpy, nqpz, search_start, search_end)
-  call bool_find('qvol', q_vol, search_start, search_end)
-  call bool_find('k-path-eom', k_path_eom, search_start, search_end)
-  call bool_find('q-path-susc', q_path_susc, search_start, search_end)
   call string_find('Output', output_dir, search_start, search_end)
   if (len_trim(adjustl(output_dir)) .ge. 1) then
    str_temp = trim(adjustl(output_dir))
@@ -327,15 +328,6 @@ subroutine config_init(er,erstr)
     endif
   end if
 
-  if (k_path_eom) then
-    er = 3
-    erstr = 'q paths currently not stable'
-    return
-
-    nkp1=nkpx
-    nqp1=nqpx
-  end if
-
   ! create arrays with Matsubara frequencies
   allocate(iw_data(-iwmax:iwmax-1),iwb_data(-iwbmax_small:iwbmax_small),iwf_data(-iwfmax_small:iwfmax_small-1))
   do i=-iwmax,iwmax-1
@@ -433,7 +425,7 @@ subroutine check_config(er,erstr)
     inquire (file=trim(filename_qdata), exist=there)
     if (.not. there) then
       er = 3
-      erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the Q-Path file: "//trim(filename_q_path)
+      erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the Q-Path file: "//trim(filename_qdata)
       return
     endif
   endif

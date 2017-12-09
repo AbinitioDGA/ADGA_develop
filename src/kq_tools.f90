@@ -401,7 +401,7 @@ subroutine qdata_from_file()
     nqp=nqp+1
   end do
   close(101)
-  write(*,*) nqp,' q points'
+  !write(*,*) nqp,' q points'
 
   allocate(q_data(nqp))
   open(unit=101,file=filename_qdata)
@@ -410,6 +410,7 @@ subroutine qdata_from_file()
     q_data(iq) = k_index(nint(qx*nkpx),nint(qy*nkpy),nint(qz*nkpz)) ! round to nearest integers
   end do
   close(101)
+  write(*,*) 'q data',q_data
 
 end subroutine qdata_from_file
 

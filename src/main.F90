@@ -227,17 +227,8 @@ program main
 
   if (q_path_susc .and. do_chi .and. (.not. q_vol)) then
     if (do_eom) call mpi_stop('Error: it is currently not possible to use both do_eom and q_path_susc',er)
-    !nqp=n_segments()*nqp1/2+1
-    !allocate(q_data(nqp))
-    !call generate_q_path(nqp1,q_data,er,erstr)
-    if (er .ne. 0) call mpi_stop(erstr,er)
-    !write(ounit,*) 'q path with',n_segments(),'segments and',nqp,'points.'
     call qdata_from_file()
-    write(*,*) q_data
   else
-    if (q_path_susc .and. q_vol) then
-      write(ounit,*) 'Warning: q_path_susc .and. q_vol currently has the same effect as only q_vol.'
-    end if
     nqp=nqpx*nqpy*nqpz
     allocate(q_data(nqp))
     call generate_q_vol(nqpx,nqpy,nqpz,q_data)
@@ -260,38 +251,19 @@ program main
     write(ounit,*) 'iwbmax=',iwbmax, 'iwbmax_small=', iwbmax_small, &
                ' (number of bosonic matsubara frequencies of two-particle quantities)'
     write(ounit,'(1x,"k-point information:")')
-    write(ounit,*) nkp1,'k-points in the k-path'
     write(ounit,*) nkp,'k-points in the mesh'
-    write(ounit,*) nqp1,'q-points in the q-path'
-    write(ounit,*) nqp,'q-points in the mesh'
+    if (q_vol) then
+      write(ounit,*) nqp,'q-points in the mesh'
+    else
+      write(ounit,*) nqp,'q-points in the q-path'
+    end if
     write(ounit,'(1x)')
   end if
 
-!  else if (.not. do_eom .and. do_chi .and. q_path) then
-!    nqp=n_segments()*nqp1/2+1
-!    allocate(q_data(nqp))
-!    call generate_q_path(q_data)
-!    write(ounit,*) 'q path'
-!    write(ounit,*)'nqp=', nqp !test
-!    write(ounit,*) q_data
-!  else if (do_eom .and. q_path) then
-!    nqp = nqp1**3
-!    allocate(q_data(nqp))
-!    call generate_q_vol(nqp1,q_data)
-!    nkp_eom=n_segments()*nqp1/2+1
-!    allocate(k_data_eom(nkp_eom))
-!    call generate_q_path(k_data_eom)
-!  else
-!    write(ounit,*) 'only (q_vol) and (.not. do_eom .and. q_path) are implemented yet.'
-!    stop
-!  end if
 
-  !search for k+q - index:
-  call cpu_time(start)
+  ! calculate the index of all \vec{k} - \vec{q}
   allocate(kq_ind(nkp,nqp))
-!  call index_kq_search(k_data, q_data, kq_ind) ! old method, assumes cubic case
-close(101)
-close(101)
+  call cpu_time(start)
   call index_kq(kq_ind) ! new method
   call cpu_time(finish)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Time") .ne. 0))) then
