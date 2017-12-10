@@ -34,7 +34,7 @@ def component2index_band(Nbands, N, b):
 def ask_for_input():
   conf={}
   print "Which quantity do you want to symmetrize?"
-  targ=int(raw_input("1 -> 1 frequency (b), 2 -> 2 frequencies (bf), 3 -> 3 frequencies (ffb): "))
+  targ=int(raw_input("1 -> 1 frequency (b), 2 -> 2 frequencies (fb), 3 -> 3 frequencies (ffb): "))
   if targ==1:
     conf['target']='1freq'
   elif targ==2:

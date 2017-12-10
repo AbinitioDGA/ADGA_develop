@@ -1120,6 +1120,7 @@ subroutine output_chi_loc_full_h5(filename_output,channel,chi_loc)
   call h5pcreate_f(H5P_DATASET_CREATE_F,plist_id,err)             ! create property list for the dataset
   call h5pset_chunk_f(plist_id,rank_chi_loc,cdims,err)            ! set size of chunks, in which the data are written
   call h5pset_deflate_f(plist_id,gzip_compression,err)            ! select DEFLATE (GZIP) in compression level
+  call h5pset_shuffle_f(plist_id,err)                             ! use Shuffle filter
   call h5pset_fletcher32_f(plist_id,err)                          ! use Fletcher32 checksum filter
 
   call h5dcreate_f(grp_id_chi_loc,channel,compound_id,    &       ! create dataset with name <channel>
@@ -1186,6 +1187,7 @@ subroutine output_chi_loc_reduced_h5(filename_output,channel,chi_loc)
   call h5pcreate_f(H5P_DATASET_CREATE_F,plist_id,err)             ! create property list for the dataset
   call h5pset_chunk_f(plist_id,rank_chi_loc,cdims,err)            ! set size of chunks, in which the data are written
   call h5pset_deflate_f(plist_id,gzip_compression,err)            ! select DEFLATE (GZIP) in compression level
+  call h5pset_shuffle_f(plist_id,err)                             ! use Shuffle filter
   call h5pset_fletcher32_f(plist_id,err)                          ! use Fletcher32 checksum filter
 
   call h5dcreate_f(grp_id_chi_loc,channel,compound_id,    &       ! create dataset with name <channel>
@@ -1243,6 +1245,7 @@ subroutine output_chi_qw_full_h5(filename_output,channel,chi_qw)
   call h5pcreate_f(H5P_DATASET_CREATE_F,plist_id,err)
   call h5pset_chunk_f(plist_id,rank_chi_qw,cdims,err)
   call h5pset_deflate_f(plist_id,gzip_compression,err)
+  call h5pset_shuffle_f(plist_id,err)
   call h5pset_fletcher32_f(plist_id,err)
 
   call h5dcreate_f(grp_id_chi_qw,channel,compound_id,dspace_id_chi_qw,dset_id_chi_qw,err,dcpl_id=plist_id)
@@ -1348,6 +1351,7 @@ subroutine output_chi_qw_reduced_h5(filename_output,channel,chi_qw)
   call h5pcreate_f(H5P_DATASET_CREATE_F,plist_id,err)
   call h5pset_chunk_f(plist_id,rank_chi_qw,cdims,err)
   call h5pset_deflate_f(plist_id,gzip_compression,err)
+  call h5pset_shuffle_f(plist_id,err)
   call h5pset_fletcher32_f(plist_id,err)
 
   call h5dcreate_f(grp_id_chi_qw,channel,compound_id,dspace_id_chi_qw,dset_id_chi_qw,err,dcpl_id=plist_id)
@@ -1415,6 +1419,7 @@ subroutine output_eom_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_
   call h5pcreate_f(H5P_DATASET_CREATE_F,plist_id,err)
   call h5pset_chunk_f(plist_id,rank_siwk,cdims,err)
   call h5pset_deflate_f(plist_id,gzip_compression,err)
+  call h5pset_shuffle_f(plist_id,err)
   call h5pset_fletcher32_f(plist_id,err)
 
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)

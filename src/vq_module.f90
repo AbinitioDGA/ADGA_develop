@@ -182,6 +182,7 @@ subroutine create_u(u, u_tilde)
       if (i .eq. j .and. k .eq. l)  then
         if (i .eq. k) then
           Umat(i,j,k,l) = Udp(ineq) ! onsite density-density -- 1 1 1 1
+          ! this band combination can not exist if there should be 2 different kind of bands
           cycle
         else if (interaction_mode(ineq) .eq. 1) then
           Umat(i,j,k,l) = Jdp(ineq) ! kanamori double hopping -- 1 1 2 2
