@@ -799,9 +799,17 @@ end if
            call flush(ounit)
         endif
         if (susc_full_output) then
-          call output_chi_qw_full_h5(output_filename,'bubble_nl',chi_qw_full)
+          if (q_vol) then
+            call output_chi_qw_full_h5(output_filename,'bubble_nl',chi_qw_full)
+          else if (q_path_susc) then
+            call output_chi_qpath_full(output_filename,'bubble_nl',chi_qw_full)
+          end if
         else
-          call output_chi_qw_reduced_h5(output_filename,'bubble_nl',chi_qw_full)
+          if (q_vol) then
+            call output_chi_qw_reduced_h5(output_filename,'bubble_nl',chi_qw_full)
+          else if (q_path_susc) then
+            call output_chi_qpath_reduced(output_filename,'bubble_nl',chi_qw_full)
+          end if
         endif
 
       end if
@@ -849,9 +857,17 @@ end if
         endif
         !call output_chi_qw(chi_qw_full,qw,'chi_qw_dens.dat')
         if (susc_full_output) then
-          call output_chi_qw_full_h5(output_filename,'dens',chi_qw_full)
+          if (q_vol) then
+            call output_chi_qw_full_h5(output_filename,'dens',chi_qw_full)
+          else if (q_path_susc) then
+            call output_chi_qpath_full(output_filename,'dens',chi_qw_full)
+          end if
         else
-          call output_chi_qw_reduced_h5(output_filename,'dens',chi_qw_full)
+          if (q_vol) then
+            call output_chi_qw_reduced_h5(output_filename,'dens',chi_qw_full)
+          else if (q_path_susc) then
+            call output_chi_qpath_reduced(output_filename,'dens',chi_qw_full)
+          end if
         endif
 
       end if
@@ -900,9 +916,17 @@ end if
         endif
         !call output_chi_qw(chi_qw_full,qw,'chi_qw_magn.dat')
         if (susc_full_output) then
-          call output_chi_qw_full_h5(output_filename,'magn',chi_qw_full)
+          if (q_vol) then
+            call output_chi_qw_full_h5(output_filename,'magn',chi_qw_full)
+          else if (q_path_susc) then
+            call output_chi_qpath_full(output_filename,'magn',chi_qw_full)
+          end if
         else
-          call output_chi_qw_reduced_h5(output_filename,'magn',chi_qw_full)
+          if (q_vol) then
+            call output_chi_qw_reduced_h5(output_filename,'magn',chi_qw_full)
+          else if (q_path_susc) then
+            call output_chi_qpath_reduced(output_filename,'magn',chi_qw_full)
+          end if
         endif
       end if
       deallocate(chi_loc_magn)

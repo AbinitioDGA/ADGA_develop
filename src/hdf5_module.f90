@@ -888,16 +888,17 @@ end subroutine read_chi_loc
 
 ! This subroutine creates the HDF5 output file and initializes its structure
 subroutine init_h5_output(filename_output)
+  use kq_tools!, only: k_vector,k_index
   use parameters_module
   implicit none
 
-  integer :: err,i1,i2,ikx,iky,ikz
+  integer :: err,i1,i2,ikx,iky,ikz,i,qpoint_tmp(3)
   integer(hid_t) :: file_id,grp_id_input,grp_id_susc,grp_id_se,grp_id_occ,grp_id_green
   integer(hid_t) :: grp_id_chi_qw,grp_id_chi_loc
   integer(hid_t) :: grp_id_se_loc,grp_id_se_nonloc
   character(len=*) :: filename_output
-  integer(kind=8) :: chi_qw_dims(3),chi_loc_dims(3)
-  integer(hid_t) :: dspace_scalar_id,dset_id_mu,dset_id_beta,dset_id_1,dspace_vec_id
+  integer(kind=8) :: chi_qw_dims(3),chi_loc_dims(3),qpath_dims(2),k_ind_tmp
+  integer(hid_t) :: dspace_scalar_id,dset_id_mu,dset_id_beta,dset_id_1,dspace_vec_id,dspace_qpoints_id,dset_id_qpoints
   integer(hid_t) :: dspace_dc_id,dset_dc_id,dspace_id_g,dspace_id_s,dset_id_g,dset_id_s,dset_id_hk,dspace_id_hk
   integer(hid_t) :: dset_id_ndmft, dspace_id_ndmft
   integer(hid_t) :: dset_id_nfock, dspace_id_nfock
@@ -906,6 +907,7 @@ subroutine init_h5_output(filename_output)
   integer(hsize_t),dimension(2) :: dims_dc,dims_g
   integer(hsize_t),dimension(5) :: dims_hk_arr, dims_nfock
   complex(kind=8), dimension(:,:,:,:,:),allocatable :: hk_arr, nfock_arr
+  double precision, dimension(:,:),allocatable :: qpoints
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
    write(ounit,*) 'initialize output file'
   endif
@@ -1061,6 +1063,21 @@ subroutine init_h5_output(filename_output)
   call h5dwrite_f(dset_id_1,H5T_NATIVE_INTEGER,(/nqpx,nqpy,nqpz/),dims_vec,err)
   call h5dclose_f(dset_id_1,err)
 
+
+  ! If susceptibility is calculated along qpath, write the qpoints explicitly
+  if (q_path_susc) then 
+    qpath_dims=(/3,nqp/)
+    allocate(qpoints(3,nqp))
+    do i=1,nqp
+      call k_vector(q_data(i),qpoint_tmp)
+      k_ind_tmp=k_index(qpoint_tmp)
+      qpoints(:,i)=k_data(:,k_ind_tmp)
+    end do
+    call h5screate_simple_f(2,qpath_dims,dspace_qpoints_id,err)
+    call h5dcreate_f(grp_id_input,'qpath',H5T_NATIVE_DOUBLE,dspace_qpoints_id,dset_id_qpoints,err)
+    call h5dwrite_f(dset_id_qpoints,H5T_NATIVE_DOUBLE,qpoints,qpath_dims,err)
+    call h5dclose_f(dset_id_qpoints,err)
+  end if
 
 ! close the group and the file
   call h5gclose_f(grp_id_input,err)
@@ -1366,6 +1383,124 @@ subroutine output_chi_qw_reduced_h5(filename_output,channel,chi_qw)
   endif
   return
 end subroutine output_chi_qw_reduced_h5
+
+
+
+subroutine output_chi_qpath_full(filename_output,channel,chi)
+  use parameters_module
+  implicit none
+  character(len=*)::filename_output,channel
+  integer::err,rank_chi
+  integer::i1,i2,i3,i4,iq,iwb
+  integer(kind=8),dimension(:),allocatable::dims_chi
+  integer(hid_t)::file_id,grp_id_chi
+  integer(hid_t)::dspace_id_chi
+  integer(hid_t)::dset_id_chi
+  complex(kind=8),dimension(ndim**2,ndim**2,nqp*(2*iwbmax_small+1))::chi
+  complex(kind=8),dimension(2*iwbmax_small+1,nqp,ndim,ndim,ndim,ndim)::chi_outputarray
+
+  rank_chi=6
+  allocate(dims_chi(rank_chi))
+  dims_chi=(/2*iwbmax_small+1,nqp,ndim,ndim,ndim,ndim/)
+
+
+  ! reshape and transpose the array, i.e. break up thecompound index
+  do i1=1,ndim
+    do i2=1,ndim
+      do i3=1,ndim
+        do i4=1,ndim
+          do iq=1,nqp
+            do iwb=1,2*iwbmax_small+1
+            chi_outputarray(iwb,iq,i4,i3,i2,i1)=chi(ndim*(i1-1)+i2,ndim*(i4-1)+i3,(iwb-1)*nqp+iq)
+            end do
+          end do
+        end do
+      end do
+    end do
+  end do
+
+  !open file and group
+  call h5open_f(err)
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+  call h5gopen_f(file_id,'susceptibility/nonloc',grp_id_chi,err)
+
+  !create dataspace
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi,err)
+  call h5sset_extent_simple_f(dspace_id_chi,rank_chi,dims_chi,dims_chi,err)
+
+  ! create dataset
+  call h5dcreate_f(grp_id_chi,channel,compound_id,dspace_id_chi,dset_id_chi,err)
+  call h5dwrite_f(dset_id_chi,type_r_id,real(chi_outputarray),dims_chi,err)
+  call h5dwrite_f(dset_id_chi,type_i_id,aimag(chi_outputarray),dims_chi,err)
+
+  !close dataset, group and file
+  call h5dclose_f(dset_id_chi,err)
+  call h5gclose_f(grp_id_chi,err)
+  call h5fclose_f(file_id,err)
+  call h5close_f(err)
+
+  write(*,*)'q-path susceptibility ',channel,' written to h5'
+
+end subroutine output_chi_qpath_full
+
+
+
+subroutine output_chi_qpath_reduced(filename_output,channel,chi)
+  use parameters_module
+  implicit none
+  character(len=*)::filename_output,channel
+  integer::err,rank_chi
+  integer::i1,i2,i3,i4,iq,iwb
+  integer(kind=8),dimension(:),allocatable::dims_chi
+  integer(hid_t)::file_id,grp_id_chi
+  integer(hid_t)::dspace_id_chi
+  integer(hid_t)::dset_id_chi
+  complex(kind=8),dimension(ndim**2,ndim**2,nqp*(2*iwbmax_small+1))::chi
+  complex(kind=8),dimension(2*iwbmax_small+1,nqp,ndim,ndim) :: chi_outputarray
+
+  rank_chi=4
+  allocate(dims_chi(rank_chi))
+  dims_chi=(/2*iwbmax_small+1,nqp,ndim,ndim/)
+
+
+  ! reshape and transpose the array, i.e. break up thecompound index
+  do i1=1,ndim
+    i2=i1
+    do i3=1,ndim
+      i4=i3
+      do iq=1,nqp
+        do iwb=1,2*iwbmax_small+1
+          chi_outputarray(iwb,iq,i1,i3)=chi(ndim*(i1-1)+i2,ndim*(i4-1)+i3,(iwb-1)*nqp+iq)
+        end do
+      end do
+    end do
+  end do
+
+  !open file and group
+  call h5open_f(err)
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+  call h5gopen_f(file_id,'susceptibility/nonloc',grp_id_chi,err)
+
+  !create dataspace
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi,err)
+  call h5sset_extent_simple_f(dspace_id_chi,rank_chi,dims_chi,dims_chi,err)
+
+  ! create dataset
+  call h5dcreate_f(grp_id_chi,channel,compound_id,dspace_id_chi,dset_id_chi,err)
+  call h5dwrite_f(dset_id_chi,type_r_id,real(chi_outputarray),dims_chi,err)
+  call h5dwrite_f(dset_id_chi,type_i_id,aimag(chi_outputarray),dims_chi,err)
+
+  !close dataset, group and file
+  call h5dclose_f(dset_id_chi,err)
+  call h5gclose_f(grp_id_chi,err)
+  call h5fclose_f(file_id,err)
+  call h5close_f(err)
+
+  write(*,*)'q-path susceptibility',channel,'written to h5'
+
+end subroutine output_chi_qpath_reduced
+
+
 
 subroutine output_eom_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
   use parameters_module

@@ -406,11 +406,22 @@ subroutine qdata_from_file()
   allocate(q_data(nqp))
   open(unit=101,file=filename_qdata)
   do iq=1,nqp
-    read(101,*) qx,qy,qz ! read q points as real numbers in interval [0,1)
-    q_data(iq) = k_index(nint(qx*nkpx),nint(qy*nkpy),nint(qz*nkpz)) ! round to nearest integers
+    ! We read three real numbers.
+    ! If all of them are zero, it is the gamma point.
+    ! If one of them is larger or equal to 1, the coordinates are cast to integers
+    ! and assumed to be given in integer basis [0,nkpi-1]
+    ! If neither of above is true, the coordinates are assumed to lie in the interval [0,1).
+    read(101,*) qx,qy,qz
+    if (qx .eq. 0 .and. qy .eq. 0 .and. qz .eq. 0) then 
+      q_data(iq) = k_index(0,0,0) ! gamma point
+    else if (qx .ge. 1 .or. qy .ge. 1 .or. qz .ge. 1) then
+      q_data(iq) = k_index(int(qx),int(qy),int(qz)) ! cast to integers
+    else
+      q_data(iq) = k_index(nint(qx*nkpx),nint(qy*nkpy),nint(qz*nkpz)) ! round to nearest integers
+    end if
   end do
   close(101)
-  write(*,*) 'q data',q_data
+  !write(*,*) 'q data',q_data
 
 end subroutine qdata_from_file
 
