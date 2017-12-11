@@ -9,9 +9,7 @@ This script computes:
 It is possible to perform either one or both of the calculations mentioned above. 
 The parameters are read from the respective file.
 Additionally it is possible to use a third input file that contains the one-particle
-Greens function. This feature is not yet tested, but may be useful, 
-since usually we have the Greens function somewhere else in better quality.
-"""
+Greens function. """
 
 
 import numpy as np
@@ -138,11 +136,24 @@ def slice_center(subsize, size):
         cslice = slice(startidx, startidx + subsize)
         return cslice
 
+def read_p2(ineq=None,input_p2=None,nbands=None,**kwargs):
+  if 'stat-001' in input_p2.keys(): # old format - statsteps and large array
+    p2 = input_p2["stat-001/ineq-{:03}/p2iw-worm/value".format(ineq)].value
+  elif 'worm-001' in input_p2.keys(): # new format - component sampling
+    base_gr=input_p2["worm-001/ineq-{:03}/p2iw-worm".format(ineq)]
+    groups=base_gr.keys()
+    nb=base_gr[groups[0]+'/value'].shape[0]
+    nb_small=nb//2+1
+    p2=np.zeros((2*nbands,2*nbands,2*nbands,2*nbands,nb),dtype=np.complex) # nb
+    for gr in groups:
+      bs,_,_=index2component_general(nbands,4,int(gr))
+      p2[bs]=base_gr[gr+'/value'].value
+  return p2
 
 def read_p3(ineq=None,input_p3=None,nbands=None,**kwargs):
-  if 'stat-001' in input_p3.keys():
+  if 'stat-001' in input_p3.keys(): # old format - statsteps and large array
     p3 = input_p3["stat-001/ineq-{:03}/p3iw-worm/value".format(ineq)].value
-  elif 'worm-001' in input_p3.keys():
+  elif 'worm-001' in input_p3.keys(): # new format - component sampling
     base_gr=input_p3["worm-001/ineq-{:03}/p3iw-worm".format(ineq)]
     groups=base_gr.keys()
     nf,nb=base_gr[groups[0]+'/value'].shape
@@ -153,7 +164,7 @@ def read_p3(ineq=None,input_p3=None,nbands=None,**kwargs):
       bs,_,_=index2component_general(nbands,4,int(gr))
       #p3[bs]=base_gr[gr+'/value'].value[nf//2-nf_small//2:nf//2+nf_small//2,nb//2-nb_small//2:nb//2+nb_small//2+1]
       p3[bs]=base_gr[gr+'/value'].value
-    return p3
+  return p3
 
 
 
@@ -197,13 +208,18 @@ niw=conf['niw']
 
 if conf['do_p2']:# subtract density terms to get susceptibility
   print 'processing p2...'
-  p2 = conf['input_p2']["stat-001/ineq-{:03}/p2iw-worm/value".format(ineq)].value
+  p2 = read_p2(**conf)#conf['input_p2']["stat-001/ineq-{:03}/p2iw-worm/value".format(ineq)].value
   n2iwb=p2.shape[0]//2
   conf['n2iwb']=n2iwb
   # density 
-  occ = conf['input_p2']["stat-001/ineq-{:03}/occ/value".format(ineq)].value
+  try:
+    occ = conf['input_p3']["stat-001/ineq-{:03}/occ/value".format(ineq)].value
+  except KeyError:
+    occ = conf['input_giw']["dmft-last/ineq-{:03}/occ/value".format(ineq)].value
   dens = np.diagonal(np.diagonal(occ,0,-4,-2),0,-3,-2)
   dens = dens.reshape(2*nbands)
+  print dens
+
   k1 = p2
   # kernel 1 functions - subtract density terms to obtain susceptibility
   for i in xrange(2*nbands):

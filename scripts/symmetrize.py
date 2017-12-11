@@ -62,7 +62,7 @@ def get_groups(infile='infile.hdf5',Nbands=[1],target=1,nineq=1,**kwargs):
   for ineq in xrange(nineq):
     f=h5py.File(infile,'r')
     if target=='1freq':
-      gr_str=f['ineq-{:03}/ph'.format(ineq+1)].keys()
+      gr_str=f['ineq-{:03}'.format(ineq+1)].keys()
     elif target=='2freq':
       gr_str=f['ineq-{:03}'.format(ineq+1)].keys()
     elif target=='3freq':
@@ -86,7 +86,7 @@ def get_groups(infile='infile.hdf5',Nbands=[1],target=1,nineq=1,**kwargs):
 def get_fbox(infile=None,target=None,**kwargs):
   f=h5py.File(infile,'r')
   if target=='1freq':
-    n2iwb=f['ineq-001/ph/00001'].shape[0]
+    n2iwb=f['ineq-001/00001'].shape[0]
     print n2iwb
     conf['n2iwb']=n2iwb//2
   elif target=='2freq':
@@ -169,7 +169,7 @@ def get_symgroups(gr,nd,sym_type=None,**kwargs):
 
 def read_and_add(h5in,h5out,ineq,igr,channel,symgroups,target=None,n3iwb=None,n4iwb=None,**kwargs):
   if target=='1freq':
-    x = h5in['ineq-{:03}/ph/{:05}'.format(ineq+1,igr)].value/float(2.*len(symgroups))
+    x = h5in['ineq-{:03}/{:05}'.format(ineq+1,igr)].value/float(2.*len(symgroups))
     for gr in symgroups:
       h5out['ineq-{:03}/{}/{:05}'.format(ineq+1,channel,gr)][...]+=x
   elif target=='2freq':

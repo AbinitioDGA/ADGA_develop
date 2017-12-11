@@ -216,14 +216,18 @@ module hdf5_module
 !===========================================================================================
 
 
- subroutine get_freq_range(iwmax,iwfmax,iwbmax)
-     use parameters_module, Only: ounit,filename_1p,filename_vertex_sym
+ subroutine get_freq_range(iwmax,iwfmax,iwbmax,n3iwf,n3iwb,n2iwb)
+     use parameters_module, Only: ounit,filename_1p,filename_vertex_sym, &
+                                  filename_threelegs,external_threelegs, &
+                                  filename_chi_loc,external_chi_loc
+
      implicit none
-     integer,intent(out) :: iwmax,iwfmax,iwbmax
+     integer,intent(out) :: iwmax,iwfmax,iwbmax,n3iwf,n3iwb,n2iwb
      integer :: mpi_wrank, master
      integer(hid_t) :: file_id
+     integer(hid_t) :: iw_id,iwb_id,iwf_id,iw_space_id,dspace_iwb_id,dspace_iwf_id,dset_id,dspace_id
      integer(hsize_t), dimension(1) :: iw_dims,iw_maxdims,dim_iwb,dim_iwf,dim_iwf_max,dim_iwb_max
-     integer(hid_t) :: iw_id,iwb_id,iwf_id,iw_space_id,dspace_iwb_id,dspace_iwf_id
+     integer(hsize_t), dimension(1) :: dim_tl,dim_tl_max,dim_chi,dim_chi_max
  
      ! read frequency range of one-particle quantities
      if (ounit .ge. 1) then
@@ -237,6 +241,8 @@ module hdf5_module
      call h5dclose_f(iw_id, err)
      call h5fclose_f(file_id,err)
 
+
+     ! read frequency range of full two-particle data
      if (ounit .ge. 1) then
        write(ounit,*) 'two particle quantities in ',filename_vertex_sym
      endif
@@ -255,6 +261,41 @@ module hdf5_module
      iwbmax = dim_iwb(1)/2
      call h5dclose_f(iwb_id, err)
      call h5fclose_f(file_id,err)
+
+
+     ! read frequency range of external threelegs
+     if (ounit .ge. 1 .and. external_threelegs) then
+       write(ounit,*) 'threelegs in ',filename_threelegs
+     
+       call h5fopen_f(filename_threelegs,h5f_acc_rdonly_f,file_id,err)
+       call h5gn_members_f(file_id,'ineq-001/dens',n3iwb,err)
+       n3iwb=n3iwb/2
+       call h5dopen_f(file_id,'ineq-001/dens/00000/00001',dset_id,err)
+       call h5dget_space_f(dset_id,dspace_id,err)
+       call h5sget_simple_extent_dims_f(dspace_id,dim_tl,dim_tl_max,err)
+       n3iwf=dim_tl(1)/2
+       call h5dclose_f(dset_id,err)
+       call h5fclose_f(file_id,err)
+     else
+       n3iwf=0;n3iwb=0
+     end if
+
+     
+     ! read frequency range of external one-frequency susceptibility
+     if (ounit .ge. 1 .and. external_chi_loc) then
+       write(ounit,*) 'threelegs in ',filename_chi_loc
+     
+       call h5fopen_f(filename_chi_loc,h5f_acc_rdonly_f,file_id,err)
+       call h5dopen_f(file_id,'ineq-001/dens/00001',dset_id,err)
+       call h5dget_space_f(dset_id,dspace_id,err)
+       call h5sget_simple_extent_dims_f(dspace_id,dim_chi,dim_chi_max,err)
+       n2iwb=dim_chi(1)/2
+       call h5dclose_f(dset_id,err)
+       call h5fclose_f(file_id,err)
+     else
+       n2iwb=0
+     end if
+
 
    return
  end subroutine get_freq_range
@@ -738,13 +779,6 @@ subroutine read_threeleg(gamma_loc_qmc,channel,iwb)
   ind_iwb=iwb+n3iwb
 
 
-! Just for testing, it is possible to have iwfmax_small > n3iwf, just comment out the following lines.
-! It sets the outer elements to 0, which strictly speaking is wrong. 
-  if (iwfmax_small .gt. n3iwf) then
-    write(*,*) iwfmax_small,n3iwf
-    stop 'Error: iwfmax_small must be smaller than n3iwf.'
-  end if
-
   if (ind_iwb .lt. 0) then
     stop 'ind_iwb has to be zero or positive in subroutine read_threelegs'
   end if
@@ -844,7 +878,7 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
     dimend=dimstart+ndims(ineq,1)-1
 
     write(grpname,'("ineq-",I3.3,"/",(A),"/")') ineq,channel
-    write(*,*) grpname
+    !write(*,*) grpname
     call h5open_f(err)
     call h5fopen_f(filename_chi_loc, h5f_acc_rdonly_f, file_id, err)
     call h5gopen_f(file_id, grpname, grp_id, err)
@@ -894,12 +928,6 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
     end do
   end do
 
-write(*,*) 'read chi loc'
-  open(unit=157,file='chi_loc_qmc_'//trim(channel)//'.dat')
-  do i=1,2*iwbmax_small+1
-    write(157,*) real(chi_loc_qmc(1,1,i))
-  end do
-  close(157)
 end subroutine read_chi_loc
 
 ! This subroutine creates the HDF5 output file and initializes its structure

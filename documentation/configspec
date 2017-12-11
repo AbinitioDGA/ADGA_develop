@@ -17,10 +17,6 @@ N4iwb     = (default = -1) # number of bosonic frequencies of the vertex
      #
      #
 
-N3iwf    =   # number of fremionic frequencies of gamma^w extracted directly from P3ph
-N3iwb    =   # number of bosonic frequencies of gamma^w
-N2iwb    =   # number of bosonic frequencies of the local chi extracted directly from P2ph
-
 HkFile = (default = '') # wannier hamiltonian
 VqFile = (default = '') # V(q) file
 QDataFile = (default= '') # Q-points text file for susc-path calculations -- see qpath_template

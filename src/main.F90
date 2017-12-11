@@ -119,9 +119,10 @@ program main
 ! open the hdf5-fortran interface
   call init_h5()
 
-! read bosonic and fermionic Matsubara axes iwf-g4,iwb-g4:
-  call get_freq_range(iwmax,iwfmax,iwbmax)
-  call check_freq_range(mpi_wrank,master)
+! read bosonic and fermionic Matsubara axes of one- and two-particle data
+  call get_freq_range(iwmax,iwfmax,iwbmax,n3iwf,n3iwb,n2iwb)
+  call check_freq_range(mpi_wrank,master,er)
+  if (er .ne. 0) call mpi_stop('Frequency range error.')
 
 ! after frequencies and dimensions are obtained, arrays can be allocated 
   allocate(siw(-iwmax:iwmax-1,ndim))

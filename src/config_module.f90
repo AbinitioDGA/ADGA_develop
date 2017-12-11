@@ -118,9 +118,6 @@ subroutine read_config(er,erstr)
   call int_find('NAt', nineq, search_start, search_end)
   call int_find('N4iwf', iwfmax_small, search_start, search_end)
   call int_find('N4iwb', iwbmax_small, search_start, search_end)
-  call int_find('N3iwf',n3iwf,search_start,search_end)
-  call int_find('N3iwb',n3iwb,search_start,search_end)
-  call int_find('N2iwb',n2iwb,search_start,search_end)
   call string_find('HkFile', filename_hk, search_start, search_end)
   if (trim(adjustl(filename_hk)) .eq. '') then
     read_ext_hk = .false.
@@ -353,9 +350,9 @@ subroutine finalize()
 end subroutine finalize
 
 
-subroutine check_freq_range(mpi_wrank,master)
+subroutine check_freq_range(mpi_wrank,master,er)
   implicit none
-  integer :: mpi_wrank, master
+  integer :: mpi_wrank, master, er
 
   if (iwfmax_small .le. 0) then
     iwfmax_small = iwfmax
@@ -391,6 +388,30 @@ subroutine check_freq_range(mpi_wrank,master)
     endif
   endif
 
+  if (n3iwb .lt. iwbmax_small) then
+    er=1
+    if (ounit .gt. 0) then
+      write(ounit,*) 'Error: N3iwb must be greater or equal to N4iwb'
+      write(ounit,*) 'N3iwb=',n3iwb,'  N4iwb=',iwbmax_small
+    end if
+  end if
+
+  if (n3iwf .lt. iwfmax_small) then
+    er=1
+    if (ounit .gt. 0) then
+      write(ounit,*) 'Error: N3iwf must be greater or equal to N4iwf'
+      write(ounit,*) 'N3iwf=',n3iwf,'  N4iwf=',iwfmax_small
+    end if
+  end if
+
+  if (n2iwb .lt. iwbmax_small) then
+    er=1
+    if (ounit .gt. 0) then
+      write(ounit,*) 'Error: N2iwb must be greater or equal to N2iwb'
+      write(ounit,*) 'N2iwb=',n2iwb,'  N4iwb=',iwbmax_small
+    end if
+  end if
+  
 end subroutine check_freq_range
 
 
