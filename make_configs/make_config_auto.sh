@@ -14,10 +14,10 @@ if [[ "$OSTYPE" =~ "darwin" ]]
 then
    # Catch Macs
    cluster="mac"
-elif [ "$myhost" == "n" ]
+elif [ "$myhost" == "n" ] # hclm is running on node n101
 then
    cluster="hclm"
-elif [ "$myhost" == "vsc3" ]
+elif [ "$myhost" == "l" ] # vsc3 is running on login nodes l31 to l35
 then
    cluster="vsc3"
 else

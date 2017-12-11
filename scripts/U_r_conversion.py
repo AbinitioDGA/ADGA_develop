@@ -63,7 +63,6 @@ for i in xrange(1,ndim+1):
     ind = componentband2index(1,i,1,i,ndim)
     column = 2 + i # first three columns are the r-coordinates
     Rdata = np.genfromtxt(str(infile), dtype=np.float64, usecols=(column, ))
-    print(Rdata[:5])
     g.create_dataset('{:05}/value'.format(ind), data=Rdata)
 
 for i in xrange(2,ndim+1): # we ignore the first column of this subsection because it is 1111 which we already got from the part above
@@ -71,7 +70,6 @@ for i in xrange(2,ndim+1): # we ignore the first column of this subsection becau
     ind = componentband2index(1,i,i,1,ndim)
     column = 2 + ndim + i
     Rdata = np.genfromtxt(str(infile), dtype=np.float64, usecols=(column, ))
-    print(Rdata[:5])
     g.create_dataset('{:05}/value'.format(ind), data=Rdata)
 
 for i in xrange(2,ndim+1): # same here
@@ -79,10 +77,7 @@ for i in xrange(2,ndim+1): # same here
     ind = componentband2index(1,1,i,i,ndim)
     column = 2 + ndim + ndim + i
     Rdata = np.genfromtxt(str(infile), dtype=np.float64, usecols=(column, ))
-    print(Rdata[:5])
     g.create_dataset('{:05}/value'.format(ind), data=Rdata)
-
-sys.exit()
 
 # now we use the orbital symmetry
 

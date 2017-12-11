@@ -85,7 +85,9 @@ subroutine read_config(er,erstr)
   close(unit=10)
 
 
-  ! FREE FORMAT LOOKUP
+!=================================================================================
+! FREE FORMAT LOOKUP
+!================================================================================
   ! defining default values
   do_chi=.false.
   do_eom=.true.
@@ -94,6 +96,7 @@ subroutine read_config(er,erstr)
   external_chi_loc=.false.
   external_threelegs=.false.
   susc_full_output=.false.
+  text_output=.false.
   gzip_compression=4 ! h5py default standard -- ranges from 0 to 9
   output_dir='output/'
   filename_hk=''; filename_1p=''; filename_vertex_sym=''
@@ -101,6 +104,7 @@ subroutine read_config(er,erstr)
   filename_chi_loc=''; filename_threelegs=''
   nineq=1
   iwfmax_small=-1; iwbmax_small=-1 ! maximum number of frequencies -- see check_freq_range
+!================================================================================
 
   ! search for General stuff + Allocation of values
   call group_find('[General]', search_start, search_end)
@@ -279,6 +283,7 @@ subroutine read_config(er,erstr)
   if (search_start .gt. 0) then ! group was found -- this is an optional group
     call bool_find('susc-full-output', susc_full_output, search_start, search_end)
     call int_find('gzip-compression', gzip_compression, search_start, search_end)
+    call bool_find('text-output', text_output, search_start, search_end)
   endif
 
   deallocate(file_save)

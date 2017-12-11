@@ -1,6 +1,3 @@
-
-
-!====================================================================================
 program symmetrize_vertex
 !====================================
   use parameters_module
@@ -9,26 +6,26 @@ program symmetrize_vertex
   use hdf5_module
   implicit none
 
-  integer(hid_t) :: file_id, new_file_id
-  character(len=80) :: grpname, name_buffer, name_buffer_value, name_buffer_error
-  character(len=80) :: name_buffer2, name_buffer3
-  integer(hid_t) :: grp_id, g4iw_id, g4err_id
-  integer         :: nmembers, imembers, itype
-  integer(hid_t) :: dset_dens_id, dset_magn_id, dset_err_id
-  integer(hsize_t), dimension(3) :: g4iw_dims, g4iw_maxdims, g4err_dims, g4iw_dims_t, g4err_dims_t
-  integer, parameter :: rank = 2, rank_iw = 1
+  integer(hid_t)                  :: file_id, new_file_id
+  integer(hid_t)                  :: grp_id, g4iw_id, g4err_id
+  integer(hid_t)                  :: dset_dens_id, dset_magn_id, dset_err_id
+  integer(hsize_t), dimension(3)  :: g4iw_dims, g4iw_maxdims, g4err_dims, g4iw_dims_t, g4err_dims_t
+  integer                         :: nmembers, imembers, itype
+  integer, parameter              :: rank = 2, rank_iw = 1
+  character(len=80)               :: grpname, name_buffer, name_buffer_value, name_buffer_error
+  character(len=80)               :: name_buffer2, name_buffer3
   
-  double precision, allocatable :: g4iw_r(:,:,:), g4iw_i(:,:,:), g4err(:,:,:), diff_r(:,:), diff_i(:,:)
-  double precision, allocatable :: g4iw_r_t(:,:,:), g4iw_i_t(:,:,:), g4err_t(:,:,:)
-  integer :: ind, b1, s1, b2, s2, b3, s3, b4, s4, ineq
-  integer, allocatable :: Nbands(:)
-  integer :: iwb, iwf, iwf1, iwf2 
-  logical :: su2_only
-  logical, allocatable :: create_comp(:,:)
-  integer :: ichannel, ntot, ind_band, icount
-  integer, allocatable :: ind_band_list(:)
+  double precision, allocatable   :: g4iw_r(:,:,:), g4iw_i(:,:,:), g4err(:,:,:), diff_r(:,:), diff_i(:,:)
+  double precision, allocatable   :: g4iw_r_t(:,:,:), g4iw_i_t(:,:,:), g4err_t(:,:,:)
+  integer                         :: ind, b1, s1, b2, s2, b3, s3, b4, s4, ineq
+  integer, allocatable            :: Nbands(:)
+  integer                         :: iwb, iwf, iwf1, iwf2
+  logical                         :: su2_only
+  logical, allocatable            :: create_comp(:,:)
+  integer                         :: ichannel, ntot, ind_band, icount
+  integer, allocatable            :: ind_band_list(:)
   character(len=150), allocatable :: filename_vertex_ineq(:)
-  character(len=1) :: arg_sym
+  character(len=1)                :: arg_sym
 
   real(kind=8) :: start, finish
 !================================================================
@@ -251,21 +248,3 @@ program symmetrize_vertex
   
 
 end program symmetrize_vertex
-
-
-!su(2) symmetry check to be added somewhere:
-
-!open(21, file="su2_error.dat", status='unknown')
-!write(21,*)'# b1, b2, b3, b4, iwb, iwf1, iwf2'
-
-!diff_r(:,:) = abs(2.d0*g4iw_r(:,:,iwb+1)-2.d0*tmp_r(:,:))
-!diff_i(:,:) = abs(2.d0*g4iw_i(:,:,iwb+1)-2.d0*tmp_i(:,:))
-
-!do iwf1=1,2*iwfmax
-!   do iwf2=1,2*iwfmax
-!      if((diff_r(iwf1,iwf2) .gt. 1.d0*g4err(iwf1,iwf2,iwb+1)) .or. (diff_i(iwf1,iwf2) .gt. 1.d0*g4err(iwf1,iwf2,iwb+1))) then
-!         write(21,*) ind, b1, b2, b3, b4, iwb+1, iwf1, iwf2
-!      endif
-!   enddo
-!enddo
-!close(21)

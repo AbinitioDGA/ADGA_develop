@@ -257,7 +257,7 @@ subroutine get_ndmft()
   enddo
   n_dmft(:) = 2.d0*real(giw_sum(:))/beta+0.5d0
 
-  if ((verbose .and. (index(verbstr,"Dmft") .ne. 0)) .and. mpi_wrank .eq. master) then
+  if ((verbose .and. (index(verbstr,"Dmft") .ne. 0)) .and. mpi_wrank .eq. master .and. text_output) then
     open(56, file=trim(output_dir)//"n_dmft.dat", status='unknown')
     write(56,'(100F12.6)') (real(n_dmft(i)),i=1,ndim)
     close(56)
@@ -283,7 +283,7 @@ subroutine get_nfock()
      enddo
   enddo
 
-  if (mpi_wrank .eq. master) then
+  if (mpi_wrank .eq. master .and. text_output) then
     open(110, file=trim(output_dir)//"n_fock.dat", status='unknown')
     write(110,*) '### kx, ky, kz, n_fock(k,i,i)'
     do ik=1,nkp
@@ -327,7 +327,7 @@ subroutine get_ndga(sigma_sum)
 
   n_dga = n_dga/dble(nkp)
 
-  if (mpi_wrank .eq. master) then
+  if (mpi_wrank .eq. master .and. text_output) then
     open(110, file=trim(output_dir)//"n_dga_k.dat", status='unknown')
     write(110,*) '### kx, ky, kz, n_dga(k,i,i)'
     do ik=1,nkp

@@ -1,13 +1,13 @@
-module vq_module
+module interaction_module
   use parameters_module
   use hdf5_module
   use aux
   implicit none
 
-
 contains
 
-!===============================================================================================================================
+!========================================================================================================
+! read the v(q) from a hdf5 file with specific format
 subroutine read_vq(iq, v,er,erstr)
   use aux
   implicit none
@@ -76,8 +76,8 @@ subroutine read_vq(iq, v,er,erstr)
 end subroutine read_vq
 !========================================================================================================
 
-
 !========================================================================================================
+! read a umatrix file with all possible leg combinations
 subroutine read_u(u, u_tilde)
   implicit none
   real(kind=8) :: u_tmp(ndim,ndim,ndim,ndim), u_tilde_tmp(ndim,ndim,ndim,ndim)
@@ -114,8 +114,10 @@ subroutine read_u(u, u_tilde)
   enddo
 
 end subroutine read_u
+!========================================================================================================
 
-
+!========================================================================================================
+! create the umatrix array from the given config parameters
 subroutine create_u(u, u_tilde)
   implicit none
   real(kind=8) :: u_tmp(ndim,ndim,ndim,ndim), u_tilde_tmp(ndim,ndim,ndim,ndim)
@@ -225,58 +227,6 @@ subroutine create_u(u, u_tilde)
         enddo
      enddo
   enddo
-
 end subroutine create_u
-!======================================================================================================
 
-
-!subroutine read_v_r(v_r,r_data)
-!  implicit none
-!  real(kind=8) v_r(:,:,:)!(ndim**2,ndim**2,nr)
-!  real(kind=8) r_data(3,nr),v_r_real(ndim2,ndim2)
-!  integer :: nr_file,ir,i,j,nd
-
-!  open(unit=2,file=filename_vr)
-!  read(2,*) nr_file,nd,a,b,c
-!  if (nr_file .ne. nr) then
-!    write(*,*) 'V(r) file says there are',nr_file,'r points. '
-!    write(*,*) 'Please adapt config file.'
-!    stop
-!  end if
-!  if (nd .ne. ndim) then
-!    write(*,*) 'V(r) file says there are',nd,'orbitals. '
-!    write(*,*) 'Please adapt config file.'
-!    stop
-!  end if
-
-!  do ir=1,nr
-!    read(2,*) (r_data(i,ir),i=1,3)
-!! TODO: correctly read multi-band components and go to compound index.
-!    do i=1,nd**2
-!       read(2,*) (v_r(i,j,ir),j=1,nd**2)
-!    enddo
-!  enddo
-
-!  close(2)
-
-!end subroutine read_v_r
-
-!subroutine get_vq(v,q,v_r,r_data)
-!  implicit none
-!  complex(kind=8),intent(out) :: v(ndim**2,ndim**2)
-!  real(kind=8),intent(in) :: q(3)
-!  real(kind=8) :: v_r(:,:,:),r_data(:,:)
-!  integer :: i
-
-!  v=cmplx(0.d0,0.d0,kind=8)
-!  if (nr.eq.0) then
-!    v=u
-!  end if
-
-!  do i=1,nr
-!    v = v + v_r(:,:,i)*exp(2.d0*pi*ci*(r_data(1,i)*q(1)+r_data(2,i)*q(2)+r_data(3,i)*q(3)))
-!  end do
-
-!end subroutine get_vq
-
-end module vq_module
+end module interaction_module

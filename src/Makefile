@@ -2,16 +2,14 @@ SHELL=/bin/bash
 
 PROG = abinitiodga
 PREPROG = setupvertex
-UPROG = umatrix
 
 include ../make_config
 
 INSTALL_DIR = ../bin
 
-MAIN_OBJECTS := main.o parameters_module.o vq_module.o kq_tools.o lapack_module.o one_particle_quant_module.o \
+MAIN_OBJECTS := main.o parameters_module.o interaction_module.o kq_tools.o lapack_module.o one_particle_quant_module.o \
 		    susc_module.o eom_module.o hdf5_module.o aux.o mpi_org.o lookup_module.o config_module.o
-VERTEX_OBJECTS := vertex_chann_sym.o hdf5_module.o parameters_module.o aux.o
-U_OBJECTS := umatrix.o
+VERTEX_OBJECTS := vertex_chann_sym.o hdf5_module.o parameters_module.o aux.o kq_tools.o
 
 .SUFFIXES: 
 .SUFFIXES: .o .f90 .F90
@@ -23,7 +21,7 @@ U_OBJECTS := umatrix.o
 	$(F90) $(FFLAGS) $(FPPFLAGS) $(FINCLUDE) -c $< -o $@
 
 .PHONY: all
-all: $(INSTALL_DIR) $(INSTALL_DIR)/$(PROG) $(INSTALL_DIR)/$(PREPROG) $(INSTALL_DIR)/$(UPROG)
+all: $(INSTALL_DIR) $(INSTALL_DIR)/$(PROG) $(INSTALL_DIR)/$(PREPROG)
 
 $(INSTALL_DIR): 
 	if [ ! -d $(INSTALL_DIR) ]; then mkdir -p $(INSTALL_DIR) ; fi
@@ -34,18 +32,16 @@ $(INSTALL_DIR)/$(PROG): $(MAIN_OBJECTS)
 $(INSTALL_DIR)/$(PREPROG): $(VERTEX_OBJECTS)
 	$(LD) $^ -o $@ $(FFLAGS) $(LDINCLUDE) $(LDFLAGS)
 
-$(INSTALL_DIR)/$(UPROG): $(U_OBJECTS)
-	$(LD) $^ -o $@
-
 main.o: parameters_module.o aux.o kq_tools.o lapack_module.o one_particle_quant_module.o susc_module.o \
-				eom_module.o vq_module.o hdf5_module.o mpi_org.o config_module.o
-vertex_chann_sym.o: parameters_module.o hdf5_module.o aux.o
+				eom_module.o interaction_module.o hdf5_module.o mpi_org.o config_module.o
+vertex_chann_sym.o: parameters_module.o hdf5_module.o aux.o kq_tools.o
+
 eom_module.o: parameters_module.o one_particle_quant_module.o
 susc_module.o: parameters_module.o hdf5_module.o
 one_particle_quant_module.o: aux.o lapack_module.o parameters_module.o mpi_org.o
 kq_tools.o: parameters_module.o
-vq_module.o: parameters_module.o hdf5_module.o aux.o
-hdf5_module.o: parameters_module.o aux.o
+interaction_module.o: parameters_module.o hdf5_module.o aux.o
+hdf5_module.o: parameters_module.o kq_tools.o aux.o
 mpi_org.o: parameters_module.o 
 lookup_module.o: parameters_module.o
 config_module.o: parameters_module.o lookup_module.o
@@ -58,5 +54,3 @@ pristine:
 	rm -f *.o *.mod
 	rm -f $(INSTALL_DIR)/$(PROG)
 	rm -f $(INSTALL_DIR)/$(PREPROG)
-	rm -f $(INSTALL_DIR)/$(UPROG) 
-

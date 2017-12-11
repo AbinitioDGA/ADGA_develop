@@ -12,7 +12,7 @@ program main
   use eom_module
   use susc_module
   use kq_tools
-  use vq_module
+  use interaction_module
   use aux
   use mpi_org
 
@@ -178,7 +178,7 @@ program main
     call create_u(u,u_tilde)
 
     ! test umatrix
-    if (mpi_wrank .eq. master .and.  (verbose .and. (index(verbstr,"Umatrix") .ne. 0))) then
+    if (mpi_wrank .eq. master .and.  text_output .and. (verbose .and. (index(verbstr,"Umatrix") .ne. 0))) then
       open(unit=10,file=trim(output_dir)//"umatrix.dat")
       write(10,*) 'Umatrix File for the abinitiodga code: band,band,band,band,Uvalue'
       do i=1,ndim
@@ -325,7 +325,7 @@ if (do_eom) then
 end if
 
 
-if (mpi_wrank.eq. master .and. (verbose .and. (index(verbstr,"Kpoints") .ne. 0))) then
+if (mpi_wrank.eq. master .and. text_output .and. (verbose .and. (index(verbstr,"Kpoints") .ne. 0))) then
   open(unit=256,file=trim(output_dir)//'kdata',status='replace')
   do ik=1,nkp
     write(256,*) k_data(:,ik)
@@ -712,10 +712,14 @@ end if
          call flush(ounit)
        endif
 
-       call get_ndga(sigma_sum) ! calculate the k-dependent and k-summed dga occupation
-       call output_occ_h5(output_filename)
-       call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, nonlocal)
-       if (nonlocal) call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+       if (text_output) then
+         call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, nonlocal)
+       endif
+       if (nonlocal) then
+         call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+         call get_ndga(sigma_sum) ! calculate the k-dependent and k-summed dga occupation
+         call output_occ_h5(output_filename)
+       endif
        deallocate(gloc,sigma_loc)
      end if
      deallocate(sigma_nl, sigma_sum, sigma_sum_dmft, sigma_sum_hf)
@@ -762,7 +766,9 @@ end if
          write(ounit,'(1x)')
          call flush(ounit)
       endif
-      call output_chi_loc(bubble_loc,'bubble_loc.dat')
+      if (text_output) then
+        call output_chi_loc(bubble_loc,'bubble_loc.dat')
+      endif
       if (susc_full_output) then
         call output_chi_loc_full_h5(output_filename,'bubble_loc',bubble_loc)
         call output_chi_loc_full_h5(output_filename,'magn',chi_loc_magn)
@@ -802,13 +808,13 @@ end if
           if (q_vol) then
             call output_chi_qw_full_h5(output_filename,'bubble_nl',chi_qw_full)
           else if (q_path_susc) then
-            call output_chi_qpath_full(output_filename,'bubble_nl',chi_qw_full)
+            call output_chi_qpath_full_h5(output_filename,'bubble_nl',chi_qw_full)
           end if
         else
           if (q_vol) then
             call output_chi_qw_reduced_h5(output_filename,'bubble_nl',chi_qw_full)
           else if (q_path_susc) then
-            call output_chi_qpath_reduced(output_filename,'bubble_nl',chi_qw_full)
+            call output_chi_qpath_reduced_h5(output_filename,'bubble_nl',chi_qw_full)
           end if
         endif
 
@@ -860,13 +866,13 @@ end if
           if (q_vol) then
             call output_chi_qw_full_h5(output_filename,'dens',chi_qw_full)
           else if (q_path_susc) then
-            call output_chi_qpath_full(output_filename,'dens',chi_qw_full)
+            call output_chi_qpath_full_h5(output_filename,'dens',chi_qw_full)
           end if
         else
           if (q_vol) then
             call output_chi_qw_reduced_h5(output_filename,'dens',chi_qw_full)
           else if (q_path_susc) then
-            call output_chi_qpath_reduced(output_filename,'dens',chi_qw_full)
+            call output_chi_qpath_reduced_h5(output_filename,'dens',chi_qw_full)
           end if
         endif
 
@@ -919,13 +925,13 @@ end if
           if (q_vol) then
             call output_chi_qw_full_h5(output_filename,'magn',chi_qw_full)
           else if (q_path_susc) then
-            call output_chi_qpath_full(output_filename,'magn',chi_qw_full)
+            call output_chi_qpath_full_h5(output_filename,'magn',chi_qw_full)
           end if
         else
           if (q_vol) then
             call output_chi_qw_reduced_h5(output_filename,'magn',chi_qw_full)
           else if (q_path_susc) then
-            call output_chi_qpath_reduced(output_filename,'magn',chi_qw_full)
+            call output_chi_qpath_reduced_h5(output_filename,'magn',chi_qw_full)
           end if
         endif
       end if

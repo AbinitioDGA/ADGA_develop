@@ -1,0 +1,50 @@
+[General]
+calc-susc = T
+calc-eom  = F # eom and QDataFile doesnt work together
+
+# Number of atoms
+NAt = 2
+
+# Frequency boxes
+N4iwf = -1 # full box
+N4iwb = -1 # full box
+
+# General Files
+HkFile = svo_k20.hk
+VqFile = 
+QDataFile = qpath_template
+UFile = 
+
+# Hamiltonian (k) & Calculation (q) grid
+k-grid = 20 20 20
+q-grid = 10 10 10
+
+# Output folder gets created on execution
+Output = output/
+
+[Atoms]
+[[1]]
+Interaction = Kanamori
+Nd = 3
+Udd = 5.0
+Vdd = 3.5
+Jdd = 0.75
+[[2]]
+Interaction = Density
+Nd = 2
+Udd = 3.0
+Vdd = 1.0
+
+[One-Particle]
+1PFile = srvo3-full-2017-12-02-Sat-16-32-13.hdf5
+orb-sym = F
+
+[Two-Particle]
+2PFile = extension/srvo3-2pg-asy-60-60.hdf5
+vertex-type = 0
+# 0: 2PGF, 1: chi_con, 2: chi
+
+[Output]
+gzip-compression = 8
+susc-full-output = T # all 4 legs
+text-output = F

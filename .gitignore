@@ -27,14 +27,12 @@ testsuit/runcommand
 #ctags
 tags
 
-# configfiles
+# configfiles and templates
 config*
 # except config_template which is maintained by hand
-!config_template
-!config_umatrix_template
-!config_template_new
-!config_test
-!config_template_qpath
+!config_example_eom
+!config_example_susc_qpath
+!configspec
 
 # dont't forget about the module
 !config_module.f90
@@ -48,6 +46,4 @@ input*/**
 
 # binaries
 abinitiodga
-main
 vertex_chann_sym
-umatrix

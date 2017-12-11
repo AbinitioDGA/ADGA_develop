@@ -16,16 +16,14 @@ module parameters_module
   integer :: nqp,nkp_eom, idp
   integer :: nkp, ndim, ndim2, maxdim, nineq
   integer :: nkpx,nkpy,nkpz,nkp1,nqpx,nqpy,nqpz,nqp1
-  integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,nk_frac,n2iwb,n3iwf,n3iwb
-  integer,allocatable :: q_data(:),k_data_eom(:)
-  integer :: nr ! number of r-points in extrapolated V(r)
-  real(kind=8) :: a,b,c ! lattice spacing
+  integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,n2iwb,n3iwf,n3iwb
+  integer,allocatable :: q_data(:)
 
   ! input data created from dmft
   integer, allocatable :: ndims(:,:)
   real(kind=8) :: mu, beta
   real(kind=8), allocatable :: iw_data(:), iwb_data(:), iwf_data(:)
-  real(kind=8), allocatable :: k_data(:,:), r_data(:,:)
+  real(kind=8), allocatable :: k_data(:,:)
   complex(kind=8), allocatable :: u(:,:), u_tilde(:,:) ! u matrices in compound indices
   complex(kind=8), allocatable :: hk(:,:,:),dc(:,:)
   complex(kind=8), allocatable :: siw(:,:),giw(:,:) 
@@ -37,21 +35,21 @@ module parameters_module
   ! run parameters and flags
   logical :: orb_sym
   logical :: do_eom,do_chi,do_vq
-  logical :: q_path_susc,k_path_eom,q_vol,read_ext_hk, read_ext_u
+  logical :: q_path_susc,q_vol,read_ext_hk,read_ext_u
   logical :: external_chi_loc,external_threelegs
   logical :: exist_p
   logical :: susc_full_output
+  logical :: text_output
   integer :: gzip_compression
   integer :: vertex_type
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
 
   ! filenames
-  character(len=150) :: filename_vr ! filename of extrapolated V(r)
   character(len=150) :: filename_vertex, filename_vertex_sym
   character(len=150) :: filename_chi_loc,filename_threelegs
   character(len=150) :: filename_umatrix, filename_vq
   character(len=150) :: filename_1p
-  character(len=150) :: filename_hk, output_dir, filename_q_path, filename_qdata
+  character(len=150) :: filename_hk, output_dir, filename_qdata
   character(len=100) :: config_file
 
   ! config file auxiliary variables

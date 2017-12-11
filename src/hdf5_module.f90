@@ -811,16 +811,24 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
   use aux
   implicit none
 
-  complex(kind=8),intent(out) :: chi_loc_qmc(ndim2,ndim2,2*iwbmax_small+1)
-  complex(kind=8) :: chi_loc_qmc_tmp(ndim,ndim,ndim,ndim,2*iwbmax_small+1)
   character(len=*),intent(in) :: channel
+  complex(kind=8),intent(out) :: chi_loc_qmc(ndim2,ndim2,2*iwbmax_small+1)
+
+  complex(kind=8) :: chi_loc_qmc_tmp(ndim,ndim,ndim,ndim,2*iwbmax_small+1)
   character(len=100) :: grpname,bgroup_name
   integer(hid_t) :: file_id,grp_id,dset_id
   integer(hsize_t), dimension(1) :: p2_dims
-  integer :: ineq,dimstart,dimend,i,ngroups,igr,b1,b2,b3,b4,ind_grp,itype
-  integer :: j,k,l,i1,i2
+  integer :: ineq,dimstart,dimend,ngroups,igr,b1,b2,b3,b4,ind_grp,itype
+  integer :: i,j,k,l,i1,i2,iwb,iwf
+  logical :: extend_chi_bubble
   double precision, dimension(2*n2iwb+1) :: tmp_r, tmp_i
   complex(kind=8),parameter :: ci = (0d0,1d0)
+
+  if (ndims(1,1) .eq. ndim) then ! we have 1 impurity with only d-bands -> bubble is ok
+    extend_chi_bubble = .false.
+  else ! we have more than 1 impurity or p-bands -> we have to extend the qmc bubble to get the lattice bubble
+    extend_chi_bubble = .true.
+  endif
 
   p2_dims=(/2*n2iwb+1/)
 
@@ -833,7 +841,7 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
     do i=2,ineq
       dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
     enddo
-    dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1
+    dimend=dimstart+ndims(ineq,1)-1
 
     write(grpname,'("ineq-",I3.3,"/",(A),"/")') ineq,channel
     write(*,*) grpname
@@ -873,6 +881,14 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
         do l=1,ndim
           i2=i2+1
           chi_loc_qmc(i1,i2,:) = chi_loc_qmc_tmp(i,j,l,k,:)
+          ! since this data comes from qmc we have to extend the bubble so we get the lattice susc bubble
+          if(extend_chi_bubble .and. (.not. index2cor(nineq,ndims,i,j,k,l))) then ! add bubble term only if not in the same correlated subspace
+            do iwb = -iwbmax_small, iwbmax_small
+              do iwf = -iwmax+iwbmax_small,iwmax-iwbmax_small-1
+                chi_loc_qmc(i1,i2,iwb) = chi_loc_qmc(i1,i2,iwb)-giw(iwf,i)*giw(iwf-iwb,j)/beta
+              enddo
+            enddo
+          endif
         end do
       end do
     end do
@@ -888,7 +904,7 @@ end subroutine read_chi_loc
 
 ! This subroutine creates the HDF5 output file and initializes its structure
 subroutine init_h5_output(filename_output)
-  use kq_tools!, only: k_vector,k_index
+  use kq_tools, only: k_vector,k_index
   use parameters_module
   implicit none
 
@@ -1390,7 +1406,7 @@ end subroutine output_chi_qw_reduced_h5
 
 
 
-subroutine output_chi_qpath_full(filename_output,channel,chi)
+subroutine output_chi_qpath_full_h5(filename_output,channel,chi)
   use parameters_module
   implicit none
   character(len=*)::filename_output,channel
@@ -1444,12 +1460,15 @@ subroutine output_chi_qpath_full(filename_output,channel,chi)
   call h5close_f(err)
 
   write(*,*)'q-path susceptibility ',channel,' written to h5'
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'full q-path susceptibility ',channel,' written to h5'
+  endif
 
-end subroutine output_chi_qpath_full
+end subroutine output_chi_qpath_full_h5
 
 
 
-subroutine output_chi_qpath_reduced(filename_output,channel,chi)
+subroutine output_chi_qpath_reduced_h5(filename_output,channel,chi)
   use parameters_module
   implicit none
   character(len=*)::filename_output,channel
@@ -1500,9 +1519,11 @@ subroutine output_chi_qpath_reduced(filename_output,channel,chi)
   call h5fclose_f(file_id,err)
   call h5close_f(err)
 
-  write(*,*)'q-path susceptibility',channel,'written to h5'
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'reduced q-path susceptibility ',channel,' written to h5'
+  endif
 
-end subroutine output_chi_qpath_reduced
+end subroutine output_chi_qpath_reduced_h5
 
 
 
@@ -1699,76 +1720,5 @@ subroutine output_occ_h5(filename_output)
   endif
 
 end subroutine output_occ_h5
-
-! if one ever wants to output the 'dga greensfunction' here is the routine for that
-
-! subroutine output_green_h5(filename_output)
-!   use parameters_module
-!   implicit none
-!   character(len=*),intent(in) :: filename_output
-!   integer :: err
-!   integer(hid_t) :: file_id, grp_id_green
-!   integer(hid_t) :: dspace_id_green, dspace_id_green_sum
-!   integer(hid_t) :: dset_id_green, dset_id_green_sum
-!   integer(hid_t) :: dspace_id
-!   integer(hsize_t),dimension(6) :: dims_green
-!   integer(hsize_t),dimension(3) :: dims_green_sum
-!   complex(kind=8), allocatable :: green_k_arr(:,:,:,:,:,:)
-!   complex(kind=8), allocatable :: green_arr(:,:,:)
-!   integer :: i1,i2,ikx,iky,ikz,iw
-
-
-!   call h5open_f(err)
-!   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
-!   call h5gopen_f(file_id,'greenfunction',grp_id_green,err)
-
-!   dims_green = (/2*iwfmax_small,nkpz,nkpy,nkpx,ndim,ndim/)
-!   dims_green_sum = (/2*iwfmax_small,ndim,ndim/)
-!   allocate(green_k_arr(2*iwfmax_small,nkpz,nkpy,nkpx,ndim,ndim))
-!   allocate(green_arr(2*iwfmax_small,ndim,ndim))
-
-!   ! for convenience we calculate the local dga green function
-!   green_arr = 0.d0
-
-!   do i1=1,ndim
-!     do i2=1,ndim
-!       do ikx=1,nkpx
-!         do iky=1,nkpy
-!           do ikz=1,nkpz
-!             do iw=1,2*iwfmax_small
-!               green_k_arr(iw,ikz,iky,ikx,i2,i1) = gkiw_dga(iw-iwfmax_small-1,ikz+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz,i1,i2)
-!               green_arr(iw,i2,i1) = green_arr(iw,i2,i1) + green_k_arr(iw,ikz,iky,ikx,i2,i1)
-!             enddo
-!           enddo
-!         enddo
-!       enddo
-!     enddo
-!   enddo
-
-!   green_arr = green_arr / nkp
-
-!   call h5screate_f(H5S_SIMPLE_F,dspace_id_green,err)
-!   call h5sset_extent_simple_f(dspace_id_green,6,dims_green,dims_green,err)
-!   call h5dcreate_f(grp_id_green,'g_dga_iwk',compound_id, dspace_id_green, dset_id_green,err)
-!   call h5dwrite_f(dset_id_green, type_r_id, real(green_k_arr), dims_green, err)
-!   call h5dwrite_f(dset_id_green, type_i_id, aimag(green_k_arr), dims_green, err)
-!   call h5dclose_f(dset_id_green, err)
-
-!   call h5screate_f(H5S_SIMPLE_F,dspace_id_green_sum,err)
-!   call h5sset_extent_simple_f(dspace_id_green_sum,3,dims_green_sum,dims_green_sum,err)
-!   call h5dcreate_f(grp_id_green,'g_dga_iw_ksum',compound_id, dspace_id_green_sum, dset_id_green_sum,err)
-!   call h5dwrite_f(dset_id_green_sum, type_r_id, real(green_arr), dims_green, err)
-!   call h5dwrite_f(dset_id_green_sum, type_i_id, aimag(green_arr), dims_green, err)
-!   call h5dclose_f(dset_id_green_sum, err)
-
-!   call h5gclose_f(grp_id_green,err)
-!   deallocate(green_k_arr)
-!   deallocate(green_arr)
- 
-!   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
-!    write(ounit,*) 'dga occupation written to h5'
-!   endif
-
-!   end subroutine output_green_h5
 
 end module hdf5_module
