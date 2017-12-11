@@ -388,7 +388,7 @@ subroutine check_freq_range(mpi_wrank,master,er)
     endif
   endif
 
-  if (n3iwb .lt. iwbmax_small) then
+  if (n3iwb .lt. iwbmax_small .and. external_threelegs) then
     er=1
     if (ounit .gt. 0) then
       write(ounit,*) 'Error: N3iwb must be greater or equal to N4iwb'
@@ -396,7 +396,7 @@ subroutine check_freq_range(mpi_wrank,master,er)
     end if
   end if
 
-  if (n3iwf .lt. iwfmax_small) then
+  if (n3iwf .lt. iwfmax_small .and. external_threelegs) then
     er=1
     if (ounit .gt. 0) then
       write(ounit,*) 'Error: N3iwf must be greater or equal to N4iwf'
@@ -404,7 +404,7 @@ subroutine check_freq_range(mpi_wrank,master,er)
     end if
   end if
 
-  if (n2iwb .lt. iwbmax_small) then
+  if (n2iwb .lt. iwbmax_small .and. external_chi_loc) then
     er=1
     if (ounit .gt. 0) then
       write(ounit,*) 'Error: N2iwb must be greater or equal to N2iwb'
