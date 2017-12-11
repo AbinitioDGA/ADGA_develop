@@ -34,6 +34,7 @@ config*
 !config_umatrix_template
 !config_template_new
 !config_test
+!config_template_qpath
 
 # dont't forget about the module
 !config_module.f90

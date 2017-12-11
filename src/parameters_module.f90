@@ -51,7 +51,7 @@ module parameters_module
   character(len=150) :: filename_chi_loc,filename_threelegs
   character(len=150) :: filename_umatrix, filename_vq
   character(len=150) :: filename_1p
-  character(len=150) :: filename_hk, output_dir, filename_q_path
+  character(len=150) :: filename_hk, output_dir, filename_q_path, filename_qdata
   character(len=100) :: config_file
 
   ! config file auxiliary variables

@@ -5,9 +5,11 @@ module kq_tools
   interface k_vector
     module procedure k_vector_1, k_vector_3
   end interface k_vector
+
   interface k_index
     module procedure k_index_1, k_index_3
   end interface k_index
+
 contains
 
 function n_segments()
@@ -381,6 +383,47 @@ subroutine index_kq_search(k_data, q_data, index)
       !enddo
 
 end subroutine index_kq_search
+
+subroutine qdata_from_file()
+  use parameters_module
+
+  implicit none
+  integer :: iostatus,iq
+  character(100) :: str_tmp
+  real(kind=8) :: qx,qy,qz
+
+  iostatus=0
+  open(unit=101,file=filename_qdata)
+  
+  nqp=-1
+  do while (iostatus.eq.0)
+    read(101,*,iostat=iostatus) str_tmp
+    nqp=nqp+1
+  end do
+  close(101)
+  !write(*,*) nqp,' q points'
+
+  allocate(q_data(nqp))
+  open(unit=101,file=filename_qdata)
+  do iq=1,nqp
+    ! We read three real numbers.
+    ! If all of them are zero, it is the gamma point.
+    ! If one of them is larger or equal to 1, the coordinates are cast to integers
+    ! and assumed to be given in integer basis [0,nkpi-1]
+    ! If neither of above is true, the coordinates are assumed to lie in the interval [0,1).
+    read(101,*) qx,qy,qz
+    if (qx .eq. 0 .and. qy .eq. 0 .and. qz .eq. 0) then 
+      q_data(iq) = k_index(0,0,0) ! gamma point
+    else if (qx .ge. 1 .or. qy .ge. 1 .or. qz .ge. 1) then
+      q_data(iq) = k_index(int(qx),int(qy),int(qz)) ! cast to integers
+    else
+      q_data(iq) = k_index(nint(qx*nkpx),nint(qy*nkpy),nint(qz*nkpz)) ! round to nearest integers
+    end if
+  end do
+  close(101)
+  !write(*,*) 'q data',q_data
+
+end subroutine qdata_from_file
 
 
 
