@@ -89,21 +89,25 @@ subroutine read_config(er,erstr)
 ! FREE FORMAT LOOKUP
 !================================================================================
   ! defining default values
-  do_chi=.false.
-  do_eom=.true.
-  q_vol=.true.
-  q_path_susc=.false.
-  external_chi_loc=.false.
-  external_threelegs=.false.
-  susc_full_output=.false.
-  text_output=.false.
-  gzip_compression=4 ! h5py default standard -- ranges from 0 to 9
-  output_dir='output/'
+  do_chi=.true.                       ! chi-calculation on
+  do_eom=.true.                       ! eom-calculation on
+  q_vol=.true.                        ! homogeneous q-volume on
+  q_path_susc=.false.                 ! q-path disabled
+  external_chi_loc=.false.            ! no external local chi
+  external_threelegs=.false.          ! no external gamma^wv
+
+  susc_full_output=.false.            ! 2 leg dependencies instead of all 4
+  text_output=.false.                 ! text files disabled
+  gzip_compression=4                  ! gzip compression of large hdf5 dataset - ranges from 0 to 9
+  output_dir='output/'                ! default output folder that gets created
+
   filename_hk=''; filename_1p=''; filename_vertex_sym=''
   filename_vq=''; filename_qdata=''; filename_umatrix=''
   filename_chi_loc=''; filename_threelegs=''
+
   nineq=1
-  iwfmax_small=-1; iwbmax_small=-1 ! maximum number of frequencies -- see check_freq_range
+  iwfmax_small=-1 ! default -> calculate in the full vertex frequency box
+  iwbmax_small=-1
 !================================================================================
 
   ! search for General stuff + Allocation of values

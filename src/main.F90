@@ -328,11 +328,13 @@ end if
 
 if (mpi_wrank.eq. master .and. text_output .and. (verbose .and. (index(verbstr,"Kpoints") .ne. 0))) then
   open(unit=256,file=trim(output_dir)//'kdata',status='replace')
+  write(256,*) '### kx(ik), ky(ik), kz(ik)'
   do ik=1,nkp
     write(256,*) k_data(:,ik)
   end do
   close(256)
   open(unit=266,file=trim(output_dir)//'qdata',status='replace')
+  write(256,*) '### kx(iq), ky(iq), kz(iq)'
   do iq=1,nqp
     write(266,*) k_data(:,q_data(iq))
   end do
@@ -767,9 +769,14 @@ end if
          write(ounit,'(1x)')
          call flush(ounit)
       endif
+
+      ! text file is always reduced output
       if (text_output) then
-        call output_chi_loc(bubble_loc,'bubble_loc.dat')
+        call output_chi_loc(bubble_loc,'chi_bubble_loc.dat')
+        call output_chi_loc(chi_loc_dens,'chi_dens_loc.dat')
+        call output_chi_loc(chi_loc_magn,'chi_magn_loc.dat')
       endif
+
       if (susc_full_output) then
         call output_chi_loc_full_h5(output_filename,'bubble_loc',bubble_loc)
         call output_chi_loc_full_h5(output_filename,'magn',chi_loc_magn)
@@ -805,6 +812,12 @@ end if
                  sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small*nqp+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif
+
+        !call output_chi_qw(chi_qw_full,qw,'chi_qw_dens.dat')
+        if (text_output) then
+          call output_chi_qw(chi_qw_full,qw,'chi_bubble_nl.dat')
+        endif
+
         if (susc_full_output) then
           if (q_vol) then
             call output_chi_qw_full_h5(output_filename,'bubble_nl',chi_qw_full)
@@ -862,7 +875,11 @@ end if
                  sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small*nqp+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif
-        !call output_chi_qw(chi_qw_full,qw,'chi_qw_dens.dat')
+
+        ! text file is always reduced output
+        if (text_output) then
+          call output_chi_qw(chi_qw_full,qw,'chi_dens_nl.dat')
+        endif
         if (susc_full_output) then
           if (q_vol) then
             call output_chi_qw_full_h5(output_filename,'dens',chi_qw_full)
@@ -921,7 +938,12 @@ end if
                  sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small*nqp+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
         endif
-        !call output_chi_qw(chi_qw_full,qw,'chi_qw_magn.dat')
+
+        ! text file is always reduced output
+        if (text_output) then
+          call output_chi_qw(chi_qw_full,qw,'chi_magn_nl.dat')
+        endif
+
         if (susc_full_output) then
           if (q_vol) then
             call output_chi_qw_full_h5(output_filename,'magn',chi_qw_full)

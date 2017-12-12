@@ -17,8 +17,9 @@ N4iwb     = (default = -1) # number of bosonic frequencies of the vertex
      #
      #
 
-HkFile = (default = '') # wannier hamiltonian
-VqFile = (default = '') # V(q) file
+HkFile = (default = '') # Wannier hamiltonian
+VqFile = (default = '') # V(q) file for fully non-local interactions
+                        # currently only implemented for 1 impurity
 QDataFile = (default= '') # Q-points text file for susc-path calculations -- see qpath_template
 
 k-grid = 10 10 10       # 3 integers seperated by a space (hamiltonian k-grid)
@@ -48,7 +49,7 @@ Jdp =
 orb-sym = (default = F)  # orbital symmetry
 
 [Two-Particle]
-2PFile =  # file of the __symmetrized__ 2 particle greens function
+2PFile =  (default = '') # file of the __symmetrized__ 2 particle greens function
 vertex-type = # type of the vertex
               # 0 -> full 2 particle greens function
               # 1 -> connected part of the 2 particle greens function
@@ -63,7 +64,7 @@ susc-full-output = (default = F) # default output depends on 2 of the 4 legs
                                  # setting this to True outputs all 4 legs
 gzip-compression = (default=4)   # gzip compression level in the hdf5 output of the large datasets
                                  # values of 0 to 9 are allowed
-text-output = (default = F )     # default output only produces the hdf5 output
+text-output = (default = F)      # default output only produces the hdf5 output
                                  
 [Verbose]       # ignore this 
 verbstr

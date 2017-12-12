@@ -259,6 +259,7 @@ subroutine get_ndmft()
 
   if ((verbose .and. (index(verbstr,"Dmft") .ne. 0)) .and. mpi_wrank .eq. master .and. text_output) then
     open(56, file=trim(output_dir)//"n_dmft.dat", status='unknown')
+    write(56,*) '# n_dmft(i,i) [i=1,ndim]'
     write(56,'(100F12.6)') (real(n_dmft(i)),i=1,ndim)
     close(56)
   endif
@@ -285,9 +286,9 @@ subroutine get_nfock()
 
   if (mpi_wrank .eq. master .and. text_output) then
     open(110, file=trim(output_dir)//"n_fock.dat", status='unknown')
-    write(110,*) '### kx, ky, kz, n_fock(k,i,i)'
+    write(110,*) '# ik, kx, ky, kz, n_fock(k,i,i) [i=1,ndim]'
     do ik=1,nkp
-      write(110,'(100F12.6)') k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_fock(ik,i,i)),i=1,ndim)
+      write(110,'(I8, 100F12.6)') ik, k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_fock(ik,i,i)),i=1,ndim)
     enddo
     close(110)
   endif
@@ -329,13 +330,14 @@ subroutine get_ndga(sigma_sum)
 
   if (mpi_wrank .eq. master .and. text_output) then
     open(110, file=trim(output_dir)//"n_dga_k.dat", status='unknown')
-    write(110,*) '### kx, ky, kz, n_dga(k,i,i)'
+    write(110,*)  '# ik, kx, ky, kz, n_dga(k,i,i) [i=1,ndim]'
     do ik=1,nkp
-      write(110,'(100F12.6)') k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_dga_k(ik,i,i)),i=1,ndim)
+      write(110,'(I8,100F12.6)') ik, k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_dga_k(ik,i,i)),i=1,ndim)
     enddo
     close(110)
 
     open(111, file=trim(output_dir)//"n_dga.dat", status='unknown')
+    write(111,*) '# n_dga(i,i) [i=1,ndim]'
     write(111,'(100F12.6)') (real(n_dga(i)),i=1,ndim)
     close(111)
   endif
