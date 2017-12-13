@@ -264,8 +264,10 @@ module hdf5_module
 
 
      ! read frequency range of external threelegs
-     if (ounit .ge. 1 .and. external_threelegs) then
-       write(ounit,*) 'threelegs in ',filename_threelegs
+     if (external_threelegs) then
+       if (ounit .ge. 1) then
+         write(ounit,*) 'threelegs in ',filename_threelegs
+       end if
      
        call h5fopen_f(filename_threelegs,h5f_acc_rdonly_f,file_id,err)
        call h5gn_members_f(file_id,'ineq-001/dens',n3iwb,err)
@@ -282,8 +284,10 @@ module hdf5_module
 
      
      ! read frequency range of external one-frequency susceptibility
-     if (ounit .ge. 1 .and. external_chi_loc) then
-       write(ounit,*) 'threelegs in ',filename_chi_loc
+     if (external_chi_loc) then
+       if (ounit .ge. 1) then
+         write(ounit,*) 'chi loc in ',filename_chi_loc
+       end if
      
        call h5fopen_f(filename_chi_loc,h5f_acc_rdonly_f,file_id,err)
        call h5dopen_f(file_id,'ineq-001/dens/00001',dset_id,err)

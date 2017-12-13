@@ -56,7 +56,7 @@ vertex-type = # type of the vertex
               # 2 -> chi (connected part + chi_0)
 
 chi-loc-file = (default = '')   # local chi file
-three-leg-file = (default = '') # external gamma^w 
+threeleg-file = (default = '') # external gamma^w 
 
 [Output]
 susc-full-output = (default = F) # default output depends on 2 of the 4 legs
