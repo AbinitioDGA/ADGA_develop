@@ -791,7 +791,7 @@ subroutine read_threeleg(gamma_loc_qmc,channel,iwb)
     do i=2,ineq
       dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
     end do
-    dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1
+    dimend=dimstart+ndims(ineq,1)-1
 
     write(grpname,'("ineq-",I3.3,"/",(A),"/",I5.5)') ineq,channel,ind_iwb
 
