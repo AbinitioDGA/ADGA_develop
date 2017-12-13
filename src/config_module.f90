@@ -106,6 +106,8 @@ subroutine read_config(er,erstr)
   filename_chi_loc=''; filename_threelegs=''
 
   nineq=1
+  orb_sym = .false.
+  vertex_type = -1
   iwfmax_small=-1 ! default -> calculate in the full vertex frequency box
   iwbmax_small=-1
 !================================================================================
@@ -209,7 +211,7 @@ subroutine read_config(er,erstr)
     call subgroup_find(str_ineq, search_start, search_end, subsearch_start, subsearch_end)
     if (subsearch_start .eq. 0) then ! group was not found
       er = 5
-      erstr = 'Atomnumber subgroup not found'
+      write(erstr,'("Atomnumber ", I1," subgroup not found")') ineq
       return
     endif
 
@@ -228,6 +230,8 @@ subroutine read_config(er,erstr)
 
     select case (interaction(ineq))
       case ('Kanamori')
+        interaction_mode(ineq) = 1
+      case ('kanamori') ! because fortran, that's why
         interaction_mode(ineq) = 1
       case default
         interaction_mode(ineq) = 0

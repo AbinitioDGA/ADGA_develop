@@ -172,14 +172,17 @@ program main
 
   !read umatrix from separate file:
   if (read_ext_u) then
-    if (ounit .ge. 1) write(ounit,*) 'Reading the U matrix from file.'
+    if (ounit .ge. 1) then
+      write(ounit,*) 'Reading the U matrix from file.'
+      write(ounit,*) 'U matrix in ', filename_umatrix
+    endif
     call read_u(u,u_tilde)
   else
     if (ounit .ge. 1) write(ounit,*) 'Creating U matrix from input parameters.'
     call create_u(u,u_tilde)
 
     ! test umatrix
-    if (mpi_wrank .eq. master .and.  text_output .and. (verbose .and. (index(verbstr,"Umatrix") .ne. 0))) then
+    if (mpi_wrank .eq. master .and.  (verbose .and. (index(verbstr,"Umatrix") .ne. 0))) then
       open(unit=10,file=trim(output_dir)//"umatrix.dat")
       write(10,*) 'Umatrix File for the abinitiodga code: band,band,band,band,Uvalue'
       do i=1,ndim
@@ -243,6 +246,7 @@ program main
       write(ounit,*) 'Running the calculation without V(q)'
     else
       write(ounit,*) 'Running the calculation with V(q)'
+      write(ounit,*) 'V(q) data in ', filename_vq
     endif
     write(ounit,'(1x)')
     write(ounit,'(1x,"Frequency information:")')
@@ -326,7 +330,7 @@ if (do_eom) then
 end if
 
 
-if (mpi_wrank.eq. master .and. text_output .and. (verbose .and. (index(verbstr,"Kpoints") .ne. 0))) then
+if (mpi_wrank.eq. master .and. (verbose .and. (index(verbstr,"Kpoints") .ne. 0))) then
   open(unit=256,file=trim(output_dir)//'kdata',status='replace')
   write(256,*) '### kx(ik), ky(ik), kz(ik)'
   do ik=1,nkp
@@ -334,7 +338,7 @@ if (mpi_wrank.eq. master .and. text_output .and. (verbose .and. (index(verbstr,"
   end do
   close(256)
   open(unit=266,file=trim(output_dir)//'qdata',status='replace')
-  write(256,*) '### kx(iq), ky(iq), kz(iq)'
+  write(266,*) '### kx(iq), ky(iq), kz(iq)'
   do iq=1,nqp
     write(266,*) k_data(:,q_data(iq))
   end do
@@ -852,7 +856,21 @@ end if
               call flush(ounit)
            endif
            ! Print to file
-           if (index(verbstr,"Extra") .ne. 0) call output_chi_qw_full_h5(output_filename,'dens-nl',chi_qw_full)
+           if (index(verbstr,"Extra") .ne. 0) then 
+             if (susc_full_output) then
+               if (q_vol) then
+                 call output_chi_qw_full_h5(output_filename,'dens-nl',chi_qw_full)
+               else if (q_path_susc) then
+                 call output_chi_qpath_full_h5(output_filename,'dens-nl',chi_qw_full)
+               endif
+             else
+               if (q_vol) then
+                 call output_chi_qw_reduced_h5(output_filename,'dens-nl',chi_qw_full)
+               else if (q_path_susc) then
+                 call output_chi_qpath_reduced_h5(output_filename,'dens-nl',chi_qw_full)
+               endif
+             endif
+           endif
          endif
       endif
       ! Add the purely non-local bubble
@@ -915,7 +933,21 @@ end if
               call flush(ounit)
            endif
            ! Print to file
-           if (index(verbstr,"Extra") .ne. 0) call output_chi_qw_full_h5(output_filename,'magn-nl',chi_qw_full)
+           if (index(verbstr,"Extra") .ne. 0) then 
+             if (susc_full_output) then
+               if (q_vol) then
+                 call output_chi_qw_full_h5(output_filename,'magn-nl',chi_qw_full)
+               else if (q_path_susc) then
+                 call output_chi_qpath_full_h5(output_filename,'magn-nl',chi_qw_full)
+               endif
+             else
+               if (q_vol) then
+                 call output_chi_qw_reduced_h5(output_filename,'magn-nl',chi_qw_full)
+               else if (q_path_susc) then
+                 call output_chi_qpath_reduced_h5(output_filename,'magn-nl',chi_qw_full)
+               endif
+             endif
+           endif
          endif
       endif
       ! Add the purely non-local bubble

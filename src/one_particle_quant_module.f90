@@ -257,7 +257,7 @@ subroutine get_ndmft()
   enddo
   n_dmft(:) = 2.d0*real(giw_sum(:))/beta+0.5d0
 
-  if ((verbose .and. (index(verbstr,"Dmft") .ne. 0)) .and. mpi_wrank .eq. master .and. text_output) then
+  if ((verbose .and. (index(verbstr,"Dmft") .ne. 0)) .and. mpi_wrank .eq. master ) then
     open(56, file=trim(output_dir)//"n_dmft.dat", status='unknown')
     write(56,*) '# n_dmft(i,i) [i=1,ndim]'
     write(56,'(100F12.6)') (real(n_dmft(i)),i=1,ndim)

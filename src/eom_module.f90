@@ -308,7 +308,7 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
       open(45, file=trim(output_dir)//"siw_all_k.dat",status='unknown')
         write(45,'(A)') '# ik, kx, ky, kz, wf, (real(siwk_dga(wf,ik,i,j)), imag(siwk_dga(wf,ik,i,j)), real(siwk_hf(ik,i,j))) [j=i,ndim] [i=1,ndim]'
         do ik=1,nkp
-           do iwf=0,5
+           do iwf=-iwfmax_small,iwfmax_small-1
               write(45,'(I8, 100F12.6)') ik, k_data(1,ik), k_data(2,ik), k_data(3,ik), iw_data(iwf),&
                  ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), real(sigma_sum_hf(i,j,ik)),j=i,ndim), i=1,ndim)
            enddo
