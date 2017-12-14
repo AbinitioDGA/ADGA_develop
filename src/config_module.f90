@@ -105,11 +105,15 @@ subroutine read_config(er,erstr)
   filename_vq=''; filename_qdata=''; filename_umatrix=''
   filename_chi_loc=''; filename_threelegs=''
 
+  dmft_iter='dmft-last'
+
   nineq=1
   orb_sym = .false.
   vertex_type = -1
   iwfmax_small=-1 ! default -> calculate in the full vertex frequency box
   iwbmax_small=-1
+  nkpx = 0; nkpy = 0; nkpz = 0
+  nqpx = 0; nqpy = 0; nqpz = 0
 !================================================================================
 
   ! search for General stuff + Allocation of values
@@ -259,6 +263,7 @@ subroutine read_config(er,erstr)
     return
   endif
   call string_find('1PFile', filename_1p, search_start, search_end)
+  call string_find('dmft-iter', dmft_iter, search_start, search_end)
   call bool_find('orb-sym', orb_sym, search_start, search_end)
 
   call group_find('[Two-Particle]', search_start, search_end)

@@ -14,13 +14,13 @@ N4iwb     = (default = -1)            # number of bosonic frequencies of the ver
  _________________________________________________________________
  # the frequency box therefore is (2*N4iwf * 2*N4iwf * 2*N4iwb+1) |
  #                                                                |
- # frequency notation: w v v'                                     |
+ # frequency/orbital notation: Chi^{w v v'}_{l m m' l'} =         |
  #                                                                |
- #      v   _______ v              v  _____________ v'            |
+ #      v,l _______ v,l'         v,l  _____________ v',l'         |
  #                                      |       |                 |
  #  -                      +            |       |                 |
  #                                      |       |                 |
- #    v-w   _______ v-w          v-w  __|_______|__ v'-w          |
+ #    v-w,m _______ v-w,m'     v-w,m  __|_______|__ v'-w,m'       |
  #                                                                |
  #________________________________________________________________|
 
@@ -30,8 +30,8 @@ VqFile = (default = '')               # V(q) file for fully non-local interactio
                                       # currently only implemented for 1 impurity
 QDataFile = (default= '')             # Q-points text file for susc-path calculations -- see qpath_template - optional
 
-k-grid = 0 0 0                        # 3 integers seperated by a space (hamiltonian k-grid) - mandatory
-q-grid = 0 0 0                        # 3 integers seperated by a space (calculation q-grid) - mandatory
+k-grid = (default = 0 0 0)            # 3 integers seperated by a space (hamiltonian k-grid) - mandatory
+q-grid = (default = 0 0 0)            # 3 integers seperated by a space (calculation q-grid) - mandatory
                                       # remainder of the division of k_i/q_i must be 0 (i = x,y,z)
 
 Output = (default = 'output')         # Output folder (gets created automatically)
@@ -41,7 +41,7 @@ UFile  = (default = '')               # umatrx file with all possible leg combin
 
 ________________________________________________________________________________
 [Atoms]
-[[__many__]]                          # as many groups as NAt
+[[__many__]]                          # as many groups as NAt ( [[1]], [[2]], ...)
 Interaction = (default = 'Density')   # 'Kanamori' or 'Density' are the only ones implemented
 Nd =  (default = 0)                   # number of d-orbitals - mandatory
 Np =  (default = 0)                   # number of p-orbitals - mandatory
@@ -58,11 +58,12 @@ ________________________________________________________________________________
 [One-Particle]
 1PFile =  (default = '')              # file of the w2dynamics 1 particle greens function - mandatory
 orb-sym = (default = F)               # orbital symmetry
+dmft-iter = (default = 'dmft-last')   # hdf5 group name of w2dynamics DMFT iteration
 
 ________________________________________________________________________________
 [Two-Particle]
 2PFile =  (default = '')              # file of the __symmetrized__ 2 particle greens function - mandatory
-vertex-type =                         # type of the vertex - mandatory
+vertex-type = (default = -1)          # type of the vertex - mandatory
                                       # 0 -> full 2 particle greens function
                                       # 1 -> connected part of the 2 particle greens function
                                       # 2 -> chi (connected part + chi_0)
@@ -77,7 +78,7 @@ susc-full-output = (default = F)      # default output depends on 2 of the 4 leg
                                       # setting this to True outputs all 4 legs
 gzip-compression = (default = 4)      # gzip compression level in the hdf5 output of the large datasets
                                       # values of 0 to 9 are allowed
-text-output = (default = F)           # default output only produces the hdf5 output
+text-output = (default = F)           # default output only produces the hdf5 data output
                                  
 ________________________________________________________________________________
 [Verbose]                             # ignore this 

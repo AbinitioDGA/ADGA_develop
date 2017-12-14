@@ -71,7 +71,7 @@ program main
   if (mpi_wrank .eq. master .or. verbose_extra) then
      ounit = 123
   else
-     ounit = 0
+     ounit = 0 ! this is fortrans unit for the stderr
   endif
   if (ounit .gt. 0) then
      if (mpi_wrank .eq. master) then
@@ -307,7 +307,7 @@ if (do_chi) then
   chi_loc_magn = 0
   if (external_chi_loc) then
      ! We read the local susceptibilities from file.
-     write(ounit,*) "Reading the local (frequency summed) susceptibilities from file."
+     if (ounit .ge. 1)  write(ounit,*) "Reading the local (frequency summed) susceptibilities from file."
      call read_chi_loc(chi_loc_dens,'dens')
      call read_chi_loc(chi_loc_magn,'magn')
   else if (ounit .ge. 1) then
@@ -316,7 +316,7 @@ if (do_chi) then
 end if
 
 if (external_threelegs) then
-  write(ounit,*) "Reading the local threeleg vertex gamma^w from file."
+  if (ounit .ge. 1) write(ounit,*) "Reading the local threeleg vertex gamma^w from file."
 end if
 
 if (do_eom) then
