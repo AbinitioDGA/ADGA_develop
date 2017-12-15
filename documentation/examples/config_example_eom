@@ -10,7 +10,7 @@ N4iwf = -1 # full box
 N4iwb = -1 # full box
 
 # General Files
-HkFile = svo_k20.hk
+HkFile = srvo3_k20.hk
 VqFile = 
 QDataFile = 
 UFile = 
@@ -31,13 +31,12 @@ Vdd = 3.5
 Jdd = 0.75
 
 [One-Particle]
-1PFile = srvo3-full-2017-12-02-Sat-16-32-13.hdf5
+1PFile = srvo3-1pg.hdf5
 orb-sym = T
 
 [Two-Particle]
-2PFile = extension/srvo3-2pg-asy-60-60.hdf5
-vertex-type = 0
-# 0: 2PGF, 1: chi_con, 2: chi
+2PFile = srvo3-2pg-symmetrized.hdf5
+vertex-type = 0 # 0: 2PGF, 1: chi_con, 2: chi
 
 [Output]
 gzip-compression = 8
