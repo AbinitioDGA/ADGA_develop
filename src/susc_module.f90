@@ -84,7 +84,8 @@ module susc_module
     ! loop over all entries
     do i1=1,2*iwbmax_small+1
       iwb = i1-iwbmax_small-1
-      write(10,'(I8,9999E18.7E2)') iwb,iwb_data(iwb), ((real(chi_w((i-1)*ndim+1,(j-1)*ndim+1,i1)), aimag(chi_w((i-1)*ndim+1,(j-1)*ndim+1,i1)), j=i,ndim), i=1,ndim)
+      write(10,'(I8,9999E18.7E2)') iwb,iwb_data(iwb), &
+         ((real(chi_w((i-1)*ndim+1,(j-1)*ndim+1,i1)), aimag(chi_w((i-1)*ndim+1,(j-1)*ndim+1,i1)), j=i,ndim), i=1,ndim)
     end do
     close(10)
   end subroutine output_chi_loc

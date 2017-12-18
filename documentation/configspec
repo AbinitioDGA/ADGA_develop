@@ -81,8 +81,9 @@ gzip-compression = (default = 4)      # gzip compression level in the hdf5 outpu
 text-output = (default = F)           # default output only produces the hdf5 data output
                                  
 ________________________________________________________________________________
-[Verbose]                             # ignore this 
-verbstr
+[Verbose]                             # Verbose flag (Add keywords to produce more output)
+                                      # Current verbose keywords: Output, Extra, Umatrix, Time, Kpoints, Noprogress, Test, Mpi, Dmft
 ________________________________________________________________________________
-[Debug]                               # ignore this
-dbgstr
+[Debug]                               # Debug flag (Add keywords to change the way the calculation is performed, i.e. "Experts Only")
+                                      # Current debug keywords: Onlydmft, Bubble, Dmft_phbar, Makegiw
+

@@ -719,7 +719,7 @@ end if
          call flush(ounit)
        endif
 
-       if (text_output) then
+       if (text_output .or. (verbose .and. (index(verbstr,"Test") .ne. 0))) then
          call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, nonlocal)
        endif
        if (nonlocal) then

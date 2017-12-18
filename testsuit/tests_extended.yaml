@@ -26,22 +26,42 @@ Properties:
         Precision: 1.0E-10
     Greens_function_local_real:
         Description: Orbital trace of the local DGA greens function at the first matsubara (real part)
-        Script: Scripts/Selfenergy_dfmt_real.sh
+        Script: Scripts/Greens_function_local_real.sh
         Kind: Float
         Precision: 1.0E-10
     Greens_function_local_imag:
         Description: Orbital trace of the local DGA greens function at the first matsubara (imag part)
-        Script: Scripts/Selfenergy_dfmt_imag.sh
+        Script: Scripts/Greens_function_local_imag.sh
         Kind: Float
         Precision: 1.0E-10
-    Chid-Chi0_real:
-        Description: Orbital trace of Chi^q_dens - Chi_0^q at the first matsubara and q-point (real part)
-        Script: Scripts/Chid-Chi0_real.sh
+    nl_Chid-Chi0_real:
+        Description: Orbital trace of the non-local part of Chi^q_dens - Chi_0^q at the first matsubara and q-point (real part)
+        Script: Scripts/nl_Chid-Chi0_real.sh
         Kind: Float
         Precision: 1.0E-7
-    Chid-Chi0_imag:
-        Description: Orbital trace of Chi^q_dens - Chi_0^q at the first matsubara and q-point (imag part)
-        Script: Scripts/Chid-Chi0_imag.sh
+    nl_Chid-Chi0_imag:
+        Description: Orbital trace of the non-local part of Chi^q_dens - Chi_0^q at the first matsubara and q-point (imag part)
+        Script: Scripts/nl_Chid-Chi0_imag.sh
+        Kind: Float
+        Precision: 1.0E-7
+    nl_Chim-Chi0_real:
+        Description: Orbital trace of the non-local part of Chi^q_magn at the first matsubara and q-point (real part)
+        Script: Scripts/nl_Chim-Chi0_real.sh
+        Kind: Float
+        Precision: 1.0E-7
+    nl_Chim-Chi0_imag:
+        Description: Orbital trace of the non-local part of Chi^q_magn at the first matsubara and q-point (imag part)
+        Script: Scripts/nl_Chim-Chi0_imag.sh
+        Kind: Float
+        Precision: 1.0E-7
+    Chid_real:
+        Description: Orbital trace of Chi^q_dens at the first matsubara and q-point (real part)
+        Script: Scripts/Chid_real.sh
+        Kind: Float
+        Precision: 1.0E-7
+    Chid_imag:
+        Description: Orbital trace of Chi^q_dens at the first matsubara and q-point (imag part)
+        Script: Scripts/Chid_imag.sh
         Kind: Float
         Precision: 1.0E-7
     Chim_real:
@@ -54,11 +74,31 @@ Properties:
         Script: Scripts/Chim_imag.sh
         Kind: Float
         Precision: 1.0E-7
+    Chi0w_real:
+        Description: Orbital trace of Chi_0^w at w = 0 (real part)
+        Script: Scripts/Chi0w_real.sh
+        Kind: Float
+        Precision: 1.0E-7
+    Chi0w_imag:
+        Description: Orbital trace of Chi_0^w at w = 0 (imag part)
+        Script: Scripts/Chi0w_imag.sh
+        Kind: Float
+        Precision: 1.0E-7
+    Chi0q-Chi0w_real:
+        Description: Orbital trace of Chi_0^q - Chi_0^w at w = 0 and first q-point (real part)
+        Script: Scripts/Chi0q-Chi0w_real.sh
+        Kind: Float
+        Precision: 1.0E-7
+    Chi0q-Chi0w_imag:
+        Description: Orbital trace of Chi_0^q - Chi0^w at w = 0 and first q-point (imag part)
+        Script: Scripts/Chi0q-Chi0w_imag.sh
+        Kind: Float
+        Precision: 1.0E-7
 
 TestCases:
-   - Description: One band Bethe lattice without V^q, only eom
+   - Description: One band Bethe lattice without V^q, large box, only eom
      Path: Tests/oneband_eom_large
-     Selfenergy_local_real: 1.00000647343 # These numbers needs to be checked..
+     Selfenergy_local_real: 1.00000647343
      Selfenergy_local_imag: 1.29922151044
      Selfenergy_dfmt_real: 0.99908823875
      Selfenergy_dfmt_imag: 0.96764384560
@@ -91,3 +131,42 @@ TestCases:
 #     Selfenergy_gamma:  1.0 # Add a reference number here
 #     Chiqmagn:  1.0 # Add a reference number here
 #     Chiqdens:  1.0 # Add a reference number here
+TestCases:
+   - Description: One band Bethe lattice without V^q, only eom
+     Path: Tests/oneband_eom
+     Selfenergy_local_real: 1.00001730186
+     Selfenergy_local_imag: 1.96989211251
+     Selfenergy_dfmt_real: 0.99983600672
+     Selfenergy_dfmt_imag: 0.90423622280
+     Greens_function_local_real: -0.00000233597
+     Greens_function_local_imag: 0.36841750606
+   - Description: One band Bethe lattice without V^q, only chi
+     Path: Tests/oneband_chi
+     nl_Chid-Chi0_real: 0.0083099
+     nl_Chid-Chi0_imag: 0.0
+     nl_Chim-Chi0_real:   -1.0350108
+     nl_Chim-Chi0_imag:   0.0
+     Chid_real: 0.032534
+     Chid_imag: 0.0
+     Chim_real:   1.6186245
+     Chim_imag:   0.0
+     Chi0w_real:  0.2943906
+     Chi0w_imag:  0.0
+     Chi0q-Chi0w_real:  -0.0159262
+     Chi0q-Chi0w_imag:  0.0
+
+#   - Description: One band Bethe lattice without V^q, both eom and chi
+#     Path: Tests/oneband_eomchi
+#     Selfenergy:  1.0 # Add a reference number here
+#     Selfenergy_eta:  1.0 # Add a reference number here
+#     Selfenergy_gamma:  1.0 # Add a reference number here
+#     Chiqdens:  1.0 # Add a reference number here
+#     Chiqmagn:  1.0 # Add a reference number here
+#   - Description:  One band Bethe lattice with V^q, both eom and chi
+#     Path: Tests/oneband_vq_eomchi
+#     Selfenergy:  1.0 # Add a reference number here
+#     Selfenergy_eta:  1.0 # Add a reference number here
+#     Selfenergy_gamma:  1.0 # Add a reference number here
+#     Chiqdens:  1.0 # Add a reference number here
+#     Chiqmagn:  1.0 # Add a reference number here
+
