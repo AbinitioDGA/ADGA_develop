@@ -64,13 +64,16 @@ Diagrammatic extensions of dynamical mean field theory (DMFT) such as the dynami
 
 %\newpage
 \section{DMFT data}
-Starting point of any calculation is a converged DFT+DMFT solution, which we obtain, e.g. from the package \\
-\verb|w2dynamics|. The latter writes all output data into an HDF5 file, from which we extract the datasets \verb|siw|,\verb|dc|,\verb|mu|,\\
-\verb|beta|  (self-energy, double counting correction, chemical potential, inverse temperature)
-and---depending on the run options---\verb|giw| and/or \verb|hk| (Green's function, Hamiltonian).
-The data structure of the \verb|w2dynamics| output is shown in Listing 1.
+Starting point of any calculation is a converged DFT+DMFT solution, which we obtain, e.g. from the package 
+\verb|w2dynamics|. The latter writes all output data into an HDF5 file, from which we extract the datasets \verb|siw|, \verb|dc|, \verb|mu|, 
+\verb|beta|, \verb|giw| (self-energy, double counting correction, chemical potential, inverse temperature, Green's function)
+and---depending on the run options---also \verb|hk| (Hamiltonian).
+The data structure of the \verb|w2dynamics| output is shown in Listing \ref{lst:dmft1}.
 In order to keep these instructions as concise as possible, only the parts relevant for AbinitioDGA are shown.
-(Information about the full contents and structure of an HDF5 file can usually be retrieved via  \verb|h5ls -lr|.) For using the input from another (DMFT) program, you need to convert it into the group structure shown in Listings \ref{lst:dmft1} and \ref{lst:dmft2}. Examplarily hdf5 templates with the existing structures can be found in {\color{blue}\verb+documentation/hdf5_templates+}.
+(Information about the full contents and structure of an HDF5 file can usually be retrieved via  \verb|h5ls -lr|.) In order to use
+input from another (DMFT) program, it is necessary to convert it into the group structure 
+shown in Listings \ref{lst:dmft1} and \ref{lst:dmft2}. 
+Examplary HDF5 templates with the existing structures can be found in {\color{blue}\verb+documentation/hdf5_templates+}.
 \newpage
 \begin{lstlisting}[caption=HDF5-structure of the DMFT output, frame=single, basicstyle=\small, label={lst:dmft1}]
 /.axes/                        Group
@@ -113,7 +116,10 @@ are omitted here.)
 \end{lstlisting}
 \verb|N4IWF| and \verb|N4IWB| are the number of positive fermionic and bosonic Matsubara frequencies of the
 two-particle Green's function, respectively. \verb|NGRPS| is the maximal number of band-spin combinations, $(2n_{dim})^4$.
-The group names in front of the \verb|value| and \verb|error| groups are integers from from 1 to NGRPS and represent a one-to-one mapping from a \emph{band-spin combination} to an integer ($00001 \rightarrow 1\uparrow, 1\uparrow, 1\uparrow, 1\uparrow, $). The transformation of band-spin combination to an index ($b_i \in [1,n_{ndim}]$, $s_i \in [1,2] = [\uparrow, \downarrow]$)
+The group names in front of the \verb|value| and \verb|error| groups are integers
+from from 1 to NGRPS and represent a one-to-one mapping from a \emph{band-spin combination} 
+to an integer, e.g.~$00001 \rightarrow (1\hspace{-4pt}\uparrow, 1\hspace{-4pt}\uparrow, 1\hspace{-4pt}\uparrow, 1\hspace{-4pt}\uparrow$). 
+In general, the transformation of band-spin combination to an index ($b_i \in [1,n_{ndim}]$, $s_i \in [1,2] = [\uparrow, \downarrow]$)
 \begin{equation*}
 b_1 s_1,b_2 s_2, b_3 s_3, b_4s_4 \rightarrow \mathrm{index},
 \end{equation*}
@@ -121,7 +127,7 @@ is achieved via
 \begin{equation*}
 \mathrm{index} = 2^3 n_{dim}^3(2 b_1+s_1-3) + 2^2 n_{dim}^2(2 b_2+s_2-3) + 2 n_{dim}(2 b_3+s_3-3) + 2 b_1 + s_4 - 2
 \end{equation*}
-where $n_{dim}$ represents the number of correlated bands.
+where $n_{dim}$ represents the number of correlated bands whithin the atom under consideration.
 The number of existing groups can be calculated via
 \begin{equation*}
 \begin{aligned}
@@ -133,7 +139,7 @@ where the factor $6$ comes from all the possible SU(2) combinations allowed for 
 
 \newpage
 \section{Fully nonlocal V(q) data}
-The $V(q)$ file creation is currently completely independent of the AbinitioD$\Gamma$A package but it must respect a certain HDF5 structure,
+The $V(\mathbf{q})$ file creation is currently completely independent of the AbinitioD$\Gamma$A package but it must respect a certain HDF5 structure,
 which will be explained by considering an example of a three-band system (a template can be found in {\color{blue}\verb+documentation/hdf5_templates+}):
 \begin{lstlisting}[caption=$V(q)$ file structure, frame=single,
 basicstyle=\small]
@@ -146,7 +152,7 @@ basicstyle=\small]
 /00077                   Dataset {8000}
 /00081                   Dataset {8000}
 \end{lstlisting}
-The \verb|Q-points| dataset contains all q-point vectors starting from $(0,0,0)$ and going through all other points in the following manner (e.g., for a 20x20x20 q-mesh of the Brillouin zone):
+The \verb|Q-points| dataset contains all $\mathbf{q}$-point vectors starting from $(0,0,0)$ and going through all other points in the following manner (e.g., for a 20x20x20 q-mesh of the Brillouin zone):
 \begin{equation*}
 \begin{aligned}
 i = 0\;\;\;& q = (0,0,0)\\
@@ -164,7 +170,7 @@ i = 7999\;\;\;& q = (0.95,0.95,0.95)\\
 \end{aligned}
 \end{equation*}
 in units of $2\pi/$lattice constant.
-The other groups then contain the V(q) information along this list of points for the specific band combinations. The transformation of band combination to an index
+The other groups then contain the $V(\mathbf{q})$ information along this list of points for the specific band combinations. The transformation of band combination to an index
 \begin{equation*}
 i_1,i_2,i_3,i_4 \rightarrow \mathrm{index},
 \end{equation*}
@@ -211,7 +217,7 @@ This produces an HDF5 file of the following structure:
 ...
 \end{lstlisting}
 
-which is the centerpiece of the \verb+ADGA+ input. The group names in front of the \verb|value| groups again represent a one to one mapping from a  \emph{band combination} to an integer. ($00001 \rightarrow (1,1,1,1)$). The group before that represents a bosonic frequency which is shifted so we start at 0 (00000) and go to $2\ast$\verb|N4IWB|.
+which is the centerpiece of the \verb+ADGA+ input. The group names in front of the \verb|value| groups again represent a one-to-one mapping from a  \emph{band combination} to an integer. ($00001 \rightarrow (1,1,1,1)$). The group before that represents a bosonic frequency which is shifted so we start at 0 (00000) and go to $2\ast$\verb|N4IWB|.
 
 \newpage
 \section{\protect\Verb+abinitiodga+ - main program}
