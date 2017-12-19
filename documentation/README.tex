@@ -3,7 +3,7 @@
 \usepackage{amsmath,amssymb,amstext} % math
 \usepackage{txfonts} %txfonts + all kind of symbols
 \usepackage{hyperref}		% hyperlinks in pdf
-\usepackage[hcentering,bindingoffset=0mm,lmargin=1.8cm]{geometry}		% UI for page layout
+\usepackage[hcentering,bindingoffset=0mm,lmargin=1.8cm,tmargin=2cm, bmargin=2cm]{geometry}		% UI for page layout
 \usepackage{graphicx}		% includegraphics
 \usepackage[outdir=./]{epstopdf}	% eps to pdf conversion
 \usepackage{array}			% tabular environment
@@ -12,7 +12,7 @@
 \usepackage{ragged2e}		% alternative ragged-type commands
 							% center, justify
 \usepackage{fancyvrb}
-							
+\usepackage{hyperref}
 \usepackage{framed}
 \usepackage{color}
 \usepackage{listings}
@@ -29,12 +29,12 @@
   basicstyle=\small,
   moredelim=**[is][\color{blue}]{@}{@},
 }
-	
-\setlength\parindent{0pt}						
 
-							
+\setlength\parindent{0pt}
 
-							
+
+
+
 %\usepackage{indentfirst}	% indents first paragraph
 \usepackage{enumitem}
 
@@ -53,21 +53,26 @@
 \center\textit{{$^a$Institute of Solid State Physics, TU Wien, 1040 Vienna, Austria\\
 $^b$Centre de Physique Théorique, Ecole Polytechnique, 91128 Palaiseau, France\\
 $^c$Department of Physics and Astronomy, Materials Theory, Uppsala University, 75120 Uppsala, Sweden}}
+\\[1\baselineskip]
+\textbf{Preprint}: \href{https://arxiv.org/abs/1710.06651}{arXiv:1710.06651}
+
+\textbf{Github}: \href{https://github.com/AbinitioDGA/ADGA}{AbinitioDGA/ADGA}
 \end{framed}
 
 \section{Introduction}
 Diagrammatic extensions of dynamical mean field theory (DMFT) such as the dynamical vertex approximation (D$\Gamma$A) allow us to include non-local correlations beyond DMFT on all length scales and proved their worth for model calculations. Here, we detail the implementation of an AbinitioD$\Gamma$A approach. We go through each major step in the workflow and discuss the input and output data files (including their structure).
 
 %\newpage
-\section{\protect\Verb+w2dynamics+ data}
-Starting point of any calculation is a converged DFT+DMFT solution, which we obtain from the package \\
+\section{DMFT data}
+Starting point of any calculation is a converged DFT+DMFT solution, which we obtain, e.g. from the package \\
 \verb|w2dynamics|. The latter writes all output data into an HDF5 file, from which we extract the datasets \verb|siw|,\verb|dc|,\verb|mu|,\\
-\verb|beta|  (self-energy, double counting correction, chemical potential, inverse temperature) 
-and---depending on the run options---\verb|giw| and/or \verb|hk| (Green's function, Hamiltonian). 
+\verb|beta|  (self-energy, double counting correction, chemical potential, inverse temperature)
+and---depending on the run options---\verb|giw| and/or \verb|hk| (Green's function, Hamiltonian).
 The data structure of the \verb|w2dynamics| output is shown in Listing 1.
-In order to keep these instructions as concise as possible, only the parts relevant for AbinitioDGA are shown. 
-(Information about the full contents and structure of an HDF5 file can usually be retrieved via  \verb|h5ls -lr|.)
-\begin{lstlisting}[caption=HDF5-structure of the DMFT output, frame=single, basicstyle=\small]
+In order to keep these instructions as concise as possible, only the parts relevant for AbinitioDGA are shown.
+(Information about the full contents and structure of an HDF5 file can usually be retrieved via  \verb|h5ls -lr|.) For using the input from another (DMFT) program, you need to convert it into the group structure shown in Listings \ref{lst:dmft1} and \ref{lst:dmft2}. Examplarily hdf5 templates with the existing structures can be found in {\color{blue}\verb+documentation/hdf5_templates+}.
+\newpage
+\begin{lstlisting}[caption=HDF5-structure of the DMFT output, frame=single, basicstyle=\small, label={lst:dmft1}]
 /.axes/                        Group
 /.axes/iw                      Dataset {2*NIW}
 /.config                       Group
@@ -87,14 +92,14 @@ Please note that instead of actual numbers, we use upper-case variables here in 
 the description general. \verb|NIW| is the number of positive fermionic frequencies of the one-particle quantities,
 \verb|NBANDS| is the number of correlated orbitals of the inequivalent atom \verb|ineq-001|, and \verb|NSPINS| is equal to 2.
 
-On top of this DMFT solution, the impurity two-particle Green's function (``vertex'') is computed within \verb|w2dynamics|,
-which has the following structure: (again, groups not necessary for AbinitioD$\Gamma$A 
+On top of this DMFT solution, the impurity two-particle Green's function (``vertex'') is computed, e.g. within \verb|w2dynamics|,
+which has the following structure: (again, groups not necessary for AbinitioD$\Gamma$A
 are omitted here.)
-\begin{lstlisting}[caption=worm-sampled vertex structure, frame=single, basicstyle=\small]
+\begin{lstlisting}[caption=HDF5-structure of the worm-sampled vertex, frame=single, basicstyle=\small, label={lst:dmft2}]
 /.axes/                                   Group
-/.axes/iwb-g4                             Dataset {2*N4IWB}
+/.axes/iwb-g4                             Dataset {2*N4IWB+1}
 /.axes/iwf-g4                             Dataset {2*N4IWF}
-/worm-001/                                Group 
+/worm-001/                                Group
 /worm-001/ineq-001/                       Group
 /worm-001/ineq-001/g4iw-worm/             Group
 /worm-001/ineq-001/g4iw-worm/00001/       Group
@@ -108,7 +113,16 @@ are omitted here.)
 \end{lstlisting}
 \verb|N4IWF| and \verb|N4IWB| are the number of positive fermionic and bosonic Matsubara frequencies of the
 two-particle Green's function, respectively. \verb|NGRPS| is the maximal number of band-spin combinations, $(2n_{dim})^4$.
-The group names in front of the \verb|value| and \verb|error| groups are integers from from 1 to NGRPS and represent a one-to-one mapping from a \emph{band-spin combination} to an integer. ($00001 \rightarrow 1\uparrow, 1\uparrow, 1\uparrow, 1\uparrow, $) The number of existing groups can be calculated via
+The group names in front of the \verb|value| and \verb|error| groups are integers from from 1 to NGRPS and represent a one-to-one mapping from a \emph{band-spin combination} to an integer ($00001 \rightarrow 1\uparrow, 1\uparrow, 1\uparrow, 1\uparrow, $). The transformation of band-spin combination to an index ($b_i \in [1,n_{ndim}]$, $s_i \in [1,2] = [\uparrow, \downarrow]$)
+\begin{equation*}
+b_1 s_1,b_2 s_2, b_3 s_3, b_4s_4 \rightarrow \mathrm{index},
+\end{equation*}
+is achieved via
+\begin{equation*}
+\mathrm{index} = 2^3 n_{dim}^3(2 b_1+s_1-3) + 2^2 n_{dim}^2(2 b_2+s_2-3) + 2 n_{dim}(2 b_3+s_3-3) + 2 b_1 + s_4 - 2
+\end{equation*}
+where $n_{dim}$ represents the number of correlated bands.
+The number of existing groups can be calculated via
 \begin{equation*}
 \begin{aligned}
 \mathrm{density-density\;interactions: }&\;\; N = n_{dim}^2 \times 6 \\
@@ -120,7 +134,7 @@ where the factor $6$ comes from all the possible SU(2) combinations allowed for 
 \newpage
 \section{Fully nonlocal V(q) data}
 The $V(q)$ file creation is currently completely independent of the AbinitioD$\Gamma$A package but it must respect a certain HDF5 structure,
-which will be explained by considering an example of a three-band system:
+which will be explained by considering an example of a three-band system (a template can be found in {\color{blue}\verb+documentation/hdf5_templates+}):
 \begin{lstlisting}[caption=$V(q)$ file structure, frame=single,
 basicstyle=\small]
 /                        Group
@@ -171,36 +185,37 @@ G_m = \frac{1}{2}\left[G_{\uparrow\downarrow\downarrow\uparrow} + G_{\downarrow\
 \end{equation*}
 where we additionally used the SU(2) symmetry.
 %
-This symmetrization can be done with the \verb|setupvertex| program. One simply has to execute this program and follow the instructions given.
+This symmetrization can be done with the \verb|setupvertex| program. One simply has to execute this program, with \verb+$ADGA_DIR+ as your \verb+ADGA+ parent directory, and follow the instructions given (colored text represents user input).
 \begin{lstlisting}[caption=exemplary setupvertex execution, frame=single, basicstyle=\small, style=base][H]
 $ @$ADGA_DIR/bin/setupvertex@
 Number of inequivalent atoms: @1@
 Vertex file : @srvo3-2pg-repo.hdf5@
 Number of correlated bands for inequivalent atom 1: @3@
 Outputfile for symmetrized Vertex: @srvo3-2pg-symmetrized.hdf5@
- 
+
 SU2 symmetry only (s) or SU2 AND orbital symmetry (o)?: @o@
 \end{lstlisting}
 This produces an HDF5 file of the following structure:
 \begin{lstlisting}[caption=symmetrized vertex structure, frame=single, basicstyle=\small]
+/                                       Group
 /ineq-001                               Group
 /ineq-001/dens                          Group
-/ineq-001/00000                         Group
-/ineq-001/00000/00001                   Group
-/ineq-001/00000/00001/value             Dataset {2*N4IWF}
+/ineq-001/dens/00000                    Group
+/ineq-001/dens/00000/00001              Group
+/ineq-001/dens/00000/00001/value        Dataset {2*N4IWF}
 ...
 /ineq-001/magn                          Group
-/ineq-001/00000                         Group
-/ineq-001/00000/00001                   Group
-/ineq-001/00000/00001/value             Dataset {2*N4IWF}
+/ineq-001/magn/00000                    Group
+/ineq-001/magn/00000/00001              Group
+/ineq-001/magn/00000/00001/value        Dataset {2*N4IWF}
 ...
 \end{lstlisting}
 
-which is the centerpiece of the ADGA input. The group names in front of the \verb|value| groups again represent a one to one mapping from a  \emph{band combination} to an integer. ($00001 \rightarrow (1,1,1,1)$). The group before that represents a bosonic frequency which is shifted so we start at 0 (00000) and go to $2\ast$\verb|N4IWB|.
+which is the centerpiece of the \verb+ADGA+ input. The group names in front of the \verb|value| groups again represent a one to one mapping from a  \emph{band combination} to an integer. ($00001 \rightarrow (1,1,1,1)$). The group before that represents a bosonic frequency which is shifted so we start at 0 (00000) and go to $2\ast$\verb|N4IWB|.
 
 \newpage
 \section{\protect\Verb+abinitiodga+ - main program}
-The last preparational step is the configuring of ADGA. The main program's input options are contained in a config file (of arbitrary name). This config file is segmented into groups marked by squared braces. Subgroups are marked by double squared braces. In the {\color{red} \verb|[General]|} group we define what we want to calculate and how large our calculation should be (i.e. frequency box, momentum-space grid). In the {\color{red} \verb|[Atoms]|} group we define our local interactions and give information about the number of bands. In the {\color{red} \verb|[One-Particle]|} and {\color{red} \verb|[Two-Particle]|} group we define our files and in the {\color{red} \verb|[Output]|} group we define additional output parameters. One important thing to mention is that this config file is read by routines written in Fortran. Any kind of typos will not produce errors unless a check is imposed on that variable (Checks are mainly done for the existance of files and crucial run options).
+The last preparational step is the configuring of \verb+ADGA+. The main program's input options are contained in a config file (of arbitrary name). This config file is segmented into groups marked by squared braces. Subgroups are marked by double squared braces. In the {\color{red} \verb|[General]|} group we define what we want to calculate and how large our calculation should be (i.e. frequency box, momentum-space grid). In the {\color{red} \verb|[Atoms]|} group we define our local interactions and give information about the number of bands. In the {\color{red} \verb|[One-Particle]|} and {\color{red} \verb|[Two-Particle]|} group we define our files and in the {\color{red} \verb|[Output]|} group we define additional output parameters. One important thing to mention is that this config file is read by routines written in Fortran. Any kind of typos will not produce errors unless a check is imposed on that variable (Checks are mainly done for the existance of files and crucial run options).
 
 
 Listing 7 contains an example config file.
@@ -216,54 +231,90 @@ $ @$ADGA_DIR/bin/abinitiodga config_file@
 
 
 \newpage
-\begin{lstlisting}[caption=example abinitiodga config file, frame=single, basicstyle=\small, style=base2]
-[General]                                                                                                                                                                                                      
+\begin{lstlisting}[caption=config file for q-grid calculation, frame=single, basicstyle=\small, style=base2]
+[General]
 # calculate the momentum-dependent susceptibilities
-calc-susc = T                                                                                                                                                                                                  
+calc-susc = T
 # calculate the dga-selfenergy via the equation of motion
-calc-eom  = T                                                                                                                                                                                                
-                                                                                                                                                                                                             
-NAt = 1 # Number of atoms                                                                                                                                                                                                                                                                                                                                                                                                      
+calc-eom  = T
 
-# number of positive f/b frequencies used from the vertex                                                                                                                                                                                                               
-N4iwf = 30
-N4iwb = 30
-                                                                                                                                                                                                               
-HkFile = @srvo3_k20.hk@ # Wannier Hamiltonian                                                                                                                                                                                        
+NAt = 1 # Number of atoms
 
-# hdf5 file with fully non-local interaction datasets                                                                                                                                                                                                                                                                                                                                                                                                                
-# the number of q-points must coincide with the q-grid argument
-VqFile = @vq_q20.hdf5@ 
-                                                                                                                                                                                                                                                                                                                                                                                                               
-k-grid = 20 20 20 # Wannier Hamiltonian grid                                                                                                                                                                                              
-q-grid = 20 20 20 # Grid we want to run our calculation on                                                                                                                                                                                                                                                                                                                                                                                                         
-                                                                                                                                                                                                              
-[Atoms] # fully local interaction parameters                                                                                                                                                                                                        
-[[1]]                                                                                                                                                                                                          
-Interaction = Kanamori                                                                                                                                                                                         
+# number of positive f/b frequencies used from the vertex
+N4iwf = -1 # full box
+N4iwb = -1 # full box
+
+HkFile = @srvo3_k20.hk@ # Wannier Hamiltonian
+
+k-grid = 20 20 20 # Wannier Hamiltonian and eom grid - must be fixed all times
+q-grid = 20 20 20 # Grid we run our calculation on and susc grid
+
+[Atoms] # fully local interaction parameters
+[[1]]
+Interaction = Kanamori
 Nd = 3 # number of d-bands
-Np = 0 # number of p-bands                                                                                                                                                                                                         
-Udd = 5.0                                                                                                                                                                                                      
-Vdd = 3.5                                                                                                                                                                                                      
-Jdd = 0.75                                                                                                                                                                                                     
-                                                                                                                                                                                                               
-[One-Particle]                                                                                                                                                                                                 
-1PFile = @srvo3-1pg.hdf5@ # DMFT 1PG                                                                                                                                                               
-orb-sym = T                                                                                                                                                                                                    
-                                                                                                                                                                                                               
-[Two-Particle]                                                                                                                                                                                                 
-2PFile = @srvo3-2pg-symmetrized.hdf5@ # symmetrized vertex                                                                                                                                                                    
-vertex-type = 0 # 0: 2PGF, 1: chi_con, 2: chi                                                                                                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                          
-[Output]                                                                                                                                                                                                       
-text-output = T # additionally output the data in form of text-files  
+Np = 0 # number of p-bands
+Udd = 5.0
+Vdd = 3.5
+Jdd = 0.75
+
+[One-Particle]
+1PFile = @srvo3-1pg.hdf5@ # DMFT 1PG
+orb-sym = T
+
+[Two-Particle]
+2PFile = @srvo3-2pg-symmetrized.hdf5@ # symmetrized vertex
+vertex-type = 0 # 0: 2PGF, 1: chi_con, 2: chi
+
+[Output]
+text-output = T # additionally output the data in form of text-files
 \end{lstlisting}
 
+\newpage
+\begin{lstlisting}[caption=config file for q-path calculation, frame=single, basicstyle=\small, style=base2]
+[General]
+# calculate the momentum-dependent susceptibilities
+calc-susc = T
+calc-eom  = F # must be turned off for q-path calculation
+
+NAt = 1 # Number of atoms
+
+# number of positive f/b frequencies used from the vertex
+N4iwf = -1 # full fermionic box
+N4iwb = 0  # only at w=0
+
+HkFile = @srvo3_k20.hk@ # Wannier Hamiltonian
+
+k-grid = 20 20 20 # Wannier Hamiltonian and eom grid - must be fixed all times
+# q-grid = 20 20 20
+
+QDataFile = qpath_template
+
+[Atoms] # fully local interaction parameters
+[[1]]
+Interaction = Kanamori
+Nd = 3 # number of d-bands
+Np = 0 # number of p-bands
+Udd = 5.0
+Vdd = 3.5
+Jdd = 0.75
+
+[One-Particle]
+1PFile = @srvo3-1pg.hdf5@ # DMFT 1PG
+orb-sym = T
+
+[Two-Particle]
+2PFile = @srvo3-2pg-symmetrized.hdf5@ # symmetrized vertex
+vertex-type = 0 # 0: 2PGF, 1: chi_con, 2: chi
+
+[Output]
+text-output = T # additionally output the data in form of text-files
+\end{lstlisting}
 \newpage
 \section{\protect\Verb+abinitiodga+ - output}
 Unless otherwise specified by \verb|text-output = T| in the {\color{red}\verb|[Output]|} group the data produced by abinitiodga is put into a partially compressed HDF5 file. This data file contains, depending on the run options \verb|calc-eom| and \verb|calc-susc|, the following datasets:
 
-\begin{lstlisting}[caption=ADGA output format, frame=single, basicstyle=\small]
+\begin{lstlisting}[caption=ADGA output format for a q-grid, frame=single, basicstyle=\small]
 /input                           Group
 /input/beta                      Dataset {SCALAR}
 /input/dc                        Dataset {NBANDS, NSPINS}
@@ -306,8 +357,65 @@ Unless otherwise specified by \verb|text-output = T| in the {\color{red}\verb|[O
 \newpage
 Since full generalized susceptibilities have four orbital indices, they consume a large amount of often unused storage space. However, the physical spin and charge susceptibilities
 consist only of terms which have two pairs of equal indices, $(i,i,j,j)$, which reduces the number of components from $n_{dim}^4$ to $n_{dim}^2$.
-If nevertheless the output of all components is required, 
+If nevertheless the output of all components is required,
 one has to set \verb|susc-full-output = T| in the config group {\color{red}\verb|[Output]|}.
 If susceptibilities are calculated only for certain q-points, as specified in \verb|QDataFile|, the q-points are
-written explicitly to \verb|/input/qpath| and the susceptibility datasets have only one q-dimension. 
+written explicitly to \verb|/input/qpath| and the susceptibility datasets have only one q-dimension.
+
+The differences are shown in the following Listing:
+
+\begin{lstlisting}[caption=susceptibility output comparison, frame=single, basicstyle=\scriptsize]
+Q-Path calculation - reduced (QDataFile = qpath)
+
+/input/qpath                     Dataset {NQP}
+/susceptibility                  Group
+/susceptibility/loc              Group
+/susceptibility/loc/bubble_loc   Dataset {NBANDS, NBANDS, 2*N4IWB+1}
+/susceptibility/loc/dens         Dataset {NBANDS, NBANDS, 2*N4IWB+1}
+/susceptibility/loc/magn         Dataset {NBANDS, NBANDS, 2*N4IWB+1}
+/susceptibility/nonloc           Group
+/susceptibility/nonloc/bubble_nl Dataset {NBANDS, NBANDS, NQP, 2*N4IWB+1}
+/susceptibility/nonloc/dens      Dataset {NBANDS, NBANDS, NQP, 2*N4IWB+1}
+/susceptibility/nonloc/magn      Dataset {NBANDS, NBANDS, NQP, 2*N4IWB+1}
+
+
+Q-Path calculation - full (QDataFile = qpath)
+
+/input/qpath                     Dataset {NQP}
+/susceptibility                  Group
+/susceptibility/loc              Group
+/susceptibility/loc/bubble_loc   Dataset {NBANDS, NBANDS, NBANDS, NBANDS, 2*N4IWB+1}
+/susceptibility/loc/dens         Dataset {NBANDS, NBANDS, NBANDS, NBANDS, 2*N4IWB+1}
+/susceptibility/loc/magn         Dataset {NBANDS, NBANDS, NBANDS, NBANDS, 2*N4IWB+1}
+/susceptibility/nonloc           Group
+/susceptibility/nonloc/bubble_nl Dataset {NBANDS, NBANDS, NBANDS, NBANDS, NQP, 2*N4IWB+1}
+/susceptibility/nonloc/dens      Dataset {NBANDS, NBANDS, NBANDS, NBANDS, NQP, 2*N4IWB+1}
+/susceptibility/nonloc/magn      Dataset {NBANDS, NBANDS, NBANDS, NBANDS, NQP, 2*N4IWB+1}
+
+
+Q-Grid calculation - reduced (q-grid = nqx, nqy, nqz)
+
+/susceptibility                  Group
+/susceptibility/loc              Group
+/susceptibility/loc/bubble_loc   Dataset {NBANDS, NBANDS, 2*N4IWB+1}
+/susceptibility/loc/dens         Dataset {NBANDS, NBANDS, 2*N4IWB+1}
+/susceptibility/loc/magn         Dataset {NBANDS, NBANDS, 2*N4IWB+1}
+/susceptibility/nonloc           Group
+/susceptibility/nonloc/bubble_nl Dataset {NBANDS, NBANDS, NQX, NQY, NQZ, 2*N4IWB+1}
+/susceptibility/nonloc/dens      Dataset {NBANDS, NBANDS, NQX, NQY, NQZ, 2*N4IWB+1}
+/susceptibility/nonloc/magn      Dataset {NBANDS, NBANDS, NQX, NQY, NQZ, 2*N4IWB+1}
+
+Q-Grid calculation - full (q-grid = nqx, nqy, nqz)
+
+/susceptibility                  Group
+/susceptibility/loc              Group
+/susceptibility/loc/bubble_loc   Dataset {NBANDS, NBANDS, NBANDS, NBANDS, 2*N4IWB+1}
+/susceptibility/loc/dens         Dataset {NBANDS, NBANDS, NBANDS, NBANDS, 2*N4IWB+1}
+/susceptibility/loc/magn         Dataset {NBANDS, NBANDS, NBANDS, NBANDS, 2*N4IWB+1}
+/susceptibility/nonloc           Group
+/susceptibility/nonloc/bubble_nl Dataset {NBANDS, NBANDS, NBANDS, NBANDS, NQX, NQY, NQZ, 2*N4IWB+1}
+/susceptibility/nonloc/dens      Dataset {NBANDS, NBANDS, NBANDS, NBANDS, NQX, NQY, NQZ, 2*N4IWB+1}
+/susceptibility/nonloc/magn      Dataset {NBANDS, NBANDS, NBANDS, NBANDS, NQX, NQY, NQZ, 2*N4IWB+1}
+
+\end{lstlisting}
 \end{document}
