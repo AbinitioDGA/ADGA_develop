@@ -64,15 +64,15 @@ Diagrammatic extensions of dynamical mean field theory (DMFT) such as the dynami
 
 %\newpage
 \section{DMFT data}
-Starting point of any calculation is a converged DFT+DMFT solution, which we obtain, e.g. from the package 
-\verb|w2dynamics|. The latter writes all output data into an HDF5 file, from which we extract the datasets \verb|siw|, \verb|dc|, \verb|mu|, 
+Starting point of any calculation is a converged DFT+DMFT solution, which we obtain, e.g. from the package
+\verb|w2dynamics|. The latter writes all output data into an HDF5 file, from which we extract the datasets \verb|siw|, \verb|dc|, \verb|mu|,
 \verb|beta|, \verb|giw| (self-energy, double counting correction, chemical potential, inverse temperature, Green's function)
 and---depending on the run options---also \verb|hk| (Hamiltonian).
 The data structure of the \verb|w2dynamics| output is shown in Listing \ref{lst:dmft1}.
 In order to keep these instructions as concise as possible, only the parts relevant for AbinitioDGA are shown.
 (Information about the full contents and structure of an HDF5 file can usually be retrieved via  \verb|h5ls -lr|.) In order to use
-input from another (DMFT) program, it is necessary to convert it into the group structure 
-shown in Listings \ref{lst:dmft1} and \ref{lst:dmft2}. 
+input from another (DMFT) program, it is necessary to convert it into the group structure
+shown in Listings \ref{lst:dmft1} and \ref{lst:dmft2}.
 Examplary HDF5 templates with the existing structures can be found in {\color{blue}\verb+documentation/hdf5_templates+}.
 \newpage
 \begin{lstlisting}[caption=HDF5-structure of the DMFT output, frame=single, basicstyle=\small, label={lst:dmft1}]
@@ -117,8 +117,8 @@ are omitted here.)
 \verb|N4IWF| and \verb|N4IWB| are the number of positive fermionic and bosonic Matsubara frequencies of the
 two-particle Green's function, respectively. \verb|NGRPS| is the maximal number of band-spin combinations, $(2n_{dim})^4$.
 The group names in front of the \verb|value| and \verb|error| groups are integers
-from from 1 to NGRPS and represent a one-to-one mapping from a \emph{band-spin combination} 
-to an integer, e.g.~$00001 \rightarrow (1\hspace{-4pt}\uparrow, 1\hspace{-4pt}\uparrow, 1\hspace{-4pt}\uparrow, 1\hspace{-4pt}\uparrow$). 
+from from 1 to NGRPS and represent a one-to-one mapping from a \emph{band-spin combination}
+to an integer, e.g.~$00001 \rightarrow (1\hspace{-4pt}\uparrow, 1\hspace{-4pt}\uparrow, 1\hspace{-4pt}\uparrow, 1\hspace{-4pt}\uparrow$).
 In general, the transformation of band-spin combination to an index ($b_i \in [1,n_{ndim}]$, $s_i \in [1,2] = [\uparrow, \downarrow]$)
 \begin{equation*}
 b_1 s_1,b_2 s_2, b_3 s_3, b_4s_4 \rightarrow \mathrm{index},
@@ -224,9 +224,9 @@ which is the centerpiece of the \verb+ADGA+ input. The group names in front of t
 The last preparational step is the configuring of \verb+ADGA+. The main program's input options are contained in a config file (of arbitrary name). This config file is segmented into groups marked by squared braces. Subgroups are marked by double squared braces. In the {\color{red} \verb|[General]|} group we define what we want to calculate and how large our calculation should be (i.e. frequency box, momentum-space grid). In the {\color{red} \verb|[Atoms]|} group we define our local interactions and give information about the number of bands. In the {\color{red} \verb|[One-Particle]|} and {\color{red} \verb|[Two-Particle]|} group we define our files and in the {\color{red} \verb|[Output]|} group we define additional output parameters. One important thing to mention is that this config file is read by routines written in Fortran. Any kind of typos will not produce errors unless a check is imposed on that variable (Checks are mainly done for the existance of files and crucial run options).
 
 
-Listing 7 contains an example config file.
-For a complete overview for all options please check out \\
-{\color{blue}\verb|ADGA/documentation/configspec|} where all options are described in detail. Once the config file is prepared, we can run the program with the following commands, depending on whether the compilation was performed with or without MPI.
+Listings \ref{lst:configqgrid} and \ref{lst:configqpath} contain example config files.
+For a complete overview over all options please check out \\
+{\color{blue}\verb|ADGA/documentation/configspec|} where all options are described in detail. Once the config file is prepared, we can run the program with the following commands, depending on whether the compilation was performed with or without MPI (colored text as user input).
 
 \begin{lstlisting}[caption=abinitiodga run commands, frame=single, basicstyle=\small, style=base]
 with MPI:
@@ -235,9 +235,12 @@ without MPI:
 $ @$ADGA_DIR/bin/abinitiodga config_file@
 \end{lstlisting}
 
+A recommendation for real (large) calculations: First start a full calculation on a single core
+in order to check whether the config file is complete and to get an estimation of the full run time.
+After one loop the \verb+out+ file (see Listing \ref{lst:out}) prints the necessary time per loop together with the number of necessary loops. This gives an estimation of the full run time and the amount of parallelization necessary.
 
 \newpage
-\begin{lstlisting}[caption=config file for q-grid calculation, frame=single, basicstyle=\small, style=base2]
+\begin{lstlisting}[caption=config file for q-grid calculation, frame=single, basicstyle=\small, style=base2, label={lst:configqgrid}]
 [General]
 # calculate the momentum-dependent susceptibilities
 calc-susc = T
@@ -252,7 +255,7 @@ N4iwb = -1 # full box
 
 HkFile = @srvo3_k20.hk@ # Wannier Hamiltonian
 
-k-grid = 20 20 20 # Wannier Hamiltonian and eom grid - must be fixed all times
+k-grid = 20 20 20 # Wannier Hamiltonian and eom grid - must be fixed at all times
 q-grid = 20 20 20 # Grid we run our calculation on and susc grid
 
 [Atoms] # fully local interaction parameters
@@ -277,7 +280,7 @@ text-output = T # additionally output the data in form of text-files
 \end{lstlisting}
 
 \newpage
-\begin{lstlisting}[caption=config file for q-path calculation, frame=single, basicstyle=\small, style=base2]
+\begin{lstlisting}[caption=config file for q-path calculation, frame=single, basicstyle=\small, style=base2,label={lst:configqpath}]
 [General]
 # calculate the momentum-dependent susceptibilities
 calc-susc = T
@@ -292,9 +295,12 @@ N4iwb = 0  # only at w=0
 HkFile = @srvo3_k20.hk@ # Wannier Hamiltonian
 
 k-grid = 20 20 20 # Wannier Hamiltonian and eom grid - must be fixed all times
-# q-grid = 20 20 20
+# q-grid = 20 20 20 -- this gets ignored if we run with QDataFile
 
 QDataFile = qpath_template
+# this file can be found in documentation/examples/qpath_template
+
+Output = output-qpath
 
 [Atoms] # fully local interaction parameters
 [[1]]
@@ -318,9 +324,71 @@ text-output = T # additionally output the data in form of text-files
 \end{lstlisting}
 \newpage
 \section{\protect\Verb+abinitiodga+ - output}
-Unless otherwise specified by \verb|text-output = T| in the {\color{red}\verb|[Output]|} group the data produced by abinitiodga is put into a partially compressed HDF5 file. This data file contains, depending on the run options \verb|calc-eom| and \verb|calc-susc|, the following datasets:
+The first thing created by \verb+abinitiodga+ is a log file called \verb+out+ in the output directory. This text file represents a basic log file, contains most of the run options and shows the progress of the calculation.
 
-\begin{lstlisting}[caption=ADGA output format for a q-grid, frame=single, basicstyle=\small]
+\begin{lstlisting}[caption=ADGA log file, frame=single, basicstyle=\footnotesize, label={lst:out}]
+
+ /------------------------------------------------------------------\ 
+ |  Ab initio dynamical vertex approximation program (abinitiodga)  |
+ |  Running on           2 core(s) with     20    20    20 k-points |
+ |     time             date           host                         |
+ | 114824.952       20171220          l32                           |
+ \------------------------------------------------------------------/
+
+ one particle quantities in
+ srvo3-1pg.hdf5
+
+ two particle quantities in
+ srvo3-2pg-symmetrized.hdf5
+
+ Calculating with maximum number of fermionic frequencies =      30
+ orb_symmetry =  T
+ beta=   10.0000000000000
+ mu=   1.73411511496015
+ dc= (0.000000000000000E+000,0.000000000000000E+000)
+ (0.000000000000000E+000,0.000000000000000E+000)
+ (0.000000000000000E+000,0.000000000000000E+000)
+ (0.000000000000000E+000,0.000000000000000E+000)
+ (0.000000000000000E+000,0.000000000000000E+000)
+ (0.000000000000000E+000,0.000000000000000E+000)
+ Reading giw from file. (The QMC green's function)
+ Creating U matrix from input parameters.
+
+ Running the calculation without V(q)
+
+ Frequency information:
+ iwmax=        2000
+  (number of fermionic matsubara frequencies of one-particle quantities)
+ iwfmax=          30 iwfmax_small=          30
+  (number of fermionic matsubara frequencies of two-particle quantities)
+ iwbmax=          30 iwbmax_small=           0
+  (number of bosonic matsubara frequencies of two-particle quantities)
+ k-point information:
+        8000 k-points in the mesh
+          41 q-points in the q-path
+
+ mpi_distribute: average number of iqw points per rank (floored):       20
+ Constructing the local (frequency summed) susceptibilities from chi^{qvv'}_loc.
+ Writing hdf5 output to
+ output-qpath/adga-20171220-114824.952-output.hdf5
+
+
+ Starting the main loop:
+ To supress the progress indicator, use the verbose keyword Noprogress.
+ ----------------------------------------------------------------------------------
+ Core:  0  Completed qw-point:   1 (from    1 to   20)  Time per point:   0.7421
+ ...
+ ...
+ Core:  0  Completed qw-point:   9 (from    1 to   20)  Time per point:   0.5335
+ ----------------------------------------------------------------------------------
+
+ End of Program
+\end{lstlisting}
+
+\newpage
+Unless otherwise specified by \verb|text-output = T| in the {\color{red}\verb|[Output]|} group the data produced by \verb+abinitiodga+ is put into a partially compressed HDF5 file. This data file contains, depending on the run options \verb|calc-eom| and \verb|calc-susc|, the following datasets:
+
+\begin{lstlisting}[caption=ADGA HDF5 output format for a q-grid, frame=single, basicstyle=\small]
 /input                           Group
 /input/beta                      Dataset {SCALAR}
 /input/dc                        Dataset {NBANDS, NSPINS}
@@ -361,14 +429,14 @@ Unless otherwise specified by \verb|text-output = T| in the {\color{red}\verb|[O
 \end{lstlisting}
 
 \newpage
-Since full generalized susceptibilities have four orbital indices, they consume a large amount of often unused storage space. However, the physical spin and charge susceptibilities
+Since full generalized susceptibilities have four orbital indices, they consume a massive amount of storage space. However, the physical spin and charge susceptibilities
 consist only of terms which have two pairs of equal indices, $(i,i,j,j)$, which reduces the number of components from $n_{dim}^4$ to $n_{dim}^2$.
 If nevertheless the output of all components is required,
 one has to set \verb|susc-full-output = T| in the config group {\color{red}\verb|[Output]|}.
 If susceptibilities are calculated only for certain q-points, as specified in \verb|QDataFile|, the q-points are
 written explicitly to \verb|/input/qpath| and the susceptibility datasets have only one q-dimension.
 
-The differences are shown in the following Listing:
+The susceptibility output formats are shown in the following Listing:
 
 \begin{lstlisting}[caption=susceptibility output comparison, frame=single, basicstyle=\scriptsize]
 Q-Path calculation - reduced (QDataFile = qpath)
@@ -424,4 +492,35 @@ Q-Grid calculation - full (q-grid = nqx, nqy, nqz)
 /susceptibility/nonloc/magn      Dataset {NBANDS, NBANDS, NBANDS, NBANDS, NQX, NQY, NQZ, 2*N4IWB+1}
 
 \end{lstlisting}
+
+\newpage
+\section{\protect\Verb+abinitiodga+ - srvo3 test results}
+
+Finally, we show the results for the test data from the repository \verb+$ADGA_DIR/srvo3-testdata+.
+Using the config files in Listings \ref{lst:configqgrid} and \ref{lst:configqpath} we obtain:
+
+\begin{figure}[H]
+\begin{center}
+\includegraphics[scale=0.75]{qgrid.pdf}
+\caption{Selfenergy results for a Q-qrid calculation at high symmetry points.}
+\end{center}
+\end{figure}
+
+\begin{figure}[H]
+\begin{center}
+\includegraphics[clip, trim=0cm 3cm 0cm 3cm, scale=0.75]{qgrid_plane.pdf}
+\caption{Selfenergy results for a Q-qrid calculation in the $k_z=0$ plane. Please note that the $\Gamma$ point is located at the bottom left corner.}
+\end{center}
+\end{figure}
+
+\newpage
+
+\begin{figure}[H]
+\begin{center}
+\includegraphics[scale=0.75]{qpath.pdf}
+\caption{Susceptibility results for a Q-path calculation. Please note that a prefactor of 2 is necessary to get the actual magnetic susceptibility.}
+\end{center}
+\end{figure}
+
+
 \end{document}
