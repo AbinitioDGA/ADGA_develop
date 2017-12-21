@@ -70,10 +70,11 @@ Starting point of any calculation is a converged DFT+DMFT solution, which we obt
 and---depending on the run options---also \verb|hk| (Hamiltonian).
 The data structure of the \verb|w2dynamics| output is shown in Listing \ref{lst:dmft1}.
 In order to keep these instructions as concise as possible, only the parts relevant for AbinitioDGA are shown.
-(Information about the full contents and structure of an HDF5 file can usually be retrieved via  \verb|h5ls -lr|.) In order to use
+(Information about the full contents and structure of an HDF5 file can usually be retrieved via  \verb|h5ls -lr|. For a basic HDF5 introduction
+please visit  {\color{blue}\verb+/documentation/hdf5_intro.pdf+}) In order to use
 input from another (DMFT) program, it is necessary to convert it into the group structure
 shown in Listings \ref{lst:dmft1} and \ref{lst:dmft2}.
-Examplary HDF5 templates with the existing structures can be found in {\color{blue}\verb+documentation/hdf5_templates+}.
+Examplary HDF5 templates with the existing structures can be found in {\color{blue}\verb+/documentation/hdf5_templates/+}.
 \newpage
 \begin{lstlisting}[caption=HDF5-structure of the DMFT output, frame=single, basicstyle=\small, label={lst:dmft1}]
 /.axes/                        Group
@@ -140,7 +141,7 @@ where the factor $6$ comes from all the possible SU(2) combinations allowed for 
 \newpage
 \section{Fully nonlocal V(q) data}
 The $V(\mathbf{q})$ file creation is currently completely independent of the AbinitioD$\Gamma$A package but it must respect a certain HDF5 structure,
-which will be explained by considering an example of a three-band system (a template can be found in {\color{blue}\verb+documentation/hdf5_templates+}):
+which will be explained by considering an example of a three-band system (a template can be found in {\color{blue}\verb+/documentation/hdf5_templates/+}):
 \begin{lstlisting}[caption=$V(q)$ file structure, frame=single,
 basicstyle=\small]
 /                        Group
@@ -226,7 +227,7 @@ The last preparational step is the configuring of \verb+ADGA+. The main program'
 
 Listings \ref{lst:configqgrid} and \ref{lst:configqpath} contain example config files.
 For a complete overview over all options please check out \\
-{\color{blue}\verb|ADGA/documentation/configspec|} where all options are described in detail. Once the config file is prepared, we can run the program with the following commands, depending on whether the compilation was performed with or without MPI (colored text as user input).
+{\color{blue}\verb|/documentation/configspec|} where all options are described in detail. Once the config file is prepared, we can run the program with the following commands, depending on whether the compilation was performed with or without MPI (colored text as user input).
 
 \begin{lstlisting}[caption=abinitiodga run commands, frame=single, basicstyle=\small, style=base]
 with MPI:
@@ -298,7 +299,7 @@ k-grid = 20 20 20 # Wannier Hamiltonian and eom grid - must be fixed all times
 # q-grid = 20 20 20 -- this gets ignored if we run with QDataFile
 
 QDataFile = qpath_template
-# this file can be found in documentation/examples/qpath_template
+# this file can be found in /documentation/examples/qpath_template
 
 Output = output-qpath
 
@@ -386,7 +387,9 @@ The first thing created by \verb+abinitiodga+ is a log file called \verb+out+ in
 \end{lstlisting}
 
 \newpage
-Unless otherwise specified by \verb|text-output = T| in the {\color{red}\verb|[Output]|} group the data produced by \verb+abinitiodga+ is put into a partially compressed HDF5 file. This data file contains, depending on the run options \verb|calc-eom| and \verb|calc-susc|, the following datasets:
+Unless otherwise specified by \verb|text-output = T| in the {\color{red}\verb|[Output]|} group the data produced by \verb+abinitiodga+ is put into a partially compressed HDF5 file (for a basic HDF5 introdution please visit
+
+{\color{blue}\verb+/documentation/hdf5_intro.pdf+}) . This data file contains, depending on the run options \verb|calc-eom| and \verb|calc-susc|, the following datasets:
 
 \begin{lstlisting}[caption=ADGA HDF5 output format for a q-grid, frame=single, basicstyle=\small]
 /input                           Group
@@ -496,20 +499,21 @@ Q-Grid calculation - full (q-grid = nqx, nqy, nqz)
 \newpage
 \section{\protect\Verb+abinitiodga+ - srvo3 test results}
 
-Finally, we show the results for the test data from the repository \verb+$ADGA_DIR/srvo3-testdata+.
-Using the config files in Listings \ref{lst:configqgrid} and \ref{lst:configqpath} we obtain:
+Finally, we present the results for the test data from the repository (\verb+/srvo3-testdata/+).
+Using the config files in Listings \ref{lst:configqgrid} and \ref{lst:configqpath}, as well as the plot scripts
+found in {\color{blue}\verb+/documentation/scripts/+}, we obtain the following results:
 
 \begin{figure}[H]
 \begin{center}
-\includegraphics[scale=0.75]{qgrid.pdf}
-\caption{Selfenergy results for a Q-qrid calculation at high symmetry points.}
+\includegraphics[scale=0.75]{qgrid.eps}
+\caption{Selfenergy results for a Q-qrid calculation at high symmetry points. The plot script can be found in {\color{blue}\protect\Verb+/documentation/scripts/1D\_plot\_selfenergy.py+}}
 \end{center}
 \end{figure}
 
 \begin{figure}[H]
 \begin{center}
-\includegraphics[clip, trim=0cm 3cm 0cm 3cm, scale=0.75]{qgrid_plane.pdf}
-\caption{Selfenergy results for a Q-qrid calculation in the $k_z=0$ plane. Please note that the $\Gamma$ point is located at the bottom left corner.}
+\includegraphics[clip, trim=0cm 3cm 0cm 3cm, scale=0.75]{qgrid_plane.eps}
+\caption{Selfenergy results for a Q-qrid calculation in the $k_z=0$ plane. Please note that the $\Gamma$ point is located at the bottom left corner. The plot script can be found in {\color{blue}\protect\Verb+/documentation/scripts/2D\_plot\_selfenergy\_plane.py+}}
 \end{center}
 \end{figure}
 
@@ -517,10 +521,11 @@ Using the config files in Listings \ref{lst:configqgrid} and \ref{lst:configqpat
 
 \begin{figure}[H]
 \begin{center}
-\includegraphics[scale=0.75]{qpath.pdf}
-\caption{Susceptibility results for a Q-path calculation. Please note that a prefactor of 2 is necessary to get the actual magnetic susceptibility.}
+\includegraphics[scale=0.75]{qpath.eps}
+\caption{Susceptibility results for a Q-path calculation. Please note that a prefactor of 2 is necessary to get the actual magnetic susceptibility. The plot script can be found in {\color{blue}\protect\Verb+/documentation/scripts/1D\_plot\_qpath.py+}}
 \end{center}
 \end{figure}
 
+Please note that these results are not the same as in \href{https://arxiv.org/abs/1710.06651}{arXiv:1710.06651}, where we used much larger box sizes in combination with asymptotic vertex behaviour.
 
 \end{document}

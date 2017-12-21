@@ -79,7 +79,7 @@ susc-full-output = (default = F)      # default output depends on 2 of the 4 leg
 gzip-compression = (default = 4)      # gzip compression level in the hdf5 output of the large datasets
                                       # values of 0 to 9 are allowed
 text-output = (default = F)           # default output only produces the hdf5 data output
-                                 
+
 ________________________________________________________________________________
 [Verbose]                             # Verbose flag (Add keywords to produce more output)
                                       # Current verbose keywords: Output, Extra, Umatrix, Time, Kpoints, Noprogress, Test, Mpi, Dmft
