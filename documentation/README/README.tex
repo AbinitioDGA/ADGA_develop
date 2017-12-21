@@ -223,11 +223,20 @@ which is the centerpiece of the \verb+ADGA+ input. The group names in front of t
 \newpage
 \section{\protect\Verb+abinitiodga+ - main program}
 The last preparational step is the configuring of \verb+ADGA+. The main program's input options are contained in a config file (of arbitrary name). This config file is segmented into groups marked by squared braces. Subgroups are marked by double squared braces. In the {\color{red} \verb|[General]|} group we define what we want to calculate and how large our calculation should be (i.e. frequency box, momentum-space grid). In the {\color{red} \verb|[Atoms]|} group we define our local interactions and give information about the number of bands. In the {\color{red} \verb|[One-Particle]|} and {\color{red} \verb|[Two-Particle]|} group we define our files and in the {\color{red} \verb|[Output]|} group we define additional output parameters. One important thing to mention is that this config file is read by routines written in Fortran. Any kind of typos will not produce errors unless a check is imposed on that variable (Checks are mainly done for the existance of files and crucial run options).
+\\[\baselineskip]
+At the moment there are four (4) different run options:
+\begin{itemize}
+\item {\color{green}\verb+calc-eom = T+}, {\color{green}\verb+calc-sus = T+}, {\color{red}\verb+QDataFile+ empty} $\rightarrow$ calculation on \verb+q-grid+
+\item {\color{green}\verb+calc-eom = T+}, {\color{red}\verb+calc-sus = F+}, {\color{red}\verb+QDataFile+ empty} $\rightarrow$ calculation on \verb+q-grid+
+\item {\color{red}\verb+calc-eom = F+}, {\color{green}\verb+calc-sus = T+}, {\color{red}\verb+QDataFile+ empty} $\rightarrow$ calculation on \verb+q-grid+
+\item {\color{red}\verb+calc-eom = F+}, {\color{green}\verb+calc-sus = T+}, {\color{green}\verb+QDataFile+ \textbf{exists}} $\rightarrow$ calculation along these q-points.
+\end{itemize}
 
-
-Listings \ref{lst:configqgrid} and \ref{lst:configqpath} contain example config files.
-For a complete overview over all options please check out \\
-{\color{blue}\verb|/documentation/configspec|} where all options are described in detail. Once the config file is prepared, we can run the program with the following commands, depending on whether the compilation was performed with or without MPI (colored text as user input).
+Listings \ref{lst:configqgrid} and \ref{lst:configqpath} contain example config files with the first first and the fourth run option respectively.
+For a complete overview over all input options please check out
+{\color{blue}\verb|/documentation/configspec|} where all options are described in detail. 
+\\[\baselineskip]
+Once the config file is prepared, we can run the program with the following commands, depending on whether the compilation was performed with or without MPI (colored text as user input).
 
 \begin{lstlisting}[caption=abinitiodga run commands, frame=single, basicstyle=\small, style=base]
 with MPI:
