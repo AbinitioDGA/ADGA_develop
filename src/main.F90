@@ -204,8 +204,8 @@ program main
       call kdata_from_file() ! defines nkp_eom and k_data_eom
     else
       nkp_eom = nkp
-      do i=1,nkp
-        allocate(k_data_eom(nkp_eom))
+      allocate(k_data_eom(nkp_eom))
+      do i=1,nkp_eom
         k_data_eom(i) = i
       enddo
     endif
@@ -355,7 +355,7 @@ end if
 
 if (do_eom) then
   allocate(gammaqd(ndim2,maxdim))
-  allocate(sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp), sigma_hf(ndim,ndim,nkp))
+  allocate(sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom), sigma_hf(ndim,ndim,nkp_eom))
   allocate(sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1))
   gammaqd = 0d0
   sigma_nl = 0d0
@@ -740,7 +740,7 @@ end if
                                                                     sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) ) 
        endif
        call add_siw_dmft(sigma_sum)  !add the dmft-selfenergy
-       call get_sigma_g_loc(sigma_sum, sigma_loc, gloc) ! calculate the k-summed dga selfenergy and k-summed dga(dmft) greens-function
+       if (.not. k_path_eom) call get_sigma_g_loc(sigma_sum, sigma_loc, gloc) ! calculate the k-summed dga selfenergy and k-summed dga(dmft) greens-function
        if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
          write(ounit,'(1x,"Tr[Total Self-energy]:       ",4f24.11)') sum( (/ (sigma_sum(i,i,-1,1),i=1,ndim) /) ), &
                                                                     sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) )
@@ -757,11 +757,10 @@ end if
          call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, nonlocal)
        endif
        if (nonlocal) then
-         call get_ndga(sigma_sum) ! calculate the k-dependent and k-summed dga occupation
          if (k_path_eom) then
            call output_eom_kpath_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
-           call output_occ_kpath_h5(output_filename)
          else
+           call get_ndga(sigma_sum) ! calculate the k-dependent and k-summed dga occupation
            call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
            call output_occ_h5(output_filename)
          endif

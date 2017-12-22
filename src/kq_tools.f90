@@ -46,7 +46,7 @@ subroutine index_kq_eom(ind, nkp_eom, k_data_eom)
   implicit none
   integer, intent(in)  :: nkp_eom
   integer, intent(in)  :: k_data_eom(nkp_eom)
-  integer, intent(out) :: ind(nkp,nqp)
+  integer, intent(out) :: ind(nkp_eom,nqp)
 
   integer ikp,jkp
   ind = 0

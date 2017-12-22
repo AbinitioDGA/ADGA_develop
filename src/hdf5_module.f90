@@ -1777,6 +1777,12 @@ subroutine output_eom_kpath_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,
 
   ! k -summed DGA self energy is not really useful on a k-path
 
+  rank_siw=3
+  allocate(dims_siw(rank_siw))
+  dims_siw=(/ 2*iwfmax_small,ndim,ndim /)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_siw,err)
+  call h5sset_extent_simple_f(dspace_id_siw,rank_siw,dims_siw,dims_siw,err)
+
   do i1=1,ndim
     do i2=1,ndim
       do iw=1,2*iwfmax_small

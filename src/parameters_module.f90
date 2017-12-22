@@ -15,7 +15,7 @@ module parameters_module
   integer :: iwstart,iwstop
   integer :: nqp, nkp_eom
   integer :: nkp, ndim, ndim2, maxdim, nineq
-  integer :: nkpx,nkpy,nkpz,nkp1,nqpx,nqpy,nqpz,nqp1
+  integer :: nkpx,nkpy,nkpz,nqpx,nqpy,nqpz
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,n2iwb,n3iwf,n3iwb
   integer,allocatable :: q_data(:), k_data_eom(:)
 

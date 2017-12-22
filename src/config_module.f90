@@ -150,7 +150,7 @@ subroutine read_config(er,erstr)
     q_vol = .false.
   end if
   call string_find('KDataFile', filename_kdata, search_start, search_end)
-  if (trim(adjustl(filename_qdata)) .eq. '') then
+  if (trim(adjustl(filename_kdata)) .eq. '') then
     k_path_eom = .false.
   else
     k_path_eom = .true.

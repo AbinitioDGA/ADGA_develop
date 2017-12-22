@@ -138,11 +138,11 @@ end subroutine calc_eom_dmft
    complex(kind=8),intent(in)     :: etaqm(ndim2,maxdim)
    complex(kind=8),intent(in)     :: gammawd(ndim2,maxdim)
    complex(kind=8),intent(in)     :: gammaqd(ndim2,maxdim)
-   integer,intent(in)             :: kq_ind_eom(nkp,nqp)
+   integer,intent(in)             :: kq_ind_eom(nkp_eom,nqp)
    integer,intent(in)             :: iwb
    integer,intent(in)             :: iq
    complex(kind=8),intent(in)     :: v(ndim2,ndim2)
-   complex(kind=8),intent(inout)  :: sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp)
+   complex(kind=8),intent(inout)  :: sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom)
    integer :: dum,i,j,iw,iwf,iwf2,l,k,ik,ikq
    integer :: i1,i2,i3,i4
    complex(kind=8) :: m_tot(ndim2,maxdim)
@@ -206,7 +206,7 @@ end subroutine calc_eom_dynamic
 !=============================================================================================
 subroutine add_siw_dmft(sigma_sum)
   implicit none
-  complex(kind=8) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
+  complex(kind=8) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp_eom)
   integer :: ik, iwf, iband
 
  ! local contribution is replaced by the DMFT self energy for better asymptotics
@@ -225,14 +225,14 @@ subroutine add_siw_dmft(sigma_sum)
 subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, nonlocal)
    implicit none
 
-   complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp)
+   complex(kind=8), intent(in) :: sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp_eom)
    complex(kind=8), intent(in) :: sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1)
-   complex(kind=8), intent(in) :: sigma_sum_hf(ndim,ndim,nkp)
+   complex(kind=8), intent(in) :: sigma_sum_hf(ndim,ndim,nkp_eom)
    complex(kind=8), intent(in) :: sigma_loc(ndim, ndim, -iwfmax_small:iwfmax_small-1)
    complex(kind=8) :: sigma_tmp(ndim*(ndim+1)/2)
    complex(kind=8), intent(in) :: gloc(-iwmax:iwmax-1,ndim,ndim)
    logical,intent(in) :: nonlocal ! Print the non-local data
-   integer :: ik, iwf, i, j, iband,nkp_eom,ii, i1, i2, i3, i4
+   integer :: ik, iwf, i, j, iband,ii, i1, i2, i3, i4
    character(len=50) :: eom_format
    character(len=200) :: filename_siwk
    integer            :: er
