@@ -42,6 +42,22 @@ subroutine index_kq(ind)
 
 end subroutine index_kq 
 
+subroutine index_kq_eom(ind, nkp_eom, k_data_eom)
+  implicit none
+  integer, intent(in)  :: nkp_eom
+  integer, intent(in)  :: k_data_eom(nkp_eom)
+  integer, intent(out) :: ind(nkp,nqp)
+
+  integer ikp,jkp
+  ind = 0
+
+  do ikp=1,nkp_eom
+    do jkp=1,nqp
+      ind(ikp,jkp)=k_minus_q(k_data_eom(ikp),q_data(jkp))
+    end do
+  end do
+end subroutine index_kq_eom 
+
 ! The following function calculates the index of \vec{k} - \vec{q}.
 ! It uses only integers
 ! \vec{k} is associated to (ix,iy,iz)
@@ -141,5 +157,36 @@ subroutine qdata_from_file()
   !write(*,*) 'q data',q_data
 
 end subroutine qdata_from_file
+
+subroutine kdata_from_file()
+  ! here we simply overwrite the k_data array
+  ! and redefine the number of k-points for the eom calculation
+  ! I recycled here the qdata_from_file() subroutine
+  use parameters_module
+
+  implicit none
+  integer :: iostatus,ik
+  character(100) :: str_tmp
+  integer :: kx,ky,kz
+
+  iostatus=0
+  open(unit=101,file=filename_kdata)
+  
+  nkp_eom = -1
+  do while (iostatus.eq.0)
+    read(101,*,iostat=iostatus) str_tmp
+    nkp_eom=nkp_eom+1
+  end do
+  close(101)
+
+  allocate(k_data_eom(nkp_eom))
+  open(unit=101,file=filename_kdata)
+  do ik=1,nkp_eom
+    read(101,*) kx,ky,kz
+    k_data_eom(ik) = k_index(kx,ky,kz)
+  end do
+  close(101)
+
+end subroutine kdata_from_file
 
 end module kq_tools

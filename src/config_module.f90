@@ -93,6 +93,7 @@ subroutine read_config(er,erstr)
   do_eom=.true.                       ! eom-calculation on
   q_vol=.true.                        ! homogeneous q-volume on
   q_path_susc=.false.                 ! q-path disabled
+  k_path_eom=.false.                  ! k-path disabled
   external_chi_loc=.false.            ! no external local chi
   external_threelegs=.false.          ! no external gamma^wv
 
@@ -147,6 +148,12 @@ subroutine read_config(er,erstr)
   else
     q_path_susc = .true.
     q_vol = .false.
+  end if
+  call string_find('KDataFile', filename_kdata, search_start, search_end)
+  if (trim(adjustl(filename_qdata)) .eq. '') then
+    k_path_eom = .false.
+  else
+    k_path_eom = .true.
   end if
   call int3_find('k-grid', nkpx, nkpy, nkpz, search_start, search_end)
   call int3_find('q-grid', nqpx, nqpy, nqpz, search_start, search_end)
@@ -508,6 +515,12 @@ subroutine check_config(er,erstr)
     erstr = "Error: Choose appropriate vertex type"
   endif
 
+  inquire (file=trim(filename_kdata), exist=there)
+  if (.not. there) then
+      er = 8
+      erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the K-Path file: "//trim(filename_kdata)
+      return
+  endif
   return
 end subroutine check_config
 

@@ -1695,6 +1695,112 @@ subroutine output_eom_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_
 
 end subroutine output_eom_h5
 
+subroutine output_eom_kpath_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+  use parameters_module
+  implicit none
+  character(len=*),intent(in) :: filename_output
+  complex(kind=8),intent(in) :: sigma_sum(:,:,-iwfmax_small:,:)
+  complex(kind=8),intent(in) :: sigma_sum_hf(:,:,:)
+  complex(kind=8),intent(in) :: sigma_loc(:,:,-iwfmax_small:)
+  complex(kind=8),intent(in) :: sigma_sum_dmft(:,:,-iwfmax_small:)
+  integer(hid_t) :: file_id,grp_id_siwk,dset_id_sigmasum,dspace_id_sigmasum,dset_id_sigmasumhf
+  integer(hid_t) :: dspace_id_siw,dset_id_siwloc,dset_id_siwdmft
+  integer :: rank_siwk,rank_siw
+  integer(hsize_t),dimension(:),allocatable :: dims_siwk,dims_siw,cdims
+  complex(kind=8) :: siwk_outputarray(2*iwfmax_small,nkp_eom,ndim,ndim)
+  complex(kind=8) :: siw_outputarray(2*iwfmax_small,ndim,ndim)
+
+  integer :: i1,i2,ik,iw
+
+
+  call h5open_f(err)
+
+
+  ! create outputarray (essentially just reshape the original array)
+  ! doing this in-place would be much more memory-efficient!
+  do i1=1,ndim
+    do i2=1,ndim
+      do ik=1,nkp_eom
+        do iw=1,2*iwfmax_small
+          siwk_outputarray(iw,ik,i2,i1) = sigma_sum(i1,i2,iw-iwfmax_small-1,ik)
+        end do
+      end do
+    end do
+  end do
+
+  rank_siwk=4
+  allocate(dims_siwk(rank_siwk),cdims(rank_siwk))
+  dims_siwk=(/ 2*iwfmax_small,nkp_eom,ndim,ndim /)
+  cdims=(/ 2*iwfmax_small,nkp_eom,1,1 /)
+
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_sigmasum,err)
+  call h5sset_extent_simple_f(dspace_id_sigmasum,rank_siwk,dims_siwk,dims_siwk,err)
+
+  call h5pcreate_f(H5P_DATASET_CREATE_F,plist_id,err)
+  call h5pset_chunk_f(plist_id,rank_siwk,cdims,err)
+  call h5pset_deflate_f(plist_id,gzip_compression,err)
+  call h5pset_shuffle_f(plist_id,err)
+  call h5pset_fletcher32_f(plist_id,err)
+
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+  call h5gopen_f(file_id,'selfenergy/nonloc',grp_id_siwk,err)
+  call h5dcreate_f(grp_id_siwk,'dga',compound_id,dspace_id_sigmasum,dset_id_sigmasum,err,dcpl_id=plist_id)
+  call h5dwrite_f(dset_id_sigmasum,type_r_id,real(siwk_outputarray),dims_siwk,err)
+  call h5dwrite_f(dset_id_sigmasum,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
+  call h5dclose_f(dset_id_sigmasum,err)
+
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'nonlocal selfenergy (DGA - k-path) written to h5'
+  endif
+
+  ! in order to save memory, the same array is used again, now for the non-local Hartree-Fock contribution.
+  do i1=1,ndim
+    do i2=1,ndim
+      do ik=1,nkp_eom
+        ! that is, the non-local Hartree-Fock term depends at the moment only on vec(k) and not on the frequency nu 
+        siwk_outputarray(:,ik,i2,i1) = sigma_sum_hf(i1,i2,ik)
+      end do
+    end do
+  end do
+
+  ! the dimensions are the same (not really, but once V(q) depends on w they will), so we can use the same data space
+  call h5dcreate_f(grp_id_siwk,'hartree_fock',compound_id,dspace_id_sigmasum,dset_id_sigmasumhf,err,dcpl_id=plist_id)
+  call h5dwrite_f(dset_id_sigmasumhf,type_r_id,real(siwk_outputarray),dims_siwk,err)
+  call h5dwrite_f(dset_id_sigmasumhf,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
+  call h5dclose_f(dset_id_sigmasumhf,err)
+  call h5gclose_f(grp_id_siwk,err)
+
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'nonlocal selfenergy (HF - k-path) written to h5'
+  endif
+  deallocate(dims_siwk)
+
+  ! k -summed DGA self energy is not really useful on a k-path
+
+  do i1=1,ndim
+    do i2=1,ndim
+      do iw=1,2*iwfmax_small
+        siw_outputarray(iw,i2,i1) = sigma_sum_dmft(i1,i2,iw-iwfmax_small-1)
+      end do
+    end do
+  end do
+
+  call h5dcreate_f(grp_id_siwk,'dmft',compound_id,dspace_id_siw,dset_id_siwdmft,err)
+  call h5dwrite_f(dset_id_siwdmft,type_r_id,real(siw_outputarray),dims_siw,err)
+  call h5dwrite_f(dset_id_siwdmft,type_i_id,aimag(siw_outputarray),dims_siw,err)
+  call h5dclose_f(dset_id_siwdmft,err)
+
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'local selfenergy (DMFT) written to h5'
+  endif
+  deallocate(dims_siw)
+
+  call h5gclose_f(grp_id_siwk,err)
+  call h5fclose_f(file_id,err)
+  call h5close_f(err)
+
+end subroutine output_eom_kpath_h5
+
 subroutine output_occ_h5(filename_output)
   use parameters_module
   implicit none
@@ -1752,5 +1858,50 @@ subroutine output_occ_h5(filename_output)
   endif
 
 end subroutine output_occ_h5
+
+subroutine output_occ_kpath_h5(filename_output)
+  use parameters_module
+  implicit none
+  character(len=*),intent(in) :: filename_output
+  integer :: err
+  integer(hid_t) :: file_id, grp_id_occ
+  integer(hid_t) :: dspace_id_ndga, dspace_id_ndga_k
+  integer(hid_t) :: dset_id_ndga, dset_id_ndga_k
+  integer(hid_t) :: dspace_id
+  integer(hsize_t),dimension(1) :: dims_ndga
+  integer(hsize_t),dimension(3) :: dims_ndga_k
+  complex(kind=8), allocatable :: ndga_k_arr(:,:,:)
+  integer :: i1,i2,ik
+
+
+  call h5open_f(err)
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+  call h5gopen_f(file_id,'occupation',grp_id_occ,err)
+
+  dims_ndga_k = (/nkp_eom,ndim,ndim/)
+  allocate(ndga_k_arr(nkp_eom,ndim,ndim))
+  do i1=1,ndim
+    do i2=1,ndim
+      do ik=1,nkp_eom
+        ndga_k_arr(ik,i2,i1) = n_dga_k(ik,i1,i2)
+      enddo
+    enddo
+  enddo
+
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_ndga_k,err)
+  call h5sset_extent_simple_f(dspace_id_ndga_k,3,dims_ndga_k,dims_ndga_k,err)
+  call h5dcreate_f(grp_id_occ,'n_dga_k',H5T_NATIVE_DOUBLE, dspace_id_ndga_k, dset_id_ndga_k,err)
+  call h5dwrite_f(dset_id_ndga_k, H5T_NATIVE_DOUBLE, real(ndga_k_arr), dims_ndga_k, err)
+  call h5dclose_f(dset_id_ndga_k, err)
+
+  call h5gclose_f(grp_id_occ,err)
+  deallocate(ndga_k_arr)
+
+ 
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'dga occupation written to h5 - kpath'
+  endif
+
+end subroutine output_occ_kpath_h5
 
 end module hdf5_module

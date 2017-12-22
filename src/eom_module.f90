@@ -8,13 +8,13 @@ module eom_module
 contains
 
 !================================================================================================
-   subroutine calc_eom_static(kq_ind,iq,v,sigma_dmft,sigma_hf)
+   subroutine calc_eom_static(kq_ind_eom,iq,v,sigma_dmft,sigma_hf)
    implicit none
-   integer,intent(in)             :: kq_ind(nkp,nqp)
+   integer,intent(in)             :: kq_ind_eom(nkp_eom,nqp)
    integer,intent(in)             :: iq
    complex(kind=8),intent(in)     :: v(ndim2,ndim2)
    complex(kind=8),intent(inout)  :: sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1)
-   complex(kind=8),intent(inout)  :: sigma_hf(ndim,ndim,nkp)
+   complex(kind=8),intent(inout)  :: sigma_hf(ndim,ndim,nkp_eom)
    complex(kind=8)                :: sigma_tmp(ndim,ndim)
    integer :: dum,i,j,iw,iwf,iwf2,l,k,ik,ikq
    integer :: i1,i2,i3,i4
@@ -67,8 +67,8 @@ contains
                   i1 = i1+1 ! = {ki}
                   ! vq(i,j,k,l) = v(i1 = {ki},i2 = {jl})
                   alpha = v(i1,i2)/nqp
-                  do ik=1,nkp
-                     ikq = kq_ind(ik,iq)
+                  do ik=1,nkp_eom
+                     ikq = kq_ind_eom(ik,iq)
                      sigma_hf(i,l,ik) = sigma_hf(i,l,ik) - alpha*n_fock(ikq,j,k)
                   enddo
                enddo
@@ -132,13 +132,13 @@ end subroutine calc_eom_dmft
 !=============================================================================================
 
 !=============================================================================================
-   subroutine calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind,iwb,iq,v,sigma_nl)
+   subroutine calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind_eom,iwb,iq,v,sigma_nl)
    implicit none
    complex(kind=8),intent(in)     :: etaqd(ndim2,maxdim)
    complex(kind=8),intent(in)     :: etaqm(ndim2,maxdim)
    complex(kind=8),intent(in)     :: gammawd(ndim2,maxdim)
    complex(kind=8),intent(in)     :: gammaqd(ndim2,maxdim)
-   integer,intent(in)             :: kq_ind(nkp,nqp)
+   integer,intent(in)             :: kq_ind_eom(nkp,nqp)
    integer,intent(in)             :: iwb
    integer,intent(in)             :: iq
    complex(kind=8),intent(in)     :: v(ndim2,ndim2)
@@ -178,8 +178,8 @@ end subroutine calc_eom_dmft
 
    !compute k-dependent self energy (convolution with Greens function gkiw):
    gkiw = 0.d0
-   do ik=1,nkp
-      ikq = kq_ind(ik,iq)
+   do ik=1,nkp_eom
+      ikq = kq_ind_eom(ik,iq)
       i2 = ndim2*iwfmax_small ! offset
       do iwf=0,iwfmax_small-1
          call get_gkiw(ikq, iwf, iwb, gkiw)
@@ -210,7 +210,7 @@ subroutine add_siw_dmft(sigma_sum)
   integer :: ik, iwf, iband
 
  ! local contribution is replaced by the DMFT self energy for better asymptotics
-    do ik=1,nkp
+    do ik=1,nkp_eom
        do iwf=-iwfmax_small,iwfmax_small-1
           do iband=1,ndim
              sigma_sum(iband, iband, iwf, ik) = sigma_sum(iband, iband, iwf, ik) + siw(iwf, iband)
@@ -291,32 +291,32 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
       close(44)
    endif
 
-   if (nonlocal) then
-      if (verbose .and. (index(verbstr,"Siwk") .ne. 0)) then
-       do ik=1,nkp
-         write(filename_siwk,'(A,F5.3,A,F5.3,A,F5.3,A)') 'siwk_',k_data(1,ik),'_',k_data(2,ik),'_',k_data(3,ik),'.dat'
-         open(34, file=trim(output_dir)//filename_siwk)
-         write(34,'(A)') '# wf, (real(siwk_dga(wf,ik,i,j)), imag(siwk_dga(wf,ik,i,j))) [j=i,ndim] [i=1,ndim]'
-         do iwf=-iwfmax_small,iwfmax_small-1
-           write(34,'(100F12.6)') iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndim), i=1,ndim)
-         end do
-         close(34)
-       end do
-      endif
+   ! if (nonlocal) then
+   !    if (verbose .and. (index(verbstr,"Siwk") .ne. 0)) then
+   !     do ik=1,nkp_eom
+   !       write(filename_siwk,'(A,F5.3,A,F5.3,A,F5.3,A)') 'siwk_',k_data_eom(1,ik),'_',k_data_eom(2,ik),'_',k_data_eom(3,ik),'.dat'
+   !       open(34, file=trim(output_dir)//filename_siwk)
+   !       write(34,'(A)') '# wf, (real(siwk_dga(wf,ik,i,j)), imag(siwk_dga(wf,ik,i,j))) [j=i,ndim] [i=1,ndim]'
+   !       do iwf=-iwfmax_small,iwfmax_small-1
+   !         write(34,'(100F12.6)') iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndim), i=1,ndim)
+   !       end do
+   !       close(34)
+   !     end do
+   !    endif
 
 
-      open(45, file=trim(output_dir)//"siw_all_k.dat",status='unknown')
-        write(45,'(A,A)') '# ik, kx, ky, kz, wf, ', &
-                        '(real(siwk_dga(wf,ik,i,j)), imag(siwk_dga(wf,ik,i,j)), real(siwk_hf(ik,i,j))) [j=i,ndim] [i=1,ndim]'
-        do ik=1,nkp
-           do iwf=-iwfmax_small,iwfmax_small-1
-              write(45,'(I8, 100F12.6)') ik, k_data(1,ik), k_data(2,ik), k_data(3,ik), iw_data(iwf),&
-                 ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), real(sigma_sum_hf(i,j,ik)),j=i,ndim), i=1,ndim)
-           enddo
-        enddo
-      close(45)
+   !    open(45, file=trim(output_dir)//"siw_all_k.dat",status='unknown')
+   !      write(45,'(A,A)') '# ik, kx, ky, kz, wf, ', &
+   !                      '(real(siwk_dga(wf,ik,i,j)), imag(siwk_dga(wf,ik,i,j)), real(siwk_hf(ik,i,j))) [j=i,ndim] [i=1,ndim]'
+   !      do ik=1,nkp_eom
+   !         do iwf=-iwfmax_small,iwfmax_small-1
+   !            write(45,'(I8, 100F12.6)') ik, k_data_eom(1,ik), k_data_eom(2,ik), k_data_eom(3,ik), iw_data(iwf),&
+   !               ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), real(sigma_sum_hf(i,j,ik)),j=i,ndim), i=1,ndim)
+   !         enddo
+   !      enddo
+   !    close(45)
 
-   endif
+   ! endif
 
    return
 end subroutine output_eom

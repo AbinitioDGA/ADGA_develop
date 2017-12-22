@@ -27,7 +27,7 @@ program main
   complex(kind=8), allocatable :: chi_qw_dens(:,:,:),chi_qw_magn(:,:,:),bubble_nl(:,:,:),chi_qw_full(:,:,:)
   complex(kind=8), allocatable :: chi_loc_dens(:,:,:),chi_loc_magn(:,:,:),bubble_loc(:,:,:),bubble_loc_tmp(:,:)
   complex(kind=8), allocatable :: chi_loc_qmc(:,:,:)
-  integer, allocatable :: kq_ind(:,:), qw(:,:)
+  integer, allocatable :: kq_ind(:,:), qw(:,:), kq_ind_eom(:,:)
   complex(kind=8), allocatable :: bigwork_magn(:,:), etaqd(:,:), etaqm(:,:), rectanglework(:,:)
   complex(kind=8), allocatable :: smallwork(:,:), bigwork_dens(:,:)
   real(kind=8 ):: start, finish
@@ -198,7 +198,24 @@ program main
     deallocate(Umat)
   endif
 
-  allocate(n_dmft(ndim), n_fock(nkp,ndim,ndim), n_dga(ndim), n_dga_k(nkp,ndim,ndim))
+  ! read in k-points or calculate on eom on the full k-mesh
+  if (do_eom) then
+    if (k_path_eom) then
+      call kdata_from_file() ! defines nkp_eom and k_data_eom
+    else
+      nkp_eom = nkp
+      do i=1,nkp
+        allocate(k_data_eom(nkp_eom))
+        k_data_eom(i) = i
+      enddo
+    endif
+  else
+    if (ounit .ge. 1) write(ounit,*) 'Warning: KDataFile only affects eom calculations'
+  endif
+
+  allocate(n_dmft(ndim), n_fock(nkp,ndim,ndim)) ! calculate the full n_dmft_k ... because
+                                                ! I dont really want to rewrite those routines
+  allocate(n_dga(ndim), n_dga_k(nkp_eom,ndim,ndim)) ! n_dga doesn't really make sense for k_path_eom
 
 !compute DMFT filling n_dmft
   call get_ndmft() ! writes n_dmft.dat if we have the verbose keyword "Dmft"
@@ -269,14 +286,24 @@ program main
     else
       write(ounit,*) nqp,'q-points in the q-path'
     end if
+    if (do_eom) then
+      write(ounit,*) nkp_eom, 'k-points for the eom calculation'
+    endif
     write(ounit,'(1x)')
   end if
 
 
   ! calculate the index of all \vec{k} - \vec{q}
-  allocate(kq_ind(nkp,nqp))
+  allocate(kq_ind(nkp,nqp)) ! full k-grid
+  allocate(kq_ind_eom(nkp_eom,nqp)) ! eom k-grid
+
   call cpu_time(start)
   call index_kq(kq_ind) ! new method
+  if (k_path_eom) then
+    call index_kq_eom(kq_ind_eom, nkp_eom, k_data_eom)
+  else
+    kq_ind_eom = kq_ind
+  endif
   call cpu_time(finish)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Time") .ne. 0))) then
    write(ounit,*)'TIME: finding k-q index:', finish-start
@@ -491,7 +518,7 @@ end if
      tstart = tfinish ! TIME: eom
    
      ! Calculate static quantities
-     if (do_eom .and. iwb .eq. 0 .and. (iq .eq. 1 .or. do_vq)) call calc_eom_static(kq_ind,iq,v,sigma_dmft,sigma_hf)
+     if (do_eom .and. iwb .eq. 0 .and. (iq .eq. 1 .or. do_vq)) call calc_eom_static(kq_ind_eom,iq,v,sigma_dmft,sigma_hf)
      ! Calculate local quantities
      if (do_eom .and. iq .eq. 1) call calc_eom_dmft(gammawd,gammawm,iwb,sigma_dmft)
      call cpu_time(tfinish) ! TIME: eom
@@ -505,7 +532,7 @@ end if
          ! compute k-summed (but still q-dependent) bubble chi0(i1,i2):
          chi0 = 0
          do ik=1,nkp
-            ikq = kq_ind(ik,iq) !Index of G(k+q)
+            ikq = kq_ind(ik,iq) !Index of G(k-q)
             call accumulate_chi0(ik, ikq, iwf, iwb, chi0) ! This subroutine accumulates chi0 (over k)
          enddo
          chi0 = chi0/dble(nkp)
@@ -628,7 +655,7 @@ end if
       end if
       if (do_eom) then
          !equation of motion
-         call calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind,iwb,iq,v,sigma_nl) 
+         call calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind_eom,iwb,iq,v,sigma_nl) 
          ! TIME: eom
          call cpu_time(tfinish)
          timings(6) = timings(6) + tfinish - tstart
@@ -688,11 +715,11 @@ end if
 
   ! MPI reduction and output
   if (do_eom) then
-     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp),sigma_sum_hf(ndim,ndim,nkp))
+     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp_eom),sigma_sum_hf(ndim,ndim,nkp_eom))
      allocate(sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1))
 #ifdef MPI
-     call MPI_reduce(sigma_nl, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
-     call MPI_reduce(sigma_hf,sigma_sum_hf,ndim*ndim*nkp,MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+     call MPI_reduce(sigma_nl, sigma_sum, ndim*ndim*2*iwfmax_small*nkp_eom, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+     call MPI_reduce(sigma_hf,sigma_sum_hf,ndim*ndim*nkp_eom,MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      call MPI_reduce(sigma_dmft,sigma_sum_dmft,ndim*ndim*2*iwfmax_small,MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
 #else
      sigma_sum = sigma
@@ -730,9 +757,14 @@ end if
          call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, nonlocal)
        endif
        if (nonlocal) then
-         call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
          call get_ndga(sigma_sum) ! calculate the k-dependent and k-summed dga occupation
-         call output_occ_h5(output_filename)
+         if (k_path_eom) then
+           call output_eom_kpath_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+           call output_occ_kpath_h5(output_filename)
+         else
+           call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+           call output_occ_h5(output_filename)
+         endif
        endif
        deallocate(gloc,sigma_loc)
      end if
@@ -1008,7 +1040,7 @@ end if
 
 
 ! Output
-  deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,qw)
+  deallocate(iw_data,iwb_data,siw,k_data,k_data_eom,q_data,kq_ind,qw)
   if (ounit .ge. 1) then
       write(ounit,'(1x)')
       write(ounit,'(1x,"End of Program")')
