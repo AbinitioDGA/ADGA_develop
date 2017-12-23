@@ -238,41 +238,57 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
    integer            :: er
    character(len=200) :: erstr
 
-   open(44, file=trim(output_dir)//"siw_loc_diag.dat", status='unknown')
+   if (.not. k_path_eom) then
+     open(44, file=trim(output_dir)//"siw_loc_diag.dat", status='unknown')
+     write(44,'(A)') '# wf, (real(siw_dga_loc(wf,i,i)), imag(siw_dga_loc(wf,i,i))) [i=1,ndim]'
+     do iwf=-iwfmax_small,iwfmax_small-1
+        write(44,'(100F12.6)') iw_data(iwf), (real(sigma_loc(i,i,iwf)), aimag(sigma_loc(i,i,iwf)), i=1,ndim)
+     enddo
+     close(44)
+   endif
+
    open(50, file=trim(output_dir)//"siw_dmft_rep_diag.dat", status='unknown')
-   write(44,'(A)') '# wf, (real(siw_dga_loc(wf,i,i)), imag(siw_dga_loc(wf,i,i))) [i=1,ndim]'
    write(50,'(A)') '# wf, (real(siw_dmft_rep(wf,i,i)), imag(siw_dmft_rep(wf,i,i))) [i=1,ndim]'
    do iwf=-iwfmax_small,iwfmax_small-1
-      write(44,'(100F12.6)') iw_data(iwf), (real(sigma_loc(i,i,iwf)), aimag(sigma_loc(i,i,iwf)), i=1,ndim)
       write(50,'(100F12.6)') iw_data(iwf), (real(sigma_sum_dmft(i,i,iwf)),aimag(sigma_sum_dmft(i,i,iwf)), i=1,ndim)
    enddo
    close(50)
-   close(44)
 
-   open(46, file=trim(output_dir)//"g_loc_diag.dat", status='unknown')
-   write(46,'(A)') '# wf, (real(giw_dga_loc(iwf,i,i)), imag(giw_dga_loc(iwf,i,i))) [i=1,ndim]'
-   do iwf=-iwmax,iwmax-1
-      write(46,'(100F12.6)') iw_data(iwf), (real(gloc(iwf,i,i)), aimag(gloc(iwf,i,i)), i=1,ndim)
-   enddo
-   close(46)
+   if (.not. k_path_eom) then
+     open(46, file=trim(output_dir)//"g_loc_diag.dat", status='unknown')
+     write(46,'(A)') '# wf, (real(giw_dga_loc(iwf,i,i)), imag(giw_dga_loc(iwf,i,i))) [i=1,ndim]'
+     do iwf=-iwmax,iwmax-1
+        write(46,'(100F12.6)') iw_data(iwf), (real(gloc(iwf,i,i)), aimag(gloc(iwf,i,i)), i=1,ndim)
+     enddo
+     close(46)
+   endif
 
    if (ndim .ge. 2) then
-      open(44, file=trim(output_dir)//"siw_loc_full.dat", status='unknown')
-      open(50, file=trim(output_dir)//"siw_dmft_rep_full.dat", status='unknown')
-      write(44,'(A)') '# wf, (real(siw_dga_loc(wf,i,j)), imag(siw_dga_loc(iwf,i,j))) [j=i,ndim] [i=1,ndim]'
-      write(50,'(A)') '# wf, (real(siw_dmft_rep(wf,i,j)), imag(siw_dmft_rep(iwf,i,j))) [j=i,ndim] [i=1,ndim]'
-      do iwf=-iwfmax_small,iwfmax_small-1
+
+     if (.not. k_path_eom) then
+       open(44, file=trim(output_dir)//"siw_loc_full.dat", status='unknown')
+       write(44,'(A)') '# wf, (real(siw_dga_loc(wf,i,j)), imag(siw_dga_loc(iwf,i,j))) [j=i,ndim] [i=1,ndim]'
+       do iwf=-iwfmax_small,iwfmax_small-1
          write(44,'(100F12.6)') iw_data(iwf), ((real(sigma_loc(i,j,iwf)), aimag(sigma_loc(i,j,iwf)), j=i,ndim), i=1,ndim)
-         write(50,'(100F12.6)') iw_data(iwf), ((real(sigma_sum_dmft(i,j,iwf)),aimag(sigma_sum_dmft(i,j,iwf)), j=i,ndim), i=1,ndim)
-      enddo
-      close(50)
-      close(44)
-      open(46, file=trim(output_dir)//"g_loc_full.dat", status='unknown')
-      write(46,'(A)') '# wf, (real(giw_dga_loc(wf,i,j)), imag(giw_dga_loc(wf,i,j))) [j=i,ndim] [i=1,ndim]'
-      do iwf=-iwmax,iwmax-1
+       enddo
+       close(44)
+     endif
+
+     open(50, file=trim(output_dir)//"siw_dmft_rep_full.dat", status='unknown')
+     write(50,'(A)') '# wf, (real(siw_dmft_rep(wf,i,j)), imag(siw_dmft_rep(iwf,i,j))) [j=i,ndim] [i=1,ndim]'
+     do iwf=-iwfmax_small,iwfmax_small-1
+       write(50,'(100F12.6)') iw_data(iwf), ((real(sigma_sum_dmft(i,j,iwf)),aimag(sigma_sum_dmft(i,j,iwf)), j=i,ndim), i=1,ndim)
+     enddo
+     close(50)
+
+     if (.not. k_path_eom) then
+       open(46, file=trim(output_dir)//"g_loc_full.dat", status='unknown')
+       write(46,'(A)') '# wf, (real(giw_dga_loc(wf,i,j)), imag(giw_dga_loc(wf,i,j))) [j=i,ndim] [i=1,ndim]'
+       do iwf=-iwmax,iwmax-1
          write(46,'(100F12.6)') iw_data(iwf), ((real(gloc(iwf,i,j)), aimag(gloc(iwf,i,j)), j=i,ndim), i=1,ndim)
-      enddo
-      close(46)
+       enddo
+       close(46)
+     endif
    endif
 
    ! If we only run the dfmt part, then it is highly likely that we want to compare sig_dmft_rep to the original data.
@@ -291,32 +307,34 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
       close(44)
    endif
 
-   ! if (nonlocal) then
-   !    if (verbose .and. (index(verbstr,"Siwk") .ne. 0)) then
-   !     do ik=1,nkp_eom
-   !       write(filename_siwk,'(A,F5.3,A,F5.3,A,F5.3,A)') 'siwk_',k_data_eom(1,ik),'_',k_data_eom(2,ik),'_',k_data_eom(3,ik),'.dat'
-   !       open(34, file=trim(output_dir)//filename_siwk)
-   !       write(34,'(A)') '# wf, (real(siwk_dga(wf,ik,i,j)), imag(siwk_dga(wf,ik,i,j))) [j=i,ndim] [i=1,ndim]'
-   !       do iwf=-iwfmax_small,iwfmax_small-1
-   !         write(34,'(100F12.6)') iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndim), i=1,ndim)
-   !       end do
-   !       close(34)
-   !     end do
-   !    endif
+   if (nonlocal) then
+      if (verbose .and. (index(verbstr,"Siwk") .ne. 0)) then
+       do ik=1,nkp_eom
+         write(filename_siwk,'(A,F5.3,A,F5.3,A,F5.3,A)') 'siwk_',k_data(1,k_data_eom(ik)),'_', &
+           k_data(2,k_data_eom(ik)),'_',k_data(3,k_data_eom(ik)),'.dat'
+         open(34, file=trim(output_dir)//filename_siwk)
+         write(34,'(A)') '# wf, (real(siwk_dga(wf,ik,i,j)), imag(siwk_dga(wf,ik,i,j))) [j=i,ndim] [i=1,ndim]'
+         do iwf=-iwfmax_small,iwfmax_small-1
+           write(34,'(100F12.6)') iw_data(iwf), ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), j=i,ndim), i=1,ndim)
+         end do
+         close(34)
+       end do
+      endif
 
 
-   !    open(45, file=trim(output_dir)//"siw_all_k.dat",status='unknown')
-   !      write(45,'(A,A)') '# ik, kx, ky, kz, wf, ', &
-   !                      '(real(siwk_dga(wf,ik,i,j)), imag(siwk_dga(wf,ik,i,j)), real(siwk_hf(ik,i,j))) [j=i,ndim] [i=1,ndim]'
-   !      do ik=1,nkp_eom
-   !         do iwf=-iwfmax_small,iwfmax_small-1
-   !            write(45,'(I8, 100F12.6)') ik, k_data_eom(1,ik), k_data_eom(2,ik), k_data_eom(3,ik), iw_data(iwf),&
-   !               ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), real(sigma_sum_hf(i,j,ik)),j=i,ndim), i=1,ndim)
-   !         enddo
-   !      enddo
-   !    close(45)
+      open(45, file=trim(output_dir)//"siw_all_k.dat",status='unknown')
+        write(45,'(A,A)') '# ik, kx, ky, kz, wf, ', &
+                        '(real(siwk_dga(wf,ik,i,j)), imag(siwk_dga(wf,ik,i,j)), real(siwk_hf(ik,i,j))) [j=i,ndim] [i=1,ndim]'
+        do ik=1,nkp_eom
+           do iwf=-iwfmax_small,iwfmax_small-1
+              write(45,'(I8, 100F12.6)') ik, k_data(1,k_data_eom(ik)), k_data(2,k_data_eom(ik)), &
+                k_data(3,k_data_eom(ik)), iw_data(iwf), &
+                ((real(sigma_sum(i,j,iwf,ik)), aimag(sigma_sum(i,j,iwf,ik)), real(sigma_sum_hf(i,j,ik)),j=i,ndim), i=1,ndim)
+           enddo
+        enddo
+      close(45)
 
-   ! endif
+   endif
 
    return
 end subroutine output_eom

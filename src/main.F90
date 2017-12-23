@@ -216,6 +216,7 @@ program main
   endif
 
   allocate(n_dmft(ndim), n_fock(nkp,ndim,ndim)) ! calculate the full n_dmft_k
+                                                ! we need all points because of V(q)
   allocate(n_dga(ndim), n_dga_k(nkp_eom,ndim,ndim))
 
 !compute DMFT filling n_dmft

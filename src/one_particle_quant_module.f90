@@ -328,19 +328,22 @@ subroutine get_ndga(sigma_sum)
 
   n_dga = n_dga/dble(nkp_eom)
 
-  ! if (mpi_wrank .eq. master .and. text_output) then
-  !   open(110, file=trim(output_dir)//"n_dga_k.dat", status='unknown')
-  !   write(110,*)  '# ik, kx, ky, kz, n_dga(k,i,i) [i=1,ndim]'
-  !   do ik=1,nkp
-  !     write(110,'(I8,100F12.6)') ik, k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_dga_k(ik,i,i)),i=1,ndim)
-  !   enddo
-  !   close(110)
+  if (mpi_wrank .eq. master .and. text_output) then
+    open(110, file=trim(output_dir)//"n_dga_k.dat", status='unknown')
+    write(110,*)  '# ik, kx, ky, kz, n_dga(k,i,i) [i=1,ndim]'
+    do ik=1,nkp_eom
+      write(110,'(I8,100F12.6)') ik, k_data(1,k_data_eom(ik)), k_data(2,k_data_eom(ik)), &
+        k_data(3,k_data_eom(ik)), (real(n_dga_k(ik,i,i)),i=1,ndim)
+    enddo
+    close(110)
 
-  !   open(111, file=trim(output_dir)//"n_dga.dat", status='unknown')
-  !   write(111,*) '# n_dga(i,i) [i=1,ndim]'
-  !   write(111,'(100F12.6)') (real(n_dga(i)),i=1,ndim)
-  !   close(111)
-  ! endif
+    if (.not. k_path_eom) then
+      open(111, file=trim(output_dir)//"n_dga.dat", status='unknown')
+      write(111,*) '# n_dga(i,i) [i=1,ndim]'
+      write(111,'(100F12.6)') (real(n_dga(i)),i=1,ndim)
+      close(111)
+    endif
+  endif
 end subroutine get_ndga
 
 end module

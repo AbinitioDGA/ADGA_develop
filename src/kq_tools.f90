@@ -29,17 +29,17 @@ subroutine generate_q_vol(nqpx,nqpy,nqpz,qdata)
 end subroutine generate_q_vol
 
 subroutine index_kq(ind)
-      implicit none
-      integer ikp,jkp
-      integer :: ind(nkp,nqp)
-      ind = 0
+  implicit none
+  integer, intent(out) :: ind(nkp,nqp)
+  
+  integer ikp,jkp
+  ind = 0
 
-      do ikp=1,nkp
-        do jkp=1,nqp
-          ind(ikp,jkp)=k_minus_q(ikp,q_data(jkp))
-        end do
-      end do
-
+  do ikp=1,nkp
+    do jkp=1,nqp
+      ind(ikp,jkp)=k_minus_q(ikp,q_data(jkp))
+    end do
+  end do
 end subroutine index_kq 
 
 subroutine index_kq_eom(ind)
@@ -163,7 +163,7 @@ subroutine kdata_from_file()
   implicit none
   integer :: iostatus,ik
   character(100) :: str_tmp
-  integer :: kx,ky,kz
+  real(8) :: kx,ky,kz
 
   iostatus=0
   open(unit=101,file=filename_kdata)
@@ -179,7 +179,13 @@ subroutine kdata_from_file()
   open(unit=101,file=filename_kdata)
   do ik=1,nkp_eom
     read(101,*) kx,ky,kz
-    k_data_eom(ik) = k_index(kx,ky,kz) ! I personally don't like the possibility to include reals
+    if (kx .eq. 0 .and. ky .eq. 0 .and. kz .eq. 0) then 
+      k_data_eom(ik) = k_index(0,0,0) ! gamma point
+    else if (kx .ge. 1 .or. ky .ge. 1 .or. kz .ge. 1) then
+      k_data_eom(ik) = k_index(int(kx),int(ky),int(kz)) ! cast to integers
+    else
+      k_data_eom(ik) = k_index(nint(kx*nkpx),nint(ky*nkpy),nint(kz*nkpz)) ! round to nearest integers
+    end if
   end do
   close(101)
 
