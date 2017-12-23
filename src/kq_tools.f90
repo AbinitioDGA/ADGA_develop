@@ -42,10 +42,8 @@ subroutine index_kq(ind)
 
 end subroutine index_kq 
 
-subroutine index_kq_eom(ind, nkp_eom, k_data_eom)
+subroutine index_kq_eom(ind)
   implicit none
-  integer, intent(in)  :: nkp_eom
-  integer, intent(in)  :: k_data_eom(nkp_eom)
   integer, intent(out) :: ind(nkp_eom,nqp)
 
   integer ikp,jkp
@@ -159,9 +157,7 @@ subroutine qdata_from_file()
 end subroutine qdata_from_file
 
 subroutine kdata_from_file()
-  ! here we simply overwrite the k_data array
-  ! and redefine the number of k-points for the eom calculation
-  ! I recycled here the qdata_from_file() subroutine
+  ! defining k_data_eom by mapping to the contigous k_data array analogous to q_data
   use parameters_module
 
   implicit none
@@ -183,7 +179,7 @@ subroutine kdata_from_file()
   open(unit=101,file=filename_kdata)
   do ik=1,nkp_eom
     read(101,*) kx,ky,kz
-    k_data_eom(ik) = k_index(kx,ky,kz)
+    k_data_eom(ik) = k_index(kx,ky,kz) ! I personally don't like the possibility to include reals
   end do
   close(101)
 

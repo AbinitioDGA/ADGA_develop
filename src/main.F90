@@ -198,7 +198,7 @@ program main
     deallocate(Umat)
   endif
 
-  ! read in k-points or calculate on eom on the full k-mesh
+  ! read in k-points or calculate eom on the full k-mesh
   if (do_eom) then
     if (k_path_eom) then
       call kdata_from_file() ! defines nkp_eom and k_data_eom
@@ -206,16 +206,17 @@ program main
       nkp_eom = nkp
       allocate(k_data_eom(nkp_eom))
       do i=1,nkp_eom
-        k_data_eom(i) = i
+        k_data_eom(i) = i ! one-to-one mapping
       enddo
     endif
   else
-    if (ounit .ge. 1) write(ounit,*) 'Warning: KDataFile only affects eom calculations'
+    if (k_path_eom) then
+      if (ounit .ge. 1) write(ounit,*) 'Warning: KDataFile only affects eom calculations'
+    endif
   endif
 
-  allocate(n_dmft(ndim), n_fock(nkp,ndim,ndim)) ! calculate the full n_dmft_k ... because
-                                                ! I dont really want to rewrite those routines
-  allocate(n_dga(ndim), n_dga_k(nkp_eom,ndim,ndim)) ! n_dga doesn't really make sense for k_path_eom
+  allocate(n_dmft(ndim), n_fock(nkp,ndim,ndim)) ! calculate the full n_dmft_k
+  allocate(n_dga(ndim), n_dga_k(nkp_eom,ndim,ndim))
 
 !compute DMFT filling n_dmft
   call get_ndmft() ! writes n_dmft.dat if we have the verbose keyword "Dmft"
@@ -294,13 +295,13 @@ program main
 
 
   ! calculate the index of all \vec{k} - \vec{q}
-  allocate(kq_ind(nkp,nqp)) ! full k-grid
+  allocate(kq_ind(nkp,nqp)) ! full k-grid -- for chi k summation
   allocate(kq_ind_eom(nkp_eom,nqp)) ! eom k-grid
 
   call cpu_time(start)
   call index_kq(kq_ind) ! new method
   if (k_path_eom) then
-    call index_kq_eom(kq_ind_eom, nkp_eom, k_data_eom)
+    call index_kq_eom(kq_ind_eom)
   else
     kq_ind_eom = kq_ind
   endif
@@ -757,11 +758,11 @@ end if
          call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, nonlocal)
        endif
        if (nonlocal) then
+         call get_ndga(sigma_sum) ! calculate the k-dependent and k-summed dga occupation
          if (k_path_eom) then
            call output_eom_kpath_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
            call output_occ_kpath_h5(output_filename)
          else
-           call get_ndga(sigma_sum) ! calculate the k-dependent and k-summed dga occupation
            call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
            call output_occ_h5(output_filename)
          endif
@@ -1040,7 +1041,7 @@ end if
 
 
 ! Output
-  deallocate(iw_data,iwb_data,siw,k_data,k_data_eom,q_data,kq_ind,qw)
+  deallocate(iw_data,iwb_data,siw,k_data,k_data_eom,q_data,kq_ind,kq_ind_eom,qw)
   if (ounit .ge. 1) then
       write(ounit,'(1x)')
       write(ounit,'(1x,"End of Program")')

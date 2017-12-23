@@ -297,7 +297,7 @@ end subroutine get_nfock
 subroutine get_ndga(sigma_sum)
   implicit none
   integer :: ik,iw,i
-  complex(kind=8), intent(in) :: sigma_sum(ndim,ndim,-iwfmax_small:iwfmax_small-1, nkp)
+  complex(kind=8), intent(in) :: sigma_sum(ndim,ndim,-iwfmax_small:iwfmax_small-1, nkp_eom)
   complex(kind=8) :: gkiw(ndim,ndim)
   complex(kind=8) :: skiw(ndim,ndim)
 
