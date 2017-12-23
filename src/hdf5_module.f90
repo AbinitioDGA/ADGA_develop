@@ -1791,6 +1791,7 @@ subroutine output_eom_kpath_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,
     end do
   end do
 
+  call h5gopen_f(file_id,'selfenergy/loc',grp_id_siwk,err)
   call h5dcreate_f(grp_id_siwk,'dmft',compound_id,dspace_id_siw,dset_id_siwdmft,err)
   call h5dwrite_f(dset_id_siwdmft,type_r_id,real(siw_outputarray),dims_siw,err)
   call h5dwrite_f(dset_id_siwdmft,type_i_id,aimag(siw_outputarray),dims_siw,err)

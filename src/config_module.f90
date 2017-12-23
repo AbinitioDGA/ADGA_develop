@@ -104,6 +104,7 @@ subroutine read_config(er,erstr)
 
   filename_hk=''; filename_1p=''; filename_vertex_sym=''
   filename_vq=''; filename_qdata=''; filename_umatrix=''
+  filename_kdata=''
   filename_chi_loc=''; filename_threelegs=''
 
   dmft_iter='dmft-last'
@@ -515,11 +516,13 @@ subroutine check_config(er,erstr)
     erstr = "Error: Choose appropriate vertex type"
   endif
 
-  inquire (file=trim(filename_kdata), exist=there)
-  if (.not. there) then
-      er = 8
-      erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the K-Path file: "//trim(filename_kdata)
-      return
+  if (k_path_eom) then
+    inquire (file=trim(filename_kdata), exist=there)
+    if (.not. there) then
+        er = 8
+        erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the K-Path file: "//trim(filename_kdata)
+        return
+    endif
   endif
   return
 end subroutine check_config

@@ -759,6 +759,7 @@ end if
        if (nonlocal) then
          if (k_path_eom) then
            call output_eom_kpath_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+           call output_occ_kpath_h5(output_filename)
          else
            call get_ndga(sigma_sum) ! calculate the k-dependent and k-summed dga occupation
            call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
