@@ -64,7 +64,9 @@ program main
 
   ! create output folder if not yet existing
   if (mpi_wrank .eq. master) call system('mkdir -p ' // trim(adjustl(output_dir)))
+#ifdef MPI
   call mpi_barrier(mpi_comm_world,ierr)
+#endif
 
   ! Set up the output file
   verbose_extra = (verbose .and. (index(verbstr,"Extra") .ne. 0))
@@ -91,13 +93,21 @@ program main
   ! program introduction
   if (ounit .ge. 1) then
     call date_and_time(date,time,zone,time_date_values)
+#ifdef MPI
     call mpi_get_processor_name(hostname,i,j)
+#endif
     write(ounit,*)
     write(ounit,*)                        '/------------------------------------------------------------------\'
     write(ounit,*)                        '|  Ab initio dynamical vertex approximation program (abinitiodga)  |'
+#ifdef MPI
     write(ounit,'(1x,a,i11,a,3i6,a)') '|  Running on ',mpi_wsize,' core(s) with ',nkpx, nkpy, nkpz,' k-points |'
     write(ounit,*)                        '|     time             date           host                         |'
     write(ounit,'(" | ",a,7x,a,10x,a,26x,"|")') trim(time),trim(date),hostname(1:i)
+#else
+    write(ounit,'(1x,a,3i8,a)') '|  Running on 1 core with ',nkpx, nkpy, nkpz,' k-points        |'
+    write(ounit,*)                        '|              time                            date                |'
+    write(ounit,'(" | ",10x,a,23x,a,14x,"|")') trim(time),trim(date)
+#endif
     write(ounit,*)                        '\------------------------------------------------------------------/'
     write(ounit,*)
     if (verbose) write(ounit,*) "Verbose string: ",trim(ADJUSTL(verbstr))
@@ -695,7 +705,7 @@ end if
      call MPI_reduce(sigma_hf,sigma_sum_hf,ndim*ndim*nkp,MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      call MPI_reduce(sigma_dmft,sigma_sum_dmft,ndim*ndim*2*iwfmax_small,MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
 #else
-     sigma_sum = sigma
+     sigma_sum = sigma_nl
      sigma_sum_hf = sigma_hf
      sigma_sum_dmft = sigma_dmft
 #endif

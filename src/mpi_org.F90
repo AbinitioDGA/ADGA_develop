@@ -88,8 +88,8 @@ module mpi_org
    integer                             :: strlen      ! length
    integer                             :: mpi_errorflag   ! temp error flag
    character(len=5)                    :: fancynr  ! temp string for the mpi rank
-   logical                             :: unitopened ! tells if the file unit is open
 #endif
+   logical                             :: unitopened ! tells if the file unit is open
       inquire(unit=ounit,opened=unitopened)
       if (unitopened) call flush(ounit)
 #if MPI 
