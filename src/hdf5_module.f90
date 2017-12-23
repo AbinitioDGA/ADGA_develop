@@ -1117,9 +1117,7 @@ subroutine init_h5_output(filename_output)
     qpath_dims=(/3,nqp/)
     allocate(qpoints(3,nqp))
     do i=1,nqp
-      call k_vector(q_data(i),qpoint_tmp)
-      k_ind_tmp=k_index(qpoint_tmp)
-      qpoints(:,i)=k_data(:,k_ind_tmp)
+      qpoints(:,i)=k_data(:,q_data(i))
     end do
     call h5screate_simple_f(2,qpath_dims,dspace_qpoints_id,err)
     call h5dcreate_f(grp_id_input,'qpath',H5T_NATIVE_DOUBLE,dspace_qpoints_id,dset_id_qpoints,err)
@@ -1127,9 +1125,27 @@ subroutine init_h5_output(filename_output)
     call h5dclose_f(dset_id_qpoints,err)
   end if
 
+  ! we reuse here the arrays for the q_path
+  if (k_path_eom) then 
+    qpath_dims=(/3,nkp_eom/)
+    if (allocated(qpoints)) deallocate(qpoints)
+    allocate(qpoints(3,nkp_eom))
+    do i=1,nkp_eom
+      qpoints(:,i)=k_data(:,k_data_eom(i))
+    end do
+    call h5screate_simple_f(2,qpath_dims,dspace_qpoints_id,err)
+    call h5dcreate_f(grp_id_input,'kpath_eom',H5T_NATIVE_DOUBLE,dspace_qpoints_id,dset_id_qpoints,err)
+    call h5dwrite_f(dset_id_qpoints,H5T_NATIVE_DOUBLE,qpoints,qpath_dims,err)
+    call h5dclose_f(dset_id_qpoints,err)
+  end if
+
 ! close the group and the file
   call h5gclose_f(grp_id_input,err)
   call h5fclose_f(file_id,err)
+  
+  if (allocated(hk_arr)) deallocate(hk_arr)
+  if (allocated(nfock_arr)) deallocate(nfock_arr)
+  if (allocated(qpoints)) deallocate(qpoints)
 
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
    write(ounit,*) 'hdf5 output initialized'

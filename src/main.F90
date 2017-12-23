@@ -1042,7 +1042,8 @@ end if
 
 
 ! Output
-  deallocate(iw_data,iwb_data,siw,k_data,k_data_eom,q_data,kq_ind,kq_ind_eom,qw)
+  deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,kq_ind_eom,qw)
+  if (allocated(k_data_eom)) deallocate(k_data_eom)
   if (ounit .ge. 1) then
       write(ounit,'(1x)')
       write(ounit,'(1x,"End of Program")')
