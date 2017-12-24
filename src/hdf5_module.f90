@@ -935,16 +935,18 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
 end subroutine read_chi_loc
 
 ! This subroutine creates the HDF5 output file and initializes its structure
-subroutine init_h5_output(filename_output)
+subroutine init_h5_output(filename_output, nonlocal)
   use kq_tools, only: k_vector,k_index
   use parameters_module
   implicit none
+
+  character(len=*), intent(in) :: filename_output
+  logical, intent(in) :: nonlocal
 
   integer :: err,i1,i2,ikx,iky,ikz,i,qpoint_tmp(3)
   integer(hid_t) :: file_id,grp_id_input,grp_id_susc,grp_id_se,grp_id_occ,grp_id_green
   integer(hid_t) :: grp_id_chi_qw,grp_id_chi_loc
   integer(hid_t) :: grp_id_se_loc,grp_id_se_nonloc
-  character(len=*) :: filename_output
   integer(kind=8) :: chi_qw_dims(3),chi_loc_dims(3),qpath_dims(2),k_ind_tmp
   integer(hid_t) :: dspace_scalar_id,dset_id_mu,dset_id_beta,dset_id_1,dspace_vec_id,dspace_qpoints_id,dset_id_qpoints
   integer(hid_t) :: dspace_dc_id,dset_dc_id,dspace_id_g,dspace_id_s,dset_id_g,dset_id_s,dset_id_hk,dspace_id_hk
@@ -965,18 +967,24 @@ subroutine init_h5_output(filename_output)
 ! create the groups for the ADGA results
   if (do_chi) then
     call h5gcreate_f(file_id,'susceptibility',grp_id_susc,err)
-    call h5gcreate_f(grp_id_susc,'nonloc',grp_id_chi_qw,err)
-    call h5gclose_f(grp_id_chi_qw,err)
+    if (nonlocal) then
+      call h5gcreate_f(grp_id_susc,'nonloc',grp_id_chi_qw,err)
+      call h5gclose_f(grp_id_chi_qw,err)
+    endif
     call h5gcreate_f(grp_id_susc,'loc',grp_id_chi_loc,err)
     call h5gclose_f(grp_id_chi_loc,err)
     call h5gclose_f(grp_id_susc,err)
   end if
   
   if (do_eom) then
-    call h5gcreate_f(file_id,'occupation',grp_id_occ,err)
+    if (nonlocal) then
+      call h5gcreate_f(file_id,'occupation',grp_id_occ,err)
+    endif
     call h5gcreate_f(file_id,'selfenergy',grp_id_se,err)
-    call h5gcreate_f(grp_id_se,'nonloc',grp_id_se_nonloc,err)
-    call h5gclose_f(grp_id_se_nonloc,err)
+    if (nonlocal) then
+      call h5gcreate_f(grp_id_se,'nonloc',grp_id_se_nonloc,err)
+      call h5gclose_f(grp_id_se_nonloc,err)
+    endif
     call h5gcreate_f(grp_id_se,'loc',grp_id_se_loc,err)
     call h5gclose_f(grp_id_se_loc,err)
     call h5gclose_f(grp_id_se,err)
@@ -1559,14 +1567,15 @@ end subroutine output_chi_qpath_reduced_h5
 
 
 
-subroutine output_eom_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+subroutine output_eom_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft,nonlocal)
   use parameters_module
   implicit none
   character(len=*),intent(in) :: filename_output
-  complex(kind=8),intent(in) :: sigma_sum(:,:,-iwfmax_small:,:)
-  complex(kind=8),intent(in) :: sigma_sum_hf(:,:,:)
-  complex(kind=8),intent(in) :: sigma_loc(:,:,-iwfmax_small:)
-  complex(kind=8),intent(in) :: sigma_sum_dmft(:,:,-iwfmax_small:)
+  complex(kind=8),intent(in)  :: sigma_sum(:,:,-iwfmax_small:,:)
+  complex(kind=8),intent(in)  :: sigma_sum_hf(:,:,:)
+  complex(kind=8),intent(in)  :: sigma_loc(:,:,-iwfmax_small:)
+  complex(kind=8),intent(in)  :: sigma_sum_dmft(:,:,-iwfmax_small:)
+  logical,intent(in)          :: nonlocal
   integer(hid_t) :: file_id,grp_id_siwk,dset_id_sigmasum,dspace_id_sigmasum,dset_id_sigmasumhf
   integer(hid_t) :: dspace_id_siw,dset_id_siwloc,dset_id_siwdmft
   integer :: rank_siwk,rank_siw
@@ -1579,96 +1588,110 @@ subroutine output_eom_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_
 
   call h5open_f(err)
 
+  if (nonlocal) then
 
-  ! create outputarray (essentially just reshape the original array)
-  ! doing this in-place would be much more memory-efficient!
-  do i1=1,ndim
-    do i2=1,ndim
-      do ikz=1,nkpz
-        do iky=1,nkpy
-          do ikx=1,nkpx
-            do iw=1,2*iwfmax_small
-              siwk_outputarray(iw,ikz,iky,ikx,i2,i1) = sigma_sum(i1,i2,iw-iwfmax_small-1,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
+    ! create outputarray (essentially just reshape the original array)
+    ! doing this in-place would be much more memory-efficient!
+    do i1=1,ndim
+      do i2=1,ndim
+        do ikz=1,nkpz
+          do iky=1,nkpy
+            do ikx=1,nkpx
+              do iw=1,2*iwfmax_small
+                siwk_outputarray(iw,ikz,iky,ikx,i2,i1) = sigma_sum(i1,i2,iw-iwfmax_small-1,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
+              end do
             end do
           end do
         end do
       end do
     end do
-  end do
 
-  rank_siwk=6
-  allocate(dims_siwk(rank_siwk),cdims(rank_siwk))
-  dims_siwk=(/ 2*iwfmax_small,nkpz,nkpy,nkpx,ndim,ndim /)
-  cdims=(/ 2*iwfmax_small,nkpz,nkpy,nkpx,1,1 /)
+    rank_siwk=6
+    allocate(dims_siwk(rank_siwk),cdims(rank_siwk))
+    dims_siwk=(/ 2*iwfmax_small,nkpz,nkpy,nkpx,ndim,ndim /)
+    cdims=(/ 2*iwfmax_small,nkpz,nkpy,nkpx,1,1 /)
 
-  call h5screate_f(H5S_SIMPLE_F,dspace_id_sigmasum,err)
-  call h5sset_extent_simple_f(dspace_id_sigmasum,rank_siwk,dims_siwk,dims_siwk,err)
+    call h5screate_f(H5S_SIMPLE_F,dspace_id_sigmasum,err)
+    call h5sset_extent_simple_f(dspace_id_sigmasum,rank_siwk,dims_siwk,dims_siwk,err)
 
-  call h5pcreate_f(H5P_DATASET_CREATE_F,plist_id,err)
-  call h5pset_chunk_f(plist_id,rank_siwk,cdims,err)
-  call h5pset_deflate_f(plist_id,gzip_compression,err)
-  call h5pset_shuffle_f(plist_id,err)
-  call h5pset_fletcher32_f(plist_id,err)
+    call h5pcreate_f(H5P_DATASET_CREATE_F,plist_id,err)
+    call h5pset_chunk_f(plist_id,rank_siwk,cdims,err)
+    call h5pset_deflate_f(plist_id,gzip_compression,err)
+    call h5pset_shuffle_f(plist_id,err)
+    call h5pset_fletcher32_f(plist_id,err)
 
-  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
-  call h5gopen_f(file_id,'selfenergy/nonloc',grp_id_siwk,err)
-  call h5dcreate_f(grp_id_siwk,'dga',compound_id,dspace_id_sigmasum,dset_id_sigmasum,err,dcpl_id=plist_id)
-  call h5dwrite_f(dset_id_sigmasum,type_r_id,real(siwk_outputarray),dims_siwk,err)
-  call h5dwrite_f(dset_id_sigmasum,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
-  call h5dclose_f(dset_id_sigmasum,err)
+    call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+    call h5gopen_f(file_id,'selfenergy/nonloc',grp_id_siwk,err)
+    call h5dcreate_f(grp_id_siwk,'dga',compound_id,dspace_id_sigmasum,dset_id_sigmasum,err,dcpl_id=plist_id)
+    call h5dwrite_f(dset_id_sigmasum,type_r_id,real(siwk_outputarray),dims_siwk,err)
+    call h5dwrite_f(dset_id_sigmasum,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
+    call h5dclose_f(dset_id_sigmasum,err)
 
-  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
-   write(ounit,*) 'nonlocal selfenergy (DGA) written to h5'
-  endif
+    if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+     write(ounit,*) 'nonlocal selfenergy (DGA) written to h5'
+    endif
 
-  ! in order to save memory, the same array is used again, now for the non-local Hartree-Fock contribution.
-  do i1=1,ndim
-    do i2=1,ndim
-      do ikz=1,nkpz
-        do iky=1,nkpy
-          do ikx=1,nkpx
-            ! that is, the non-local Hartree-Fock term depends at the moment only on vec(k) and not on the frequency nu 
-            siwk_outputarray(:,ikz,iky,ikx,i2,i1) = sigma_sum_hf(i1,i2,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
+    ! in order to save memory, the same array is used again, now for the non-local Hartree-Fock contribution.
+    do i1=1,ndim
+      do i2=1,ndim
+        do ikz=1,nkpz
+          do iky=1,nkpy
+            do ikx=1,nkpx
+              ! that is, the non-local Hartree-Fock term depends at the moment only on vec(k) and not on the frequency nu 
+              siwk_outputarray(:,ikz,iky,ikx,i2,i1) = sigma_sum_hf(i1,i2,(ikz-1)+(iky-1)*nkpz+(ikx-1)*nkpy*nkpz+1)
+            end do
           end do
         end do
       end do
     end do
-  end do
 
-  ! the dimensions are the same (not really, but once V(q) depends on w they will), so we can use the same data space
-  call h5dcreate_f(grp_id_siwk,'hartree_fock',compound_id,dspace_id_sigmasum,dset_id_sigmasumhf,err,dcpl_id=plist_id)
-  call h5dwrite_f(dset_id_sigmasumhf,type_r_id,real(siwk_outputarray),dims_siwk,err)
-  call h5dwrite_f(dset_id_sigmasumhf,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
-  call h5dclose_f(dset_id_sigmasumhf,err)
-  call h5gclose_f(grp_id_siwk,err)
+    ! the dimensions are the same (not really, but once V(q) depends on w they will), so we can use the same data space
+    call h5dcreate_f(grp_id_siwk,'hartree_fock',compound_id,dspace_id_sigmasum,dset_id_sigmasumhf,err,dcpl_id=plist_id)
+    call h5dwrite_f(dset_id_sigmasumhf,type_r_id,real(siwk_outputarray),dims_siwk,err)
+    call h5dwrite_f(dset_id_sigmasumhf,type_i_id,aimag(siwk_outputarray),dims_siwk,err)
+    call h5dclose_f(dset_id_sigmasumhf,err)
+    call h5gclose_f(grp_id_siwk,err)
 
-  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
-   write(ounit,*) 'nonlocal selfenergy (HF) written to h5'
-  endif
-  deallocate(dims_siwk)
+    if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+     write(ounit,*) 'nonlocal selfenergy (HF) written to h5'
+    endif
+    deallocate(dims_siwk)
 
-  rank_siw=3
-  allocate(dims_siw(rank_siw))
-  dims_siw=(/ 2*iwfmax_small,ndim,ndim /)
-  call h5screate_f(H5S_SIMPLE_F,dspace_id_siw,err)
-  call h5sset_extent_simple_f(dspace_id_siw,rank_siw,dims_siw,dims_siw,err)
+    rank_siw=3
+    allocate(dims_siw(rank_siw))
+    dims_siw=(/ 2*iwfmax_small,ndim,ndim /)
+    call h5screate_f(H5S_SIMPLE_F,dspace_id_siw,err)
+    call h5sset_extent_simple_f(dspace_id_siw,rank_siw,dims_siw,dims_siw,err)
 
-  do i1=1,ndim
-    do i2=1,ndim
-      do iw=1,2*iwfmax_small
-        siw_outputarray(iw,i2,i1) = sigma_loc(i1,i2,iw-iwfmax_small-1)
+    do i1=1,ndim
+      do i2=1,ndim
+        do iw=1,2*iwfmax_small
+          siw_outputarray(iw,i2,i1) = sigma_loc(i1,i2,iw-iwfmax_small-1)
+        end do
       end do
     end do
-  end do
 
-  call h5gopen_f(file_id,'selfenergy/loc',grp_id_siwk,err)
-  call h5dcreate_f(grp_id_siwk,'dga_ksum',compound_id,dspace_id_siw,dset_id_siwloc,err)
-  call h5dwrite_f(dset_id_siwloc,type_r_id,real(siw_outputarray),dims_siw,err)
-  call h5dwrite_f(dset_id_siwloc,type_i_id,aimag(siw_outputarray),dims_siw,err)
-  call h5dclose_f(dset_id_siwloc,err)
+    call h5gopen_f(file_id,'selfenergy/loc',grp_id_siwk,err)
+    call h5dcreate_f(grp_id_siwk,'dga_ksum',compound_id,dspace_id_siw,dset_id_siwloc,err)
+    call h5dwrite_f(dset_id_siwloc,type_r_id,real(siw_outputarray),dims_siw,err)
+    call h5dwrite_f(dset_id_siwloc,type_i_id,aimag(siw_outputarray),dims_siw,err)
+    call h5dclose_f(dset_id_siwloc,err)
 
-  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
-   write(ounit,*) 'local selfenergy (KSUM) written to h5'
+    if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+     write(ounit,*) 'local selfenergy (KSUM) written to h5'
+    endif
+
+  endif !nonlocal
+
+
+  if (.not. nonlocal) then ! we can't reuse the things from above, so we redefine them
+    rank_siw=3
+    allocate(dims_siw(rank_siw))
+    dims_siw=(/ 2*iwfmax_small,ndim,ndim /)
+    call h5screate_f(H5S_SIMPLE_F,dspace_id_siw,err)
+    call h5sset_extent_simple_f(dspace_id_siw,rank_siw,dims_siw,dims_siw,err)
+    call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+    call h5gopen_f(file_id,'selfenergy/loc',grp_id_siwk,err)
   endif
 
   do i1=1,ndim
@@ -1734,8 +1757,6 @@ subroutine output_occ_h5(filename_output)
       enddo
     enddo
   enddo
-
-  ! WE HAVE TO CONTINUE PLEASE
 
   call h5screate_f(H5S_SIMPLE_F,dspace_id_ndga_k,err)
   call h5sset_extent_simple_f(dspace_id_ndga_k,5,dims_ndga_k,dims_ndga_k,err)

@@ -363,13 +363,13 @@ if (mpi_wrank.eq. master .and. (verbose .and. (index(verbstr,"Kpoints") .ne. 0))
 end if
 
 
-
-if (mpi_wrank .eq. master) then
-  write(ounit,*) 'Writing hdf5 output to ',output_filename
-  call init_h5_output(output_filename)
-end if
-
   nonlocal = .not. (debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) ! Do the non-local quantities!
+
+  if (mpi_wrank .eq. master) then
+    write(ounit,*) 'Writing hdf5 output to ',output_filename
+    call init_h5_output(output_filename, nonlocal)
+  end if
+
   if (ounit .gt. 0) then
     write(ounit,'(1x)')
     if (nonlocal) then
@@ -501,7 +501,9 @@ end if
      tstart = tfinish ! TIME: eom
    
      ! Calculate static quantities
-     if (do_eom .and. iwb .eq. 0 .and. (iq .eq. 1 .or. do_vq)) call calc_eom_static(kq_ind,iq,v,sigma_dmft,sigma_hf)
+     if (do_eom .and. iwb .eq. 0 .and. (iq .eq. 1 .or. do_vq)) then
+       call calc_eom_static(kq_ind,iq,v,sigma_dmft,sigma_hf,nonlocal)
+     endif
      ! Calculate local quantities
      if (do_eom .and. iq .eq. 1) call calc_eom_dmft(gammawd,gammawm,iwb,sigma_dmft)
      call cpu_time(tfinish) ! TIME: eom
@@ -723,7 +725,9 @@ end if
                                                                     sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) ) 
        endif
        call add_siw_dmft(sigma_sum)  !add the dmft-selfenergy
-       call get_sigma_g_loc(sigma_sum, sigma_loc, gloc) ! calculate the k-summed dga selfenergy and k-summed dga(dmft) greens-function
+       if (nonlocal) then
+         call get_sigma_g_loc(sigma_sum, sigma_loc, gloc) ! calculate the k-summed dga selfenergy and k-summed dga(dmft) greens-function
+       endif
        if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
          write(ounit,'(1x,"Tr[Total Self-energy]:       ",4f24.11)') sum( (/ (sigma_sum(i,i,-1,1),i=1,ndim) /) ), &
                                                                     sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) )
@@ -739,11 +743,12 @@ end if
        if (text_output .or. (verbose .and. (index(verbstr,"Test") .ne. 0))) then
          call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, nonlocal)
        endif
+       call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft,nonlocal)
        if (nonlocal) then
-         call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
          call get_ndga(sigma_sum) ! calculate the k-dependent and k-summed dga occupation
          call output_occ_h5(output_filename)
        endif
+
        deallocate(gloc,sigma_loc)
      end if
      deallocate(sigma_nl, sigma_sum, sigma_sum_dmft, sigma_sum_hf)

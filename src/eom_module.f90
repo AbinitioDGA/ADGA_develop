@@ -8,13 +8,14 @@ module eom_module
 contains
 
 !================================================================================================
-   subroutine calc_eom_static(kq_ind,iq,v,sigma_dmft,sigma_hf)
+   subroutine calc_eom_static(kq_ind,iq,v,sigma_dmft,sigma_hf,nonlocal)
    implicit none
    integer,intent(in)             :: kq_ind(nkp,nqp)
    integer,intent(in)             :: iq
    complex(kind=8),intent(in)     :: v(ndim2,ndim2)
    complex(kind=8),intent(inout)  :: sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1)
    complex(kind=8),intent(inout)  :: sigma_hf(ndim,ndim,nkp)
+   logical,intent(in)             :: nonlocal
    complex(kind=8)                :: sigma_tmp(ndim,ndim)
    integer :: dum,i,j,iw,iwf,iwf2,l,k,ik,ikq
    integer :: i1,i2,i3,i4
@@ -40,7 +41,7 @@ contains
          sigma_dmft(i,i,:) = sigma_dmft(i,i,:) + sigma_tmp(i,i)
       enddo
       ! Calculate the non-local hartree contribution to the self-energy
-      if (do_vq) then
+      if (nonlocal .and. do_vq) then
          ! 1. Compute non-local Hartree-contribution 2*v(q=0)*n_DMFT and add it to sigma_hf (only for q = 0)
          ! vq(i,j,k,l) = vq( i1 = {ki}, i2 = {jl} ), 
          ! so vq(i,j,i,j) = vq( i1 = {ii}, i2 = {jj} ), (and vq(i,j,j,i) = vq( i1 = {ji}, i2 = {ji} ) )
@@ -55,7 +56,8 @@ contains
       endif
    endif
 
-   if (do_vq) then
+   
+   if (nonlocal .and. do_vq) then
       ! 1. Compute non-local Fock-contribution v(q)*n_fock(k-q) and add it to sigma_hf
       i2=0
       do l=1,ndim
