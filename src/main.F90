@@ -64,7 +64,9 @@ program main
 
   ! create output folder if not yet existing
   if (mpi_wrank .eq. master) call system('mkdir -p ' // trim(adjustl(output_dir)))
+#ifdef MPI
   call mpi_barrier(mpi_comm_world,ierr)
+#endif
 
   ! Set up the output file
   verbose_extra = (verbose .and. (index(verbstr,"Extra") .ne. 0))
@@ -91,13 +93,21 @@ program main
   ! program introduction
   if (ounit .ge. 1) then
     call date_and_time(date,time,zone,time_date_values)
+#ifdef MPI
     call mpi_get_processor_name(hostname,i,j)
+#endif
     write(ounit,*)
     write(ounit,*)                        '/------------------------------------------------------------------\'
     write(ounit,*)                        '|  Ab initio dynamical vertex approximation program (abinitiodga)  |'
+#ifdef MPI
     write(ounit,'(1x,a,i11,a,3i6,a)') '|  Running on ',mpi_wsize,' core(s) with ',nkpx, nkpy, nkpz,' k-points |'
     write(ounit,*)                        '|     time             date           host                         |'
     write(ounit,'(" | ",a,7x,a,10x,a,26x,"|")') trim(time),trim(date),hostname(1:i)
+#else
+    write(ounit,'(1x,a,3i8,a)') '|  Running on 1 core with ',nkpx, nkpy, nkpz,' k-points        |'
+    write(ounit,*)                        '|              time                            date                |'
+    write(ounit,'(" | ",10x,a,23x,a,14x,"|")') trim(time),trim(date)
+#endif
     write(ounit,*)                        '\------------------------------------------------------------------/'
     write(ounit,*)
     if (verbose) write(ounit,*) "Verbose string: ",trim(ADJUSTL(verbstr))
@@ -382,13 +392,13 @@ if (mpi_wrank.eq. master .and. (verbose .and. (index(verbstr,"Kpoints") .ne. 0))
 end if
 
 
-
-if (mpi_wrank .eq. master) then
-  write(ounit,*) 'Writing hdf5 output to ',output_filename
-  call init_h5_output(output_filename)
-end if
-
   nonlocal = .not. (debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) ! Do the non-local quantities!
+
+  if (mpi_wrank .eq. master) then
+    write(ounit,*) 'Writing hdf5 output to ',output_filename
+    call init_h5_output(output_filename, nonlocal)
+  end if
+
   if (ounit .gt. 0) then
     write(ounit,'(1x)')
     if (nonlocal) then
@@ -520,7 +530,9 @@ end if
      tstart = tfinish ! TIME: eom
    
      ! Calculate static quantities
-     if (do_eom .and. iwb .eq. 0 .and. (iq .eq. 1 .or. do_vq)) call calc_eom_static(kq_ind_eom,iq,v,sigma_dmft,sigma_hf)
+     if (do_eom .and. iwb .eq. 0 .and. (iq .eq. 1 .or. do_vq)) then
+       call calc_eom_static(kq_ind_eom,iq,v,sigma_dmft,sigma_hf,nonlocal)
+     endif
      ! Calculate local quantities
      if (do_eom .and. iq .eq. 1) call calc_eom_dmft(gammawd,gammawm,iwb,sigma_dmft)
      call cpu_time(tfinish) ! TIME: eom
@@ -724,7 +736,7 @@ end if
      call MPI_reduce(sigma_hf,sigma_sum_hf,ndim*ndim*nkp_eom,MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      call MPI_reduce(sigma_dmft,sigma_sum_dmft,ndim*ndim*2*iwfmax_small,MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
 #else
-     sigma_sum = sigma
+     sigma_sum = sigma_nl
      sigma_sum_hf = sigma_hf
      sigma_sum_dmft = sigma_dmft
 #endif
@@ -742,7 +754,9 @@ end if
                                                                     sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) ) 
        endif
        call add_siw_dmft(sigma_sum)  !add the dmft-selfenergy
-       if (.not. k_path_eom) call get_sigma_g_loc(sigma_sum, sigma_loc, gloc) ! calculate the k-summed dga selfenergy and k-summed dga(dmft) greens-function
+       if (nonlocal .and. .not. k_path_eom) then
+         call get_sigma_g_loc(sigma_sum, sigma_loc, gloc) ! calculate the k-summed dga selfenergy and k-summed dga(dmft) greens-function
+       endif
        if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
          write(ounit,'(1x,"Tr[Total Self-energy]:       ",4f24.11)') sum( (/ (sigma_sum(i,i,-1,1),i=1,ndim) /) ), &
                                                                     sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) )
@@ -758,16 +772,19 @@ end if
        if (text_output .or. (verbose .and. (index(verbstr,"Test") .ne. 0))) then
          call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, nonlocal)
        endif
+
        if (nonlocal) then
          call get_ndga(sigma_sum) ! calculate the k-dependent and k-summed dga occupation
-         if (k_path_eom) then
-           call output_eom_kpath_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
-           call output_occ_kpath_h5(output_filename)
-         else
-           call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
-           call output_occ_h5(output_filename)
-         endif
        endif
+
+       if (k_path_eom) then
+         call output_eom_kpath_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+         call output_occ_kpath_h5(output_filename)
+       else
+         call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft,nonlocal)
+         call output_occ_h5(output_filename)
+       endif
+
        deallocate(gloc,sigma_loc)
      end if
      deallocate(sigma_nl, sigma_sum, sigma_sum_dmft, sigma_sum_hf)
