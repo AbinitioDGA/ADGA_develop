@@ -79,7 +79,7 @@ program main
      if (mpi_wrank .eq. master) then
         output_filename = trim(adjustl(output_dir))//"out"
      else
-        write(output_filename,*) mpi_wrank
+        write(output_filename,'(I5.5)') mpi_wrank
         output_filename = trim(adjustl(output_dir))//"out."//TRIM(ADJUSTL(output_filename))
      endif
      open(unit=ounit,file=TRIM(ADJUSTL(output_filename)),status='unknown')
@@ -671,7 +671,7 @@ end if
      if (ounit .ge. 1) then
        write(ounit,'(1x,"TIME: Wall time per qw-point: (Rank ",i6,")")') mpi_wrank
        write(ounit,'(1x,"       Local,       Chi0,     Gammas,  Inversion,   Eta rest,        EOM,        Chi")') 
-       write(ounit,'(1x,7f12.5)') timings/(qwstop-qwstart)
+       write(ounit,'(1x,7f12.5)') timings/(qwstop-qwstart+1)
      endif
      call MPI_allreduce(MPI_IN_PLACE,timings,size(timings), MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
@@ -863,7 +863,7 @@ end if
       !--------------------
       !   Density channel
       !--------------------
-      if (verbose .and. ((index(verbstr,"Test") .ne. 0) .or. (index(verbstr,"Extra") .ne. 0))) then
+      if (verbose .and. ((index(verbstr,"Test") .ne. 0) .or. (index(verbstr,"Hdf5") .ne. 0))) then
          ! the non-local chi^q_d part: Chi^q_d - Chi^q_0
 #ifdef MPI
          call MPI_gatherv(chi_qw_dens,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,&
@@ -878,7 +878,7 @@ end if
               call flush(ounit)
            endif
            ! Print to file
-           if (index(verbstr,"Extra") .ne. 0) then 
+           if (index(verbstr,"Hdf5") .ne. 0) then 
              if (susc_full_output) then
                if (q_vol) then
                  call output_chi_qw_full_h5(output_filename,'dens-nl',chi_qw_full)
@@ -940,7 +940,7 @@ end if
       !--------------------
       !   Magnetic channel
       !--------------------
-      if (verbose .and. ((index(verbstr,"Test") .ne. 0) .or. (index(verbstr,"Extra") .ne. 0))) then
+      if (verbose .and. ((index(verbstr,"Test") .ne. 0) .or. (index(verbstr,"Hdf5") .ne. 0))) then
          ! the non-local chi^q_m part: Chi^q_m - Chi^q_0
 #ifdef MPI
          call MPI_gatherv(chi_qw_magn,(qwstop-qwstart+1)*ndim2**2,MPI_DOUBLE_COMPLEX,&
@@ -955,7 +955,7 @@ end if
               call flush(ounit)
            endif
            ! Print to file
-           if (index(verbstr,"Extra") .ne. 0) then 
+           if (index(verbstr,"Hdf5") .ne. 0) then 
              if (susc_full_output) then
                if (q_vol) then
                  call output_chi_qw_full_h5(output_filename,'magn-nl',chi_qw_full)

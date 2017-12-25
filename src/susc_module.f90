@@ -37,7 +37,7 @@ module susc_module
     integer :: iwb,iq,i,j,i1
 
     if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
-      write(ounit,*) 'Output chi_qw'
+      write(ounit,*) 'nonlocal susceptibility written to ', trim(filename_output)
     endif
 
     ! open file and write head line
@@ -71,7 +71,7 @@ module susc_module
     integer :: iwb,i,j,i1
 
     if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
-     write(ounit,*) 'output chi_loc'
+     write(ounit,*) 'local susceptibility written to ', trim(filename_output)
     endif
 
     ! open file and write head line

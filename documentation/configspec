@@ -82,7 +82,7 @@ text-output = (default = F)           # default output only produces the hdf5 da
 
 ________________________________________________________________________________
 [Verbose]                             # Verbose flag (Add keywords to produce more output)
-                                      # Current verbose keywords: Output, Extra, Umatrix, Time, Kpoints, Noprogress, Test, Mpi, Dmft
+                                      # Current verbose keywords: Output, Extra, Hdf5, Umatrix, Time, Kpoints, Noprogress, Test, Mpi, Dmft
 ________________________________________________________________________________
 [Debug]                               # Debug flag (Add keywords to change the way the calculation is performed, i.e. "Experts Only")
                                       # Current debug keywords: Onlydmft, Bubble, Dmft_phbar, Makegiw

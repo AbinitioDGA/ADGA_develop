@@ -1678,7 +1678,7 @@ subroutine output_eom_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_
     call h5dclose_f(dset_id_siwloc,err)
 
     if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
-     write(ounit,*) 'local selfenergy (KSUM) written to h5'
+     write(ounit,*) 'local selfenergy (DGA KSUM) written to h5'
     endif
 
   endif !nonlocal
@@ -1769,7 +1769,7 @@ subroutine output_occ_h5(filename_output)
 
  
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
-   write(ounit,*) 'dga occupation written to h5'
+   write(ounit,*) 'occupation (DGA) written to h5'
   endif
 
 end subroutine output_occ_h5

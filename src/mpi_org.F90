@@ -61,6 +61,7 @@ module mpi_org
       if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Mpi") .ne. 0))) then
         write(ounit,*) 'mpi_distribute: receive count (iqw*ndim**2)',rct
         write(ounit,*) 'mpi_distribute: corresponding displacements',disp
+        write(ounit,'(1x)')
       end if
 #else
       qwstart = 1
