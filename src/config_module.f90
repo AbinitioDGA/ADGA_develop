@@ -123,6 +123,11 @@ subroutine read_config(er,erstr)
     erstr = 'General Group not found'
     return
   endif
+  if (search_start .eq. -1) then ! group was not found
+    er = 4
+    erstr = 'General Group empty'
+    return
+  endif
   call bool_find('calc-susc', do_chi, search_start, search_end)
   call bool_find('calc-eom', do_eom, search_start, search_end)
   call int_find('NAt', nineq, search_start, search_end)
@@ -206,16 +211,26 @@ subroutine read_config(er,erstr)
   ! search for Atoms (interaction parameters for umatrix)
   call group_find('[Atoms]', search_start, search_end)
   if (search_start .eq. 0) then ! group was not found
-    er = 4
+    er = 5
     erstr = 'Atoms Group not found'
+    return
+  endif
+  if (search_start .eq. -1) then ! group empty
+    er = 6
+    erstr = 'Atoms Group empty'
     return
   endif
   do ineq=1,nineq
     write(str_ineq,'(A2,I1,A2)') '[[',ineq,']]'
     call subgroup_find(str_ineq, search_start, search_end, subsearch_start, subsearch_end)
     if (subsearch_start .eq. 0) then ! group was not found
-      er = 5
+      er = 7
       write(erstr,'("Atomnumber ", I1," subgroup not found")') ineq
+      return
+    endif
+    if (subsearch_start .eq. -1) then ! group empty
+      er = 8
+      write(erstr,'("Atomnumber ", I1," subgroup empty")') ineq
       return
     endif
 
@@ -246,7 +261,7 @@ subroutine read_config(er,erstr)
   ndim=sum(ndims)
 
   if (ndim .eq. 0) then
-    er = 6
+    er = 9
     erstr = 'Number of bands per atom is required in [Atoms] section'
     return
   endif
@@ -258,8 +273,13 @@ subroutine read_config(er,erstr)
   ! search for 1particle and 2particle files / parameters
   call group_find('[One-Particle]', search_start, search_end)
   if (search_start .eq. 0) then ! group was not found
-    er = 7
+    er = 10
     erstr = 'One-Particle Group not found'
+    return
+  endif
+  if (search_start .eq. -1) then ! group was not found
+    er = 11
+    erstr = 'One-Particle Group empty'
     return
   endif
   call string_find('1PFile', filename_1p, search_start, search_end)
@@ -268,8 +288,13 @@ subroutine read_config(er,erstr)
 
   call group_find('[Two-Particle]', search_start, search_end)
   if (search_start .eq. 0) then ! group was not found
-    er =8
+    er = 12
     erstr= 'Two-Particle Group not found'
+    return
+  endif
+  if (search_start .eq. -1) then ! group was not found
+    er = 13
+    erstr= 'Two-Particle Group empty'
     return
   endif
   call string_find('2PFile', filename_vertex_sym, search_start, search_end)

@@ -103,7 +103,7 @@ module lookup_module
       endif
     enddo
 
-    if (save_start .ge. 1) then
+    if (save_start .ge. 1) then ! group was found
       do i=save_start, lines
         if (index(trim(file_save(i)),'[') .eq. 1) then
           if (index(trim(file_save(i)),'[[') .eq. 1) then ! skip subgroups
@@ -117,8 +117,13 @@ module lookup_module
       if(save_end .eq. 0) then
         save_end = lines ! if nothing else is found, until the end of the file
       endif
+
+      if (save_start .gt. save_end) then ! group found, but no content
+        save_start = -1
+      endif
     endif
     return
+    ! save_start -> 0: not found; -1: found, but empty
   end subroutine group_find
 
   subroutine subgroup_find(search_string, search_start, search_end, save_start, save_end)
@@ -143,8 +148,14 @@ module lookup_module
     enddo
 
     if(save_end .eq. 0) then
-      save_end = lines ! if nothing else is found, until the end of the file
+      save_end = search_end ! if nothing else is found, until the end of the group
+                            ! whose size was already determined by group_find
     endif
+
+    if (save_start .gt. save_end) then ! subgroup found, but no content
+      save_start = -1
+    endif
+    ! save_start -> 0: not found; -1: found, but empty
   end subroutine subgroup_find
 
 end module lookup_module
