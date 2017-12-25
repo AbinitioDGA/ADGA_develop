@@ -240,7 +240,7 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
    integer            :: er
    character(len=200) :: erstr
 
-   if (.not. k_path_eom) then
+   if (nonlocal .and. .not. k_path_eom) then
      open(44, file=trim(output_dir)//"siw_loc_diag.dat", status='unknown')
      write(44,'(A)') '# wf, (real(siw_dga_loc(wf,i,i)), imag(siw_dga_loc(wf,i,i))) [i=1,ndim]'
      do iwf=-iwfmax_small,iwfmax_small-1
@@ -256,7 +256,7 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
    enddo
    close(50)
 
-   if (.not. k_path_eom) then
+   if (nonlocal .and. .not. k_path_eom) then
      open(46, file=trim(output_dir)//"g_loc_diag.dat", status='unknown')
      write(46,'(A)') '# wf, (real(giw_dga_loc(iwf,i,i)), imag(giw_dga_loc(iwf,i,i))) [i=1,ndim]'
      do iwf=-iwmax,iwmax-1
@@ -267,7 +267,7 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
 
    if (ndim .ge. 2) then
 
-     if (.not. k_path_eom) then
+     if (nonlocal .and. .not. k_path_eom) then
        open(44, file=trim(output_dir)//"siw_loc_full.dat", status='unknown')
        write(44,'(A)') '# wf, (real(siw_dga_loc(wf,i,j)), imag(siw_dga_loc(iwf,i,j))) [j=i,ndim] [i=1,ndim]'
        do iwf=-iwfmax_small,iwfmax_small-1
@@ -283,7 +283,7 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
      enddo
      close(50)
 
-     if (.not. k_path_eom) then
+     if (nonlocal .and. .not. k_path_eom) then
        open(46, file=trim(output_dir)//"g_loc_full.dat", status='unknown')
        write(46,'(A)') '# wf, (real(giw_dga_loc(wf,i,j)), imag(giw_dga_loc(wf,i,j))) [j=i,ndim] [i=1,ndim]'
        do iwf=-iwmax,iwmax-1
@@ -294,7 +294,7 @@ subroutine output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, 
    endif
 
    ! If we only run the dfmt part, then it is highly likely that we want to compare sig_dmft_rep to the original data.
-   if ((debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) .or. (verbose .and. (index(verbstr,"Dmft") .ne. 0))) then
+   if (.not. nonlocal .or. (verbose .and. (index(verbstr,"Dmft") .ne. 0))) then
       open(44, file=trim(output_dir)//"siw_dmft_orig.dat", status='unknown')
       write(44,'(A)') '# wf, (real(siw_dmft(wf,i)), imag(siw_dmft(wf,i))) [i=1,ndim]'
       do iwf=-iwfmax_small,iwfmax_small-1

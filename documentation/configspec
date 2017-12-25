@@ -28,7 +28,9 @@ HkFile = (default = '')               # Wannier hamiltonian - optional
                                       # if not provided we extract it from the w2dynamics 1PFile
 VqFile = (default = '')               # V(q) file for fully non-local interactions - optional
                                       # currently only implemented for 1 impurity
-QDataFile = (default= '')             # Q-points text file for susc-path calculations -- see qpath_template - optional
+QDataFile = (default = '')            # Q-points text file for susc-path calculations -- see qpath_template - optional
+KDataFile = (default = '')            # K-points text file for k-path calculations -- same format as QDataFile
+                                      # this option only affects the EOM calculation
 
 k-grid = (default = 0 0 0)            # 3 integers seperated by a space (hamiltonian k-grid) - mandatory
 q-grid = (default = 0 0 0)            # 3 integers seperated by a space (calculation q-grid) - mandatory

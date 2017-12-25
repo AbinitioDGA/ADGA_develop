@@ -231,7 +231,8 @@ module hdf5_module
  
      ! read frequency range of one-particle quantities
      if (ounit .ge. 1) then
-       write(ounit,*) 'one particle quantities in ',filename_1p
+       write(ounit,*) 'one particle quantities in ',trim(filename_1p)
+       write(ounit,'(1X)')
      endif
      call h5fopen_f(filename_1p, h5f_acc_rdonly_f, file_id, err)
      call h5dopen_f(file_id, ".axes/iw", iw_id, err)
@@ -244,7 +245,8 @@ module hdf5_module
 
      ! read frequency range of full two-particle data
      if (ounit .ge. 1) then
-       write(ounit,*) 'two particle quantities in ',filename_vertex_sym
+       write(ounit,*) 'two particle quantities in ',trim(filename_vertex_sym)
+       write(ounit,'(1X)')
      endif
      call h5fopen_f(filename_vertex_sym, h5f_acc_rdonly_f, file_id, err)
      ! read fermionic Matsubara frequencies iwf:

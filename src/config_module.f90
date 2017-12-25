@@ -192,10 +192,13 @@ subroutine read_config(er,erstr)
 
   ! Make sure that we only use 1 q-point when we run with Onlydmft
   if (debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) then
-     ! Only local quantities
+     ! Only local quantities and overwrite everything else
      nqpx = 1
      nqpy = 1
      nqpz = 1
+     q_vol = .true.
+     q_path_susc =.false.
+     k_path_eom = .false.
   endif
 
   allocate(interaction(nineq))
