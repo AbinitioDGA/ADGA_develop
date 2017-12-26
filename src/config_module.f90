@@ -342,8 +342,8 @@ subroutine config_init(er,erstr)
   maxdim = ndim*ndim*2*iwfmax_small
   ndim2 = ndim*ndim
   if (chi0flag .and. do_chi) then
-    iwstart=min(-iwmax+iwbmax,-iwfmax_small)
-    iwstop=max(iwmax-iwbmax-1,iwfmax_small-1)
+    iwstart=-iwmax+iwbmax_small ! we have a config check for the previous min statement now
+    iwstop=iwmax-iwbmax_small-1 ! same here for the previous max statement
   else
     iwstart=-iwfmax_small
     iwstop=iwfmax_small-1
@@ -399,7 +399,7 @@ subroutine finalize()
 end subroutine finalize
 
 
-subroutine check_freq_range(mpi_wrank,master,er)
+subroutine check_freq_range(er)
   implicit none
   integer :: mpi_wrank, master, er
 
@@ -443,6 +443,7 @@ subroutine check_freq_range(mpi_wrank,master,er)
       write(ounit,*) 'Error: N3iwb must be greater or equal to N4iwb'
       write(ounit,*) 'N3iwb=',n3iwb,'  N4iwb=',iwbmax_small
     end if
+    return
   end if
 
   if (n3iwf .lt. iwfmax_small .and. external_threelegs) then
@@ -451,16 +452,31 @@ subroutine check_freq_range(mpi_wrank,master,er)
       write(ounit,*) 'Error: N3iwf must be greater or equal to N4iwf'
       write(ounit,*) 'N3iwf=',n3iwf,'  N4iwf=',iwfmax_small
     end if
+    return
   end if
 
   if (n2iwb .lt. iwbmax_small .and. external_chi_loc) then
     er = 3
     if (ounit .gt. 0) then
-      write(ounit,*) 'Error: N2iwb must be greater or equal to N2iwb'
+      write(ounit,*) 'Error: N2iwb must be greater or equal to N4iwb'
       write(ounit,*) 'N2iwb=',n2iwb,'  N4iwb=',iwbmax_small
     end if
+    return
   end if
-  
+
+  ! in order to calculate the susceptibility (lower leg: v-w)
+  ! the DMFT frequency box has to be larger(>=) than
+  ! v_vertex + w_vertex, so that v_vertex - ( -w_vertex)
+  ! is still contained.
+  if (iwmax .lt. (iwfmax_small + iwbmax_small)) then
+    er = 4
+    if (ounit .gt. 0) then
+      write(ounit,*) 'Error: N1iwf must be greater than N4iwf + N4iwb'
+      write(ounit,*) 'N1iwf=',iwmax,'  N4iwf=',iwfmax_small,'  N4iwb=',iwbmax_small
+    endif
+    return
+  endif
+
 end subroutine check_freq_range
 
 

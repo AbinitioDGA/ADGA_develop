@@ -131,7 +131,7 @@ program main
 
 ! read bosonic and fermionic Matsubara axes of one- and two-particle data
   call get_freq_range(iwmax,iwfmax,iwbmax,n3iwf,n3iwb,n2iwb)
-  call check_freq_range(mpi_wrank,master,er)
+  call check_freq_range(er)
   if (er .ne. 0) call mpi_stop('Frequency range error.')
 
 ! after frequencies and dimensions are obtained, arrays can be allocated 
