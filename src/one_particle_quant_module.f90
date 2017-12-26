@@ -2,7 +2,7 @@ module one_particle_quant_module
   use lapack_module
   use parameters_module
   use aux
-  use mpi_org, only: mpi_wrank,master
+  use mpi_org, only: mpi_wrank,master,mpi_stop
   implicit none
 
   contains
@@ -16,6 +16,8 @@ subroutine get_giw()
   integer :: ik, iw, i
   complex(kind=8) :: g(ndim,ndim), g2(ndim,ndim)
   complex(kind=8),parameter :: ci = (0d0,1d0)
+  integer :: er
+  character(len=200) :: erstr
 
   giw = 0.d0
   do ik=1,nkp
@@ -28,7 +30,8 @@ subroutine get_giw()
            g(i,i) = g(i,i)-siw(iw,i) !no spin dependence in single particle Greens function
         enddo
         g2 = g(:,:)
-        call inverse_matrix(g2)
+        call inverse_matrix(g2,erstr,er)
+        if (er .ne. 0) call mpi_stop(erstr,er)
         do i=1,ndim
            giw(iw,i) = giw(iw,i)+g2(i,i)
         enddo
@@ -55,6 +58,8 @@ subroutine get_gkiw(ikq, iwf, iwb, gkiw)
   integer :: iwf, iwb, ikq
   complex(kind=8), intent(out) :: gkiw(ndim,ndim)
   complex(kind=8),parameter :: ci = (0d0,1d0)
+  integer :: er
+  character(len=200) :: erstr
 
 
   gkiw(:,:) = -hk(:,:,ikq)
@@ -64,7 +69,8 @@ subroutine get_gkiw(ikq, iwf, iwb, gkiw)
   do i=1,ndim
   gkiw(i,i) = gkiw(i,i)-siw(iwf-iwb,i)
   enddo
-  call inverse_matrix(gkiw)
+  call inverse_matrix(gkiw,erstr,er)
+  if (er .ne. 0) call mpi_stop(erstr,er)
 
 
 end subroutine get_gkiw
@@ -78,13 +84,16 @@ subroutine get_gkiw_dga(ik, iwf, skiw, gkiw)
   complex(kind=8), intent(in) :: skiw(ndim,ndim)
   complex(kind=8), intent(out) :: gkiw(ndim,ndim)
   complex(kind=8),parameter :: ci = (0d0,1d0)
+  integer :: er
+  character(len=200) :: erstr
 
 
   gkiw(:,:) = -hk(:,:,ik)-skiw(:,:)
   do i=1,ndim
      gkiw(i,i) = ci*iw_data(iwf)+mu-hk(i,i,ik)-dc(1,i)-skiw(i,i)
   enddo
-  call inverse_matrix(gkiw)
+  call inverse_matrix(gkiw,erstr,er)
+  if (er .ne. 0) call mpi_stop(erstr,er)
 
 end subroutine get_gkiw_dga
 
@@ -101,6 +110,9 @@ subroutine get_sigma_g_loc(sigma_sum, sigma_loc, gloc)
   integer :: ik, iw, i
   complex(kind=8) :: g(ndim,ndim), g2(ndim,ndim)
   complex(kind=8),parameter :: ci = (0d0,1d0)
+
+  integer :: er
+  character(len=200) :: erstr
 
   ! k-summed dga self-energy
   sigma_loc = 0.d0
@@ -119,7 +131,8 @@ subroutine get_sigma_g_loc(sigma_sum, sigma_loc, gloc)
            g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)-sigma_sum(i,i,iw,ik)
         enddo
         g2 = g(:,:)
-        call inverse_matrix(g2)
+        call inverse_matrix(g2,erstr,er)
+        if (er .ne. 0) call mpi_stop(erstr,er)
         gloc(iw,:,:) = gloc(iw,:,:)+g2(:,:)
      enddo
 
@@ -130,7 +143,8 @@ subroutine get_sigma_g_loc(sigma_sum, sigma_loc, gloc)
            g(i,i) = ci*iw_data(iw)+mu-hk(i,i,ik)-dc(1,i)-siw(iw,i)
         enddo
         g2 = g(:,:)
-        call inverse_matrix(g2)
+        call inverse_matrix(g2,erstr,er)
+        if (er .ne. 0) call mpi_stop(erstr,er)
         gloc(iw,:,:) = gloc(iw,:,:)+g2(:,:)
      enddo
 
@@ -192,6 +206,9 @@ subroutine accumulate_chi0(ik, ikq, iwf, iwb, chi0)
   complex(KIND=8) :: c
   complex(kind=8),parameter :: ci = (0d0,1d0)
 
+  integer :: er
+  character(len=200) :: erstr
+
   g1(:,:) = -hk(:,:,ik)
   do i=1,ndim
      g1(i,i) = ci*iw_data(iwf)+mu-hk(i,i,ik)-dc(1,i)-siw(iwf,i)
@@ -205,7 +222,8 @@ subroutine accumulate_chi0(ik, ikq, iwf, iwb, chi0)
   else if (ndim .eq. 3) then
     call inverse_matrix_3(g1)
   else
-    call inverse_matrix(g1)
+    call inverse_matrix(g1,erstr,er)
+    if (er .ne. 0) call mpi_stop(erstr,er)
   end if
 
   g2(:,:) = -hk(:,:,ikq)
@@ -220,7 +238,8 @@ subroutine accumulate_chi0(ik, ikq, iwf, iwb, chi0)
   else if (ndim .eq. 3) then
     call inverse_matrix_3(g2)
   else
-    call inverse_matrix(g2)
+    call inverse_matrix(g2,erstr,er)
+    if (er .ne. 0) call mpi_stop(erstr,er)
   end if
 
   ! Accumulate chi0

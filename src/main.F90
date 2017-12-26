@@ -600,8 +600,10 @@ end if
          bigwork_magn(i,i) = bigwork_magn(i,i) + 1d0
       enddo
 
-      call inverse_matrix(bigwork_dens)
-      call inverse_matrix(bigwork_magn)
+      call inverse_matrix(bigwork_dens,erstr,er)
+      if (er .ne. 0) call mpi_stop(erstr,er)
+      call inverse_matrix(bigwork_magn,erstr,er)
+      if (er .ne. 0) call mpi_stop(erstr,er)
 
       ! We need to subtract the identity before the multiplication from the left with (1 + gamma^w): 
       do i=1,maxdim

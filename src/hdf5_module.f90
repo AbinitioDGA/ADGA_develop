@@ -782,11 +782,6 @@ subroutine read_threeleg(gamma_loc_qmc,channel,iwb)
   p3_dims=(/2*n3iwf/)
   ind_iwb=iwb+n3iwb
 
-
-  if (ind_iwb .lt. 0) then
-    stop 'ind_iwb has to be zero or positive in subroutine read_threelegs'
-  end if
-
   gamma_loc_qmc=0.d0
   gamma_loc_qmc_tmp=0.d0
 
