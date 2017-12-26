@@ -921,11 +921,14 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
           chi_loc_qmc(i1,i2,:) = chi_loc_qmc_tmp(i,j,l,k,:)
           ! since this data comes from qmc we have to extend the bubble so we get the lattice susc bubble
           if(extend_chi_bubble .and. (.not. index2cor(nineq,ndims,i,j,k,l))) then ! add bubble term only if not in the same correlated subspace
-            do iwb = -iwbmax_small, iwbmax_small
-              do iwf = -iwmax+iwbmax_small,iwmax-iwbmax_small-1
-                chi_loc_qmc(i1,i2,iwb) = chi_loc_qmc(i1,i2,iwb)-giw(iwf,i)*giw(iwf-iwb,j)/beta
+            if ((i .eq. l) .and. (j .eq. k)) then ! local propagators -> orbital diagonal
+              do iwb = -iwbmax_small, iwbmax_small
+                do iwf = -iwmax+iwbmax_small,iwmax-iwbmax_small-1
+                  chi_loc_qmc(i1,i2,iwb) = chi_loc_qmc(i1,i2,iwb)-giw(iwf,i)*giw(iwf-iwb,j)/beta
+                  ! -beta from susceptibility; 1/beta**2 from summation
+                enddo
               enddo
-            enddo
+            endif
           endif
         end do
       end do
