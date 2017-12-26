@@ -78,20 +78,34 @@ end subroutine read_vq
 
 !========================================================================================================
 ! read a umatrix file with all possible leg combinations
-subroutine read_u(u, u_tilde)
+subroutine read_u(u, u_tilde, er, erstr)
   implicit none
-  real(kind=8) :: u_tmp(ndim,ndim,ndim,ndim), u_tilde_tmp(ndim,ndim,ndim,ndim)
-  real(kind=8) :: u_value
-  complex(kind=8), intent(out) :: u(ndim**2, ndim**2), u_tilde(ndim**2, ndim**2)
-  integer :: n,i,j,k,l,i1,i2
+  complex(kind=8), intent(out)  :: u(ndim**2, ndim**2), u_tilde(ndim**2, ndim**2)
+  integer, intent(out)          :: er
+  character(len=*), intent(out) :: erstr
 
+  real(kind=8)                  :: u_tmp(ndim,ndim,ndim,ndim), u_tilde_tmp(ndim,ndim,ndim,ndim)
+  real(kind=8)                  :: u_value
+  integer                       :: n,i,j,k,l,i1,i2,io
 
+  er = 0
   open(21,file=filename_umatrix,status='old')
-  read(21,*)
+
+  read(21,*,iostat=io) ! there is nothing that can go wrong here
   do n=1,ndim**4
-     read(21,*) i, j, k, l, u_value
-     u_tmp(i,j,k,l) = u_value
-     u_tilde_tmp(i,j,l,k) = u_value
+    read(21,*,iostat=io) i, j, k, l, u_value
+    if (io .gt. 0) then
+      er = 1
+      erstr = 'Error: Unknown error in Umatrix readin; File: '//trim(filename_umatrix)
+      return
+    elseif (io .lt. 0) then
+      er = 2
+      erstr = 'Error: Premature EOF reached in Umatrix readin; File: '//trim(filename_umatrix)
+      return
+    else
+      u_tmp(i,j,k,l) = u_value
+      u_tilde_tmp(i,j,l,k) = u_value
+    endif
   enddo
   close(21)
 

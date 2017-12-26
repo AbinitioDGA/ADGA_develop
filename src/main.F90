@@ -186,7 +186,8 @@ program main
       write(ounit,*) 'Reading the U matrix from file.'
       write(ounit,*) 'U matrix in ', filename_umatrix
     endif
-    call read_u(u,u_tilde)
+    call read_u(u,u_tilde,er,erstr)
+    if (er .ne. 0) call mpi_stop(erstr, er)
   else
     if (ounit .ge. 1) write(ounit,*) 'Creating U matrix from input parameters.'
     call create_u(u,u_tilde)
