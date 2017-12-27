@@ -1,4 +1,4 @@
-all: binR abinitiodga make_config 
+all: binR abinitiodga make_config
 
 make_config:
 	cd make_configs/;./make_config_auto.sh
@@ -20,3 +20,6 @@ pristine: make_config
 	cd testsuit/; make pristine
 	cd src/; make pristine
 	rmdir bin
+
+ctags:
+	ctags -R --exclude=documentation --exclude=src/deprecated
