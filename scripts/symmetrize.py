@@ -31,6 +31,14 @@ def component2index_band(Nbands, N, b):
      ind = ind + Nbands**(N-i-1)*b[i]
   return ind
 
+# for convenience and checking
+def index2component_band(Nbands, N, ind):
+  b=[]; ind = ind-1
+  for i in xrange(N):
+    b.append(ind//(Nbands**(N-i-1)))
+    ind = ind - b[i]*(Nbands**(N-i-1))
+  return b
+
 def ask_for_input():
   conf={}
   print "Which quantity do you want to symmetrize?"
@@ -87,11 +95,14 @@ def get_groups(infile='infile.hdf5',Nbands=[1],target=1,nineq=1,**kwargs):
   conf['groups']=groups
   conf['bgroups']=bgroups
 
-def check_sym(nineq,Nbands,sym):
+def check_sym(**kwargs):
+  nineq = kwargs['nineq']
+  Nbands = kwargs['Nbands']
+  sym = kwargs['sym']
   for ineq in xrange(nineq):
     for i in xrange(Nbands[ineq]):
       for j in sym[ineq][i]:
-        if (set(sym[ineq][i]) != set(sym[ineq][j])):
+        if (set(sym[ineq][i]) != set(sym[ineq][j-1])):
           print 'orbital symmetry not consistent!'
           sys.exit()
 
@@ -163,31 +174,31 @@ def get_symgroups(ch,gr,sy,nd,**kwargs):
 
   b1,b2,b3,b4=gr['bands']
   symgroups=[]
-  if len(sy[b1])==1 or len(sy[b2])==1 or len(sy[b3])==1 or len(sy[b4])==1:
+  if len(sy[b1])==1 and len(sy[b2])==1 and len(sy[b3])==1 and len(sy[b4])==1:
     symgroups.append(component2index_band(nd,4,gr['bands'])) # only su(2)
   else:
     if b1==b2 and b1==b3 and b1==b4:
-      for i in sy[b1]: # we made sure that the symmetric bands are contained in every band index
-        i-=1
+      for i in sy[b1]:
+        i-=1 # because it comes from the user input where we start at 1
         symgroups.append(component2index_band(nd,4,[i,i,i,i]))
     elif b1==b2 and b3==b4 and b2!=b3:
       for i in sy[b1]:
         i-=1
-        for j in sy[b1]:
+        for j in sy[b3]:
           j-=1
           if i!=j:
             symgroups.append(component2index_band(nd,4,[i,i,j,j]))
     elif b1==b3 and b2==b4 and b1!=b2:
       for i in sy[b1]:
         i-=1
-        for j in sy[b1]:
+        for j in sy[b2]:
           j-=1
           if i!=j:
             symgroups.append(component2index_band(nd,4,[i,j,i,j]))
     elif b1==b4 and b2==b3 and b1!=b2:
       for i in sy[b1]:
         i-=1
-        for j in sy[b1]:
+        for j in sy[b2]:
           j-=1
           if i!=j:
             symgroups.append(component2index_band(nd,4,[i,j,j,i]))
@@ -244,7 +255,7 @@ conf=ask_for_input()
 #conf={'nineq': 1, 'target': '3freq', 'sym_type': 'o', 'outfile': 'out.hdf5', 'Nbands': [3,3], 'infile': 'vertex_full_newformat.hdf5'}
 print conf
 
-check_sym(conf['nineq'],conf['Nbands'],conf['sym'])
+check_sym(**conf)
 get_groups(**conf)
 get_fbox(**conf)
 
@@ -258,7 +269,9 @@ for ineq in xrange(conf['nineq']):
       for gr in conf['groups'][ineq]:
         action,symgroups=get_symgroups(ch,gr,conf['sym'][ineq],conf['Nbands'][ineq],**conf)
         print 'group {},'.format(gr['group']),'channel: {},'.format(ch),'action: {},'.format(action),'{} equivaluent band groups:'.format(len(symgroups)),symgroups
-        # read_and_add(f1,f2,ineq,gr['group'],ch,action,symgroups,**conf)
+        read_and_add(f1,f2,ineq,gr['group'],ch,action,symgroups,**conf)
+        for i in symgroups:
+           print index2component_band(conf['Nbands'][ineq],4, i)
 
 f1.close()
 f2.close()
