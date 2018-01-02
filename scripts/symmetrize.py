@@ -61,13 +61,13 @@ def ask_for_input():
   conf['sym'] = []
   Nbands = []
   for ineq in xrange(nineq):
-    print '  Impurity {}:'.format(ineq+1)
+    print '  Atom {}:'.format(ineq+1)
     conf['sym'].append([])
     Nbands.append(int(raw_input('    Number of correlated bands: ')))
     for i in xrange(Nbands[ineq]):
       conf['sym'][ineq].append(map(int,raw_input('    Band {}: symmetric bands (seperated by spaces): '.format(i+1)).split()))
   conf['Nbands']=Nbands
-  filename_sym=raw_input('Outputfile for symmetrized Vertex: ')
+  filename_sym=raw_input('Outputfile for symmetrized data: ')
   conf['outfile']=filename_sym
   return conf
 
