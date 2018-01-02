@@ -3,6 +3,7 @@
 import h5py
 import numpy as np
 import sys
+from shutil import copyfile
 
 # not very pythonic utility function to unravel the band-spin compound index
 def index2component_general(Nbands, N, ind):
@@ -33,18 +34,20 @@ def component2index_band(Nbands, N, b):
 
 # for convenience and checking
 def index2component_band(Nbands, N, ind):
-  b=[]; ind = ind-1
+  b=[]; ind_tmp = ind - 1
   for i in xrange(N):
-    b.append(ind//(Nbands**(N-i-1)))
-    ind = ind - b[i]*(Nbands**(N-i-1))
+    b.append(ind_tmp//(Nbands**(N-i-1)))
+    ind_tmp = ind_tmp - b[i]*(Nbands**(N-i-1))
   return b
 
 def ask_for_input():
   conf={}
   print "Which quantity do you want to symmetrize?"
-  targ=int(raw_input("1 -> 1 frequency (b), 2 -> 2 frequencies (fb), 3 -> 3 frequencies (ffb): "))
+  targ=int(raw_input("0 -> 1 frequency (f), 1 -> 1 frequency (b), 2 -> 2 frequencies (fb), 3 -> 3 frequencies (ffb): "))
+  if targ==0:
+    conf['target']='1freq_f'
   if targ==1:
-    conf['target']='1freq'
+    conf['target']='1freq_b'
   elif targ==2:
     conf['target']='2freq'
   elif targ==3:
@@ -73,7 +76,7 @@ def get_groups(infile='infile.hdf5',Nbands=[1],target=1,nineq=1,**kwargs):
   bgroups=[]
   for ineq in xrange(nineq):
     f=h5py.File(infile,'r')
-    if target=='1freq':
+    if target=='1freq_b':
       gr_str=f['ineq-{:03}'.format(ineq+1)].keys()
     elif target=='2freq':
       gr_str=f['ineq-{:03}'.format(ineq+1)].keys()
@@ -108,7 +111,7 @@ def check_sym(**kwargs):
 
 def get_fbox(infile=None,target=None,**kwargs):
   f=h5py.File(infile,'r')
-  if target=='1freq':
+  if target=='1freq_b':
     n2iwb=f['ineq-001/00001'].shape[0]
     print n2iwb
     conf['n2iwb']=n2iwb//2
@@ -132,7 +135,7 @@ def initialize_output(f1,h5f,bgroups=None,nineq=None,n2iwb=None,n3iwf=None,n3iwb
     dset_dens=dset_ineq.create_group('dens')
     dset_magn=dset_ineq.create_group('magn')
 
-    if target=='1freq':
+    if target=='1freq_b':
       for bgr in [d['bgroup'] for d in bgroups[ineq]]:
         dset_dens['{:05}'.format(bgr)]=np.zeros((2*n2iwb+1),dtype=np.complex128)
         dset_magn['{:05}'.format(bgr)]=np.zeros((2*n2iwb+1),dtype=np.complex128)
@@ -214,7 +217,7 @@ def read_and_add(h5in,h5out,ineq,igr,channel,action,symgroups,target=None,n3iwb=
     print 'unkown channel'
     sys.exit()
 
-  if target=='1freq':
+  if target=='1freq_b':
     x = h5in['ineq-{:03}/{:05}'.format(ineq+1,igr)].value/float(prefactor*len(symgroups))
     for gr in symgroups:
       if action=='+':
@@ -254,24 +257,40 @@ def read_and_add(h5in,h5out,ineq,igr,channel,action,symgroups,target=None,n3iwb=
 conf=ask_for_input()
 #conf={'nineq': 1, 'target': '3freq', 'sym_type': 'o', 'outfile': 'out.hdf5', 'Nbands': [3,3], 'infile': 'vertex_full_newformat.hdf5'}
 print conf
-
 check_sym(**conf)
-get_groups(**conf)
-get_fbox(**conf)
-
 f1=h5py.File(conf['infile'],'r')
-f2=h5py.File(conf['outfile'],'w')
 
-initialize_output(f1,f2,**conf)
+if conf['target']=='1freq_f': # we do this completely seperate since we only have to do sume numpy magic
+  copyfile(conf['infile'],conf['outfile'])
+  f2=h5py.File(conf['outfile'],'r+')
+  for ineq in xrange(conf['nineq']):
+    f2['dmft-last/ineq-{:03}/giw_unsymmetrized'.format(ineq+1)] = f2['dmft-last/ineq-{:03}/giw'.format(ineq+1)]
+    del f2['dmft-last/ineq-{:03}/giw'.format(ineq+1)]
+    f2['dmft-last/ineq-{:03}/giw/value'.format(ineq+1)] = np.zeros_like(f2['dmft-last/ineq-{:03}/giw_old/value'.format(ineq+1)], dtype=np.complex128)
+    f2['dmft-last/ineq-{:03}/siw_unsymmetrized'.format(ineq+1)] = f2['dmft-last/ineq-{:03}/siw'.format(ineq+1)]
+    del f2['dmft-last/ineq-{:03}/siw'.format(ineq+1)]
+    f2['dmft-last/ineq-{:03}/siw/value'.format(ineq+1)] = np.zeros_like(f2['dmft-last/ineq-{:03}/siw_old/value'.format(ineq+1)], dtype=np.complex128)
+    for band in xrange(conf['Nbands'][ineq]):
+      for symband in conf['sym'][ineq][band]:
+        f2['dmft-last/ineq-{:03}/giw/value'.format(ineq+1)][band,:,:] += \
+          np.mean(f2['dmft-last/ineq-{:03}/giw_unsymmetrized/value'.format(ineq+1)][symband-1,:,:]/float(len(conf['sym'][ineq][band])), axis=0)
+        f2['dmft-last/ineq-{:03}/siw/value'.format(ineq+1)][band,:,:] += \
+          np.mean(f2['dmft-last/ineq-{:03}/siw_unsymmetrized/value'.format(ineq+1)][symband-1,:,:]/float(len(conf['sym'][ineq][band])), axis=0)
+  f2.close()
+else: # 1freq_b, 2freq, 3freq
+  get_groups(**conf)
+  get_fbox(**conf)
+  f2=h5py.File(conf['outfile'],'w-')
+  initialize_output(f1,f2,**conf)
 
-for ineq in xrange(conf['nineq']):
-  for ch in ['dens','magn']:
-      for gr in conf['groups'][ineq]:
-        action,symgroups=get_symgroups(ch,gr,conf['sym'][ineq],conf['Nbands'][ineq],**conf)
-        print 'group {},'.format(gr['group']),'channel: {},'.format(ch),'action: {},'.format(action),'{} equivaluent band groups:'.format(len(symgroups)),symgroups
-        read_and_add(f1,f2,ineq,gr['group'],ch,action,symgroups,**conf)
-        for i in symgroups:
-           print index2component_band(conf['Nbands'][ineq],4, i)
+  for ineq in xrange(conf['nineq']):
+    for ch in ['dens','magn']:
+        for gr in conf['groups'][ineq]:
+          action,symgroups=get_symgroups(ch,gr,conf['sym'][ineq],conf['Nbands'][ineq],**conf)
+          print 'group {},'.format(gr['group']),'channel: {},'.format(ch),'action: {},'.format(action),'{} equivaluent band groups:'.format(len(symgroups)),symgroups
+          read_and_add(f1,f2,ineq,gr['group'],ch,action,symgroups,**conf)
+          for i in symgroups:
+             print index2component_band(conf['Nbands'][ineq],4, i)
+  f2.close()
 
 f1.close()
-f2.close()
