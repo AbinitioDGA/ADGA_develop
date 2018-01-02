@@ -358,14 +358,14 @@ module hdf5_module
      complex(kind=8),parameter :: ci = (0d0,1d0)
 
      siw=0.d0
-   
+
      do ineq=1,nineq
        dimstart=1
        do i=2,ineq
          dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
        enddo
        dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
-   
+
        write(name_buffer,'("ineq-",I3.3)') ineq
        ! read siw:
        ! local self energy - only for interacting orbitals == d
@@ -376,18 +376,18 @@ module hdf5_module
        ! ndims = siw_dims(3)
        allocate(siw_data(2,-iwmax:iwmax-1,siw_dims(2),siw_dims(3))) !indices: real/imag iw spin band
        call h5dread_f(siw_id, compound_id, siw_data, siw_dims, err)
-   
+
        !paramagnetic (spin average):
        do i=dimstart,dimend
          siw(:,i) = siw_data(1,:,1,i-dimstart+1)+&
                     siw_data(1,:,2,i-dimstart+1)+ci*siw_data(2,:,1,i-dimstart+1)+ci*siw_data(2,:,2,i-dimstart+1)
          siw(:,i) = siw(:,i)/2.d0
        enddo
-   
+
        call h5dclose_f(siw_id, err)
        call h5fclose_f(file_id,err)
        deallocate(siw_data)
-   
+
        if (orb_sym) then
           ! enforce orbital symmetry:
           do iband=dimstart+1,dimend
@@ -399,14 +399,14 @@ module hdf5_module
           enddo
        endif
      enddo ! loop over inequivalent atoms
-   
+
      ! test siw:
      ! open(34, file=trim(output_dir)//"siw.dat", status='unknown')
      ! do iw=-iwmax,iwmax-1
      !    write(34,'(100F12.6)') iw_data(iw), (real(siw(iw,i)),aimag(siw(iw,i)), i=1,ndim)
      ! enddo
      ! close(34)
-   
+
 
  end subroutine read_siw
 
@@ -421,14 +421,14 @@ module hdf5_module
      complex(kind=8),parameter :: ci = (0d0,1d0)
 
      giw=0.d0
-   
+
      do ineq=1,nineq
        dimstart=1
        do i=2,ineq
          dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
        enddo
-       dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1 ! here we are only interested in the interacting orbitals
-   
+       dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
+
        write(name_buffer,'("ineq-",I3.3)') ineq
        !read giw
        call h5fopen_f(filename_1p, h5f_acc_rdonly_f, file_id, err)
@@ -437,47 +437,28 @@ module hdf5_module
        call h5sget_simple_extent_dims_f(giw_space_id, giw_dims, giw_maxdims, err)
        allocate(giw_data(2,-iwmax:iwmax-1,giw_dims(2),giw_dims(3))) !indices: real/imag iw spin band
        call h5dread_f(giw_id, compound_id, giw_data, giw_dims, err)
-   
+
        !paramagnetic:
        do i=dimstart,dimend
          giw(:,i) = giw_data(1,:,1,i-dimstart+1)+&
                     giw_data(1,:,2,i-dimstart+1)+ci*giw_data(2,:,1,i-dimstart+1)+ci*giw_data(2,:,2,i-dimstart+1)
          giw(:,i) = giw(:,i)/2.d0
        enddo
-   
+
        call h5dclose_f(giw_id, err)
        call h5fclose_f(file_id,err)
        deallocate(giw_data)
-   
-   
+
        if (orb_sym) then
-       ! enforce orbital symmetry:
-           ! here we need to enforce symmetry over one type of band specifically
-           dimstart=1
-           do i=2,ineq
-             dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
-           enddo
-   
-           do i=1,2 ! d and p bands
-             if (ndims(ineq,i) .eq. 0) cycle ! do nothing
-             if (i .eq. 1) then
-               dimend = dimstart+ndims(ineq,1)-1
-             endif
-             if (i .eq. 2) then
-               dimend = dimstart+ndims(ineq,1)+ndims(ineq,2)-1
-               dimstart = dimend-ndims(ineq,2)+1
-             endif
-   
-             do iband=dimstart+1,dimend
-               giw(:,dimstart) = giw(:,dimstart)+giw(:,iband)
-             enddo
-             giw(:,dimstart)=giw(:,dimstart)/dble(dimend-dimstart+1)
-             do iband=dimstart+1,dimend
-               giw(:,iband) = giw(:,dimstart)
-             enddo
-           enddo
+          ! enforce orbital symmetry:
+          do iband=dimstart+1,dimend
+             giw(:,dimstart) = giw(:,dimstart)+giw(:,iband)
+          enddo
+          giw(:,dimstart)=giw(:,dimstart)/dble(dimend-dimstart+1)
+          do iband=dimstart+1,dimend
+             giw(:,iband) = giw(:,dimstart)
+          enddo
        endif
-   
      enddo ! inequivalent atom loop
 
   ! test giw:
@@ -650,7 +631,7 @@ subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
     do i=2,ineq
       dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
     enddo
-    dimend=dimstart+ndims(ineq,1)+ndims(ineq,2)-1
+    dimend=dimstart+ndims(ineq,1)-1
 
     call h5open_f(err)
     call h5fopen_f(filename_vertex_sym, h5f_acc_rdonly_f, file_vert_id, err)
