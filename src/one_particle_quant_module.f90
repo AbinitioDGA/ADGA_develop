@@ -316,7 +316,7 @@ end subroutine get_nfock
 subroutine get_ndga(sigma_sum)
   implicit none
   integer :: ik,iw,i
-  complex(kind=8), intent(in) :: sigma_sum(ndim,ndim,-iwfmax_small:iwfmax_small-1, nkp)
+  complex(kind=8), intent(in) :: sigma_sum(ndim,ndim,-iwfmax_small:iwfmax_small-1, nkp_eom)
   complex(kind=8) :: gkiw(ndim,ndim)
   complex(kind=8) :: skiw(ndim,ndim)
 
@@ -325,9 +325,9 @@ subroutine get_ndga(sigma_sum)
   n_dga_k = 0.d0
   n_dga = 0.d0
   gkiw = 0.d0
-  do ik=1,nkp
+  do ik=1,nkp_eom
      do iw=0,iwfmax_small-1
-        call get_gkiw_dga(ik, iw, sigma_sum(:,:,iw,ik), gkiw)
+        call get_gkiw_dga(k_data_eom(ik), iw, sigma_sum(:,:,iw,ik), gkiw)
         n_dga_k(ik,:,:) = n_dga_k(ik,:,:)+real(gkiw(:,:))
      enddo
      do iw=iwfmax_small,iwmax-1
@@ -335,7 +335,7 @@ subroutine get_ndga(sigma_sum)
         do i=1,ndim
           skiw(i,i) = siw(iw,i) ! orbital diagonal
         enddo
-        call get_gkiw_dga(ik, iw, skiw(:,:), gkiw)
+        call get_gkiw_dga(k_data_eom(ik), iw, skiw(:,:), gkiw)
         n_dga_k(ik,:,:) = n_dga_k(ik,:,:)+real(gkiw(:,:))
      enddo
      n_dga_k(ik,:,:) = 2.d0*n_dga_k(ik,:,:)/beta
@@ -345,20 +345,23 @@ subroutine get_ndga(sigma_sum)
      enddo
   enddo
 
-  n_dga = n_dga/dble(nkp)
+  n_dga = n_dga/dble(nkp_eom)
 
   if (mpi_wrank .eq. master .and. text_output) then
     open(110, file=trim(output_dir)//"n_dga_k.dat", status='unknown')
     write(110,*)  '# ik, kx, ky, kz, n_dga(k,i,i) [i=1,ndim]'
-    do ik=1,nkp
-      write(110,'(I8,100F12.6)') ik, k_data(1,ik),k_data(2,ik),k_data(3,ik), (real(n_dga_k(ik,i,i)),i=1,ndim)
+    do ik=1,nkp_eom
+      write(110,'(I8,100F12.6)') ik, k_data(1,k_data_eom(ik)), k_data(2,k_data_eom(ik)), &
+        k_data(3,k_data_eom(ik)), (real(n_dga_k(ik,i,i)),i=1,ndim)
     enddo
     close(110)
 
-    open(111, file=trim(output_dir)//"n_dga.dat", status='unknown')
-    write(111,*) '# n_dga(i,i) [i=1,ndim]'
-    write(111,'(100F12.6)') (real(n_dga(i)),i=1,ndim)
-    close(111)
+    if (.not. k_path_eom) then
+      open(111, file=trim(output_dir)//"n_dga.dat", status='unknown')
+      write(111,*) '# n_dga(i,i) [i=1,ndim]'
+      write(111,'(100F12.6)') (real(n_dga(i)),i=1,ndim)
+      close(111)
+    endif
   endif
 end subroutine get_ndga
 

@@ -27,7 +27,7 @@ program main
   complex(kind=8), allocatable :: chi_qw_dens(:,:,:),chi_qw_magn(:,:,:),bubble_nl(:,:,:),chi_qw_full(:,:,:)
   complex(kind=8), allocatable :: chi_loc_dens(:,:,:),chi_loc_magn(:,:,:),bubble_loc(:,:,:),bubble_loc_tmp(:,:)
   complex(kind=8), allocatable :: chi_loc_qmc(:,:,:)
-  integer, allocatable :: kq_ind(:,:), qw(:,:)
+  integer, allocatable :: kq_ind(:,:), qw(:,:), kq_ind_eom(:,:)
   complex(kind=8), allocatable :: bigwork_magn(:,:), etaqd(:,:), etaqm(:,:), rectanglework(:,:)
   complex(kind=8), allocatable :: smallwork(:,:), bigwork_dens(:,:)
   real(kind=8 ):: start, finish
@@ -96,7 +96,7 @@ program main
 #ifdef MPI
     call mpi_get_processor_name(hostname,i,j)
 #endif
-    write(ounit,*)
+    write(ounit,'(1X)')
     write(ounit,*)                        '/------------------------------------------------------------------\'
     write(ounit,*)                        '|  Ab initio dynamical vertex approximation program (abinitiodga)  |'
 #ifdef MPI
@@ -109,9 +109,10 @@ program main
     write(ounit,'(" | ",10x,a,23x,a,14x,"|")') trim(time),trim(date)
 #endif
     write(ounit,*)                        '\------------------------------------------------------------------/'
-    write(ounit,*)
+    write(ounit,'(1X)')
     if (verbose) write(ounit,*) "Verbose string: ",trim(ADJUSTL(verbstr))
     if (debug) write(ounit,*)   "Debug string:   ",trim(ADJUSTL(dbgstr))
+    if (verbose .or. debug) write(ounit,'(1X)')
   end if
 
 
@@ -169,11 +170,13 @@ program main
   ! The calculation is necessary if one wants to do calculations with p-bands
   ! since read_giw reads the giw array which only ! contains correlated bands
   call read_siw()  ! w2d self energy
+
+  write(ounit,'(1X)')
   if(exist_p .or. (debug .and. (index(dbgstr,"Makegiw") .ne. 0))) then
-    if (ounit .ge. 1) write(ounit,*) 'Constructig giw from siw. (The QMC self-energy + Ham.hk) '
+    if (ounit .ge. 1) write(ounit,*) 'Constructig giw from siw. (The QMC self-energy + Ham.hk)'
     call get_giw() ! writes giw_calc.dat if we have the verbose keyword "Dmft"
   else
-    if (ounit .ge. 1) write(ounit,*) "Reading giw from file. (The QMC green's function) "
+    if (ounit .ge. 1) write(ounit,*) "Reading giw from file. (The QMC green's function)"
     call read_giw()  ! w2d greens function G_dmft
   endif
 
@@ -209,7 +212,28 @@ program main
     deallocate(Umat)
   endif
 
-  allocate(n_dmft(ndim), n_fock(nkp,ndim,ndim), n_dga(ndim), n_dga_k(nkp,ndim,ndim))
+  ! read in k-points or calculate eom on the full k-mesh
+  if (do_eom) then
+    if (k_path_eom) then
+      call kdata_from_file() ! defines nkp_eom and k_data_eom
+    else
+      nkp_eom = nkp
+      allocate(k_data_eom(nkp_eom))
+      do i=1,nkp_eom
+        k_data_eom(i) = i ! one-to-one mapping
+      enddo
+    endif
+  else
+    if (k_path_eom) then
+      if (ounit .ge. 1) write(ounit,*) 'Warning: KDataFile only affects eom calculations'
+    endif
+  endif
+
+  allocate(n_dmft(ndim), n_fock(nkp,ndim,ndim)) ! calculate the full n_dmft_k
+                                                ! we need all points because of V(q)
+  if (do_eom) then
+    allocate(n_dga(ndim), n_dga_k(nkp_eom,ndim,ndim))
+  endif
 
 !compute DMFT filling n_dmft
   call get_ndmft() ! writes n_dmft.dat if we have the verbose keyword "Dmft"
@@ -273,6 +297,7 @@ program main
                ' (number of fermionic matsubara frequencies of two-particle quantities)'
     write(ounit,*) 'iwbmax=',iwbmax, 'iwbmax_small=', iwbmax_small, &
                ' (number of bosonic matsubara frequencies of two-particle quantities)'
+    write(ounit,'(1x)')
     write(ounit,'(1x,"k-point information:")')
     write(ounit,*) nkp,'k-points in the mesh'
     if (q_vol) then
@@ -280,14 +305,30 @@ program main
     else
       write(ounit,*) nqp,'q-points in the q-path'
     end if
+    if (do_eom) then
+      if (k_path_eom) then
+        write(ounit,*) nkp_eom, 'k-points in the k-path for the eom calculation'
+      else
+        write(ounit,*) nkp_eom, 'k-points in the mesh for the eom calculation'
+      endif
+    endif
     write(ounit,'(1x)')
   end if
 
 
   ! calculate the index of all \vec{k} - \vec{q}
-  allocate(kq_ind(nkp,nqp))
+  allocate(kq_ind(nkp,nqp)) ! full k-grid -- for chi k summation
+  if (do_eom) then
+    allocate(kq_ind_eom(nkp_eom,nqp)) ! eom k-grid
+  endif
+
   call cpu_time(start)
   call index_kq(kq_ind) ! new method
+  if (k_path_eom) then
+    call index_kq_eom(kq_ind_eom)
+  else
+    kq_ind_eom = kq_ind
+  endif
   call cpu_time(finish)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Time") .ne. 0))) then
    write(ounit,*)'TIME: finding k-q index:', finish-start
@@ -339,7 +380,7 @@ end if
 
 if (do_eom) then
   allocate(gammaqd(ndim2,maxdim))
-  allocate(sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp), sigma_hf(ndim,ndim,nkp))
+  allocate(sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom), sigma_hf(ndim,ndim,nkp_eom))
   allocate(sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1))
   gammaqd = 0d0
   sigma_nl = 0d0
@@ -349,7 +390,7 @@ end if
 
 
 if (mpi_wrank.eq. master .and. (verbose .and. (index(verbstr,"Kpoints") .ne. 0))) then
-  open(unit=256,file=trim(output_dir)//'kdata',status='replace')
+  open(unit=256,file=trim(output_dir)//'kdata_ham',status='replace')
   write(256,*) '### kx(ik), ky(ik), kz(ik)'
   do ik=1,nkp
     write(256,*) k_data(:,ik)
@@ -361,13 +402,22 @@ if (mpi_wrank.eq. master .and. (verbose .and. (index(verbstr,"Kpoints") .ne. 0))
     write(266,*) k_data(:,q_data(iq))
   end do
   close(266)
+  if (do_eom) then
+    open(unit=267,file=trim(output_dir)//'kdata_eom',status='replace')
+    write(267,*) '### kx(iq), ky(iq), kz(iq)'
+    do ik=1,nkp_eom
+      write(267,*) k_data(:,k_data_eom(ik))
+    end do
+    close(267)
+  endif
 end if
 
 
   nonlocal = .not. (debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) ! Do the non-local quantities!
 
   if (mpi_wrank .eq. master) then
-    write(ounit,*) 'Writing hdf5 output to ',output_filename
+    write(ounit,'(1x)')
+    write(ounit,*) 'Writing hdf5 output to ',trim(output_filename)
     call init_h5_output(output_filename, nonlocal)
   end if
 
@@ -503,7 +553,7 @@ end if
    
      ! Calculate static quantities
      if (do_eom .and. iwb .eq. 0 .and. (iq .eq. 1 .or. do_vq)) then
-       call calc_eom_static(kq_ind,iq,v,sigma_dmft,sigma_hf,nonlocal)
+       call calc_eom_static(kq_ind_eom,iq,v,sigma_dmft,sigma_hf,nonlocal)
      endif
      ! Calculate local quantities
      if (do_eom .and. iq .eq. 1) call calc_eom_dmft(gammawd,gammawm,iwb,sigma_dmft)
@@ -518,7 +568,7 @@ end if
          ! compute k-summed (but still q-dependent) bubble chi0(i1,i2):
          chi0 = 0
          do ik=1,nkp
-            ikq = kq_ind(ik,iq) !Index of G(k+q)
+            ikq = kq_ind(ik,iq) !Index of G(k-q)
             call accumulate_chi0(ik, ikq, iwf, iwb, chi0) ! This subroutine accumulates chi0 (over k)
          enddo
          chi0 = chi0/dble(nkp)
@@ -643,7 +693,7 @@ end if
       end if
       if (do_eom) then
          !equation of motion
-         call calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind,iwb,iq,v,sigma_nl) 
+         call calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind_eom,iwb,iq,v,sigma_nl) 
          ! TIME: eom
          call cpu_time(tfinish)
          timings(6) = timings(6) + tfinish - tstart
@@ -703,11 +753,11 @@ end if
 
   ! MPI reduction and output
   if (do_eom) then
-     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp),sigma_sum_hf(ndim,ndim,nkp))
+     allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp_eom),sigma_sum_hf(ndim,ndim,nkp_eom))
      allocate(sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1))
 #ifdef MPI
-     call MPI_reduce(sigma_nl, sigma_sum, ndim*ndim*2*iwfmax_small*nkp, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
-     call MPI_reduce(sigma_hf,sigma_sum_hf,ndim*ndim*nkp,MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+     call MPI_reduce(sigma_nl, sigma_sum, ndim*ndim*2*iwfmax_small*nkp_eom, MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+     call MPI_reduce(sigma_hf,sigma_sum_hf,ndim*ndim*nkp_eom,MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      call MPI_reduce(sigma_dmft,sigma_sum_dmft,ndim*ndim*2*iwfmax_small,MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
 #else
      sigma_sum = sigma_nl
@@ -728,7 +778,7 @@ end if
                                                                     sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) ) 
        endif
        call add_siw_dmft(sigma_sum)  !add the dmft-selfenergy
-       if (nonlocal) then
+       if (nonlocal .and. .not. k_path_eom) then
          call get_sigma_g_loc(sigma_sum, sigma_loc, gloc) ! calculate the k-summed dga selfenergy and k-summed dga(dmft) greens-function
        endif
        if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
@@ -746,10 +796,19 @@ end if
        if (text_output .or. (verbose .and. (index(verbstr,"Test") .ne. 0))) then
          call output_eom(sigma_sum, sigma_sum_dmft, sigma_sum_hf, sigma_loc, gloc, nonlocal)
        endif
-       call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft,nonlocal)
+
        if (nonlocal) then
          call get_ndga(sigma_sum) ! calculate the k-dependent and k-summed dga occupation
-         call output_occ_h5(output_filename)
+       endif
+
+       if (k_path_eom) then
+         call output_eom_kpath_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft)
+         call output_occ_kpath_h5(output_filename)
+       else
+         call output_eom_h5(output_filename,sigma_sum,sigma_sum_hf,sigma_loc,sigma_sum_dmft,nonlocal)
+         if (nonlocal) then
+           call output_occ_h5(output_filename)
+         endif
        endif
 
        deallocate(gloc,sigma_loc)
@@ -1025,8 +1084,14 @@ end if
   end if
 
 
-! Output
+! deallocation
   deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,qw)
+  if (allocated(k_data_eom)) deallocate(k_data_eom)
+  if (allocated(n_dga)) deallocate(n_dga)
+  if (allocated(n_dga_k)) deallocate(n_dga_k)
+  if (allocated(kq_ind_eom)) deallocate(kq_ind_eom)
+
+! End of Program
   if (ounit .ge. 1) then
       write(ounit,'(1x)')
       write(ounit,'(1x,"End of Program")')

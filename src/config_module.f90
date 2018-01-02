@@ -93,6 +93,7 @@ subroutine read_config(er,erstr)
   do_eom=.true.                       ! eom-calculation on
   q_vol=.true.                        ! homogeneous q-volume on
   q_path_susc=.false.                 ! q-path disabled
+  k_path_eom=.false.                  ! k-path disabled
   external_chi_loc=.false.            ! no external local chi
   external_threelegs=.false.          ! no external gamma^wv
 
@@ -103,6 +104,7 @@ subroutine read_config(er,erstr)
 
   filename_hk=''; filename_1p=''; filename_vertex_sym=''
   filename_vq=''; filename_qdata=''; filename_umatrix=''
+  filename_kdata=''
   filename_chi_loc=''; filename_threelegs=''
 
   dmft_iter='dmft-last'
@@ -153,6 +155,12 @@ subroutine read_config(er,erstr)
     q_path_susc = .true.
     q_vol = .false.
   end if
+  call string_find('KDataFile', filename_kdata, search_start, search_end)
+  if (trim(adjustl(filename_kdata)) .eq. '') then
+    k_path_eom = .false.
+  else
+    k_path_eom = .true.
+  end if
   call int3_find('k-grid', nkpx, nkpy, nkpz, search_start, search_end)
   call int3_find('q-grid', nqpx, nqpy, nqpz, search_start, search_end)
   call string_find('Output', output_dir, search_start, search_end)
@@ -189,10 +197,13 @@ subroutine read_config(er,erstr)
 
   ! Make sure that we only use 1 q-point when we run with Onlydmft
   if (debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) then
-     ! Only local quantities
+     ! Only local quantities and overwrite everything else
      nqpx = 1
      nqpy = 1
      nqpz = 1
+     q_vol = .true.
+     q_path_susc =.false.
+     k_path_eom = .false.
   endif
 
   allocate(interaction(nineq))
@@ -549,6 +560,14 @@ subroutine check_config(er,erstr)
     erstr = "Error: Choose appropriate vertex type"
   endif
 
+  if (k_path_eom) then
+    inquire (file=trim(filename_kdata), exist=there)
+    if (.not. there) then
+        er = 8
+        erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the K-Path file: "//trim(filename_kdata)
+        return
+    endif
+  endif
   return
 end subroutine check_config
 
