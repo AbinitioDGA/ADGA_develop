@@ -64,6 +64,7 @@ Diagrammatic extensions of dynamical mean field theory (DMFT) such as the dynami
 
 %\newpage
 \section{DMFT data}
+\label{sct:dmftdata}
 Starting point of any calculation is a converged DFT+DMFT solution, which we obtain, e.g. from the package
 \verb|w2dynamics|. The latter writes all output data into an HDF5 file, from which we extract the datasets \verb|siw|, \verb|dc|, \verb|mu|,
 \verb|beta|, \verb|giw| (self-energy, double counting correction, chemical potential, inverse temperature, Green's function)
@@ -227,40 +228,64 @@ The last preparational step is the configuring of \verb+ADGA+.
 The main program's input options are contained in a config file (of arbitrary name).
 This config file is segmented into groups marked by squared braces.
 Subgroups are marked by double squared braces.
-In the {\color{red} \verb|[General]|} group we define what we want to calculate
-and how large our calculation should be (i.e. frequency box, momentum-space grid).
-In the {\color{red} \verb|[Atoms]|} group we define our local interactions and
-give information about the number of bands. In the {\color{red} \verb|[One-Particle]|}
-and {\color{red} \verb|[Two-Particle]|} group we define our files and in the {\color{red}
-\verb|[Output]|} group we define additional output parameters.
+\\[\baselineskip]
+In the {\color{red} \verb|[General]|} group we define what we want to calculate: equaton of motion (\verb+calc-eom+) and/or susceptibilities (\verb+calc-susc+), how we want to calculate these quantities: along paths (\verb+KDataFile+, \verb+QDataFile+) or on a grid (\verb+q-grid+)
+and how large our calculation should be: number of atoms (\verb+NAt+), frequency box (\verb+N4iwf, N4iwb+), momentum-space grid (\verb+k-grid+). We also provide here the Hamiltonian (\verb+HkFile+) and possibly a Umatrix file (\verb+UFile+) and the nonlocal interaction file (\verb+VqFile+).
+\\[\baselineskip]
+Important comments on the different quantities:
+
+\verb+k-grid+ represents the Hamiltonian grid and should therefore never be changed once set for a specific case.
+A default eom run (without \verb+KDataFile+) evaluates the selfenergy on the the whole \verb+k-grid+ (independently of the q-points specification).
+Providing \verb+KDataFile+ accordingly evalutes the selfenergy only on the given k-points.
+This is especially useful if one deals with smaller box sizes (cue different scaling of the inversion and the eom) or if one is only interested in specific points and/or paths.
+
+\verb+q-grid+ on the other hand describes part of the outer parallelized loop of \verb+abinitiodga+.
+It is constrained by the Hamiltonian grid (\verb+k-grid+) in that it can't be larger.
+Furthermore if one chooses a smaller grid each component must be divisable without remainder: $\mod(k_i, q_i) \stackrel{!}{=} 0$ (e.g. \verb+k-grid = 20 9 9+; \verb+q-grid = 5 3 3+).
+
+The momentum-dependent susceptibilities are then calculated along these points (i.e. one point in the loop $q=(\vec{q},\omega)$ equates to exactly one susceptibility value $\chi^q$).
+Contrary the equation of motion is evaluated by \textbf{summing over} these points.
+For that reason an eom calculation only makes sense on a homogeneous q-grid over the full Brillouin zone.
+Therefore providing \verb+QDataFile+ disables the eom-feature making them mutually exclusive.
+\\[\baselineskip]
+Summarized there are six (6) different major run options:
+\begin{itemize}
+\item {\color{ForestGreen}\verb+calc-eom = T+}, {\color{ForestGreen}\verb+calc-susc = T+}, {\color{red}\verb+KDataFile+ empty}, {\color{red}\verb+QDataFile+ empty}
+\\ $\rightarrow$ eom-evaluation on the \verb+k-grid+ with summation over \verb+q-grid+ and the bosonic frequencies (\verb+N4iwb+).
+\\ $\rightarrow$ susc-evaluation on the \verb+q-grid+.
+\item {\color{ForestGreen}\verb+calc-eom = T+}, {\color{ForestGreen}\verb+calc-susc = T+}, {\color{ForestGreen}\verb+KDataFile+ exists}, {\color{red}\verb+QDataFile+ empty}
+\\ $\rightarrow$ eom-evaluation along given k-pointsl with summation over \verb+q-grid+ and the bosonic frequencies (\verb+N4iwb+).
+\\ $\rightarrow$ susc-evaluation on the \verb+q-grid+.
+\item {\color{ForestGreen}\verb+calc-eom = T+}, {\color{red}\verb+calc-susc = F+}, {\color{red}\verb+KDataFile+ empty}, {\color{red}\verb+QDataFile+ empty}
+\\ $\rightarrow$ eom-evaluation on the \verb+k-grid+ with summation over \verb+q-grid+ and the bosonic frequencies (\verb+N4iwb+).
+\\ $\rightarrow$ no susc-evaluation.
+\item {\color{ForestGreen}\verb+calc-eom = T+}, {\color{red}\verb+calc-susc = F+}, {\color{ForestGreen}\verb+KDataFile+ exists}, {\color{red}\verb+QDataFile+ empty}
+\\ $\rightarrow$ eom-evaluation along given k-pointsl with summation over \verb+q-grid+ and the bosonic frequencies (\verb+N4iwb+).
+\\ $\rightarrow$ no susc-evaluation.
+\item {\color{red}\verb+calc-eom = F+}, {\color{ForestGreen}\verb+calc-susc = T+}, {\color{red}\verb+KDataFile+ empty}, {\color{red}\verb+QDataFile+ empty}
+\\ $\rightarrow$ no eom evaluation.
+\\ $\rightarrow$ susc-evaluation on the \verb+q-grid+.
+\item {\color{red}\verb+calc-eom = F+}, {\color{ForestGreen}\verb+calc-susc = T+}, {\color{red}\verb+KDataFile+ empty}, {\color{ForestGreen}\verb+QDataFile+ exists}
+\\ $\rightarrow$ no eom evaluation.
+\\ $\rightarrow$ susc-evaluation along the given q-points.
+\end{itemize}
+
+As a side note: If one does an eom calculation there is almost no computational penalty in also calculating the susceptibilities along the way.
+However full susceptibilities might need a lot of storage space.
+
+\newpage
+In the {\color{red} \verb|[Atoms]|} group we define our local interactions (\verb+Udd, Vdd, Jdd, ...+) and
+give information about the number of bands (\verb+Nd, Np+). The band specification is the only mandatory configuration in this group. If we provide \verb+UFile+ above the interactions provided here get ignored.
+\\[\baselineskip]
+In the {\color{red} \verb|[One-Particle]|} and {\color{red} \verb|[Two-Particle]|} groups we define our DMFT files. Here we must include the one particle file (\verb+1PFile+) with the structure presented in Section \ref{sct:dmftdata} and the \textbf{symmetrized} vertex file (\verb+2PFile+) together with its type (\verb+vertex-type+).
+\\[\baselineskip]
+In the \emph{optional} group {\color{red} \verb|[Output]|} we may define additional output parameters. (There are also the \emph{optional} groups {\color{red} \verb+[Debug]+} and {\color{red} \verb+[Verbose]+} available for configuration. Please check {\color{blue} \verb+/documentation/configspec+} and the source code for further information)
+\\[\baselineskip]
 One important thing to mention is that this config file is read by routines written in Fortran.
 Any kind of typos will not produce errors unless a check is imposed
 on that variable (Checks are mainly done for the existance of files and crucial run options).
-\\[\baselineskip]
-At the moment there are six (6) different major run options.
-One thing to remember is that \verb+KDataFile+ only affects the equation of motion (eom)
-evaluation and that \verb+QDataFile+ affects the the whole calculation. Since the
-eom requires a homogeneous \verb+q-grid+ to be evaluated properly, providing a \verb+QDataFile+
-disables the possibility to run an eom calculation (and the other way around, i.e. they are mutually exclusive).
-Summarized this leads to the following configurations:
-\begin{itemize}
-\item {\color{ForestGreen}\verb+calc-eom = T+}, {\color{ForestGreen}\verb+calc-susc = T+}, {\color{red}\verb+KDataFile+ empty}, {\color{red}\verb+QDataFile+ empty}
-\\ $\rightarrow$ eom-evaluation on the \verb+k-grid+ (Hamiltonian grid), calculation on \verb+q-grid+.
-\item {\color{ForestGreen}\verb+calc-eom = T+}, {\color{ForestGreen}\verb+calc-susc = T+}, {\color{ForestGreen}\verb+KDataFile+ exists}, {\color{red}\verb+QDataFile+ empty}
-\\ $\rightarrow$ eom-evaluation along the given k-points, calculation on \verb+q-grid+.
-\item {\color{ForestGreen}\verb+calc-eom = T+}, {\color{red}\verb+calc-susc = F+}, {\color{red}\verb+KDataFile+ empty}, {\color{red}\verb+QDataFile+ empty}
-\\ $\rightarrow$ eom-evaluation on the \verb+k-grid+ (Hamiltonian grid), calculation on \verb+q-grid+.
-\item {\color{ForestGreen}\verb+calc-eom = T+}, {\color{red}\verb+calc-susc = F+}, {\color{ForestGreen}\verb+KDataFile+ exists}, {\color{red}\verb+QDataFile+ empty}
-\\ $\rightarrow$ eom-evaluation along the given k-points, calculation on \verb+q-grid+.
-\item {\color{red}\verb+calc-eom = F+}, {\color{ForestGreen}\verb+calc-susc = T+}, {\color{red}\verb+KDataFile+ empty}, {\color{red}\verb+QDataFile+ empty}
-\\ $\rightarrow$ no eom evaluation, calculation on \verb+q-grid+.
-\item {\color{red}\verb+calc-eom = F+}, {\color{ForestGreen}\verb+calc-susc = T+}, {\color{red}\verb+KDataFile+ empty}, {\color{ForestGreen}\verb+QDataFile+ exists}
-\\ $\rightarrow$ no eom evaluation, calculation along given q-points.
-
-
-\end{itemize}
-
-Listings \ref{lst:configqgrid} and \ref{lst:configqpath} contain example config files with the first first and the sixth run option respectively.
+\\[2\baselineskip]
+Listings \ref{lst:configqgrid} and \ref{lst:configqpath} contain example config files with the first and the sixth run option from the {\color{red} \verb+[General]+} group respectively.
 For a complete overview over all input options please check out
 {\color{blue}\verb|/documentation/configspec|} where all options are described in detail.
 \\[\baselineskip]
@@ -268,7 +293,7 @@ Once the config file is prepared, we can run the program with the following comm
 
 \begin{lstlisting}[caption=abinitiodga run commands, frame=single, basicstyle=\small, style=base]
 with MPI:
-$ @mpirun -np 3 $ADGA_DIR/bin/abinitiodga config_file@
+$ @mpirun -np #cores $ADGA_DIR/bin/abinitiodga config_file@
 without MPI:
 $ @$ADGA_DIR/bin/abinitiodga config_file@
 \end{lstlisting}
@@ -575,14 +600,14 @@ found in {\color{blue}\verb+/documentation/scripts/+}, we obtain the following r
 \begin{figure}[H]
 \begin{center}
 \includegraphics[scale=0.75]{qgrid.eps}
-\caption{Selfenergy results for a Q-qrid calculation at high symmetry points. The plot script can be found in {\color{blue}\protect\Verb+/documentation/scripts/1D\_plot\_selfenergy.py+}}
+\caption{Selfenergy results for a q-qrid calculation evaluated at high symmetry points. The plot script can be found in {\color{blue}\protect\Verb+/documentation/scripts/1D\_plot\_selfenergy.py+}}
 \end{center}
 \end{figure}
 
 \begin{figure}[H]
 \begin{center}
 \includegraphics[clip, trim=0cm 3cm 0cm 3cm, scale=0.75]{qgrid_plane.eps}
-\caption{Selfenergy results for a Q-qrid calculation in the $k_z=0$ plane. Please note that the $\Gamma$ point is located at the bottom left corner. The plot script can be found in {\color{blue}\protect\Verb+/documentation/scripts/2D\_plot\_selfenergy\_plane.py+}}
+\caption{Selfenergy results for a q-qrid calculation in the $k_z=0$ plane. Please note that the $\Gamma$ point is located at the bottom left corner. The plot script can be found in {\color{blue}\protect\Verb+/documentation/scripts/2D\_plot\_selfenergy\_plane.py+}}
 \end{center}
 \end{figure}
 
@@ -591,10 +616,10 @@ found in {\color{blue}\verb+/documentation/scripts/+}, we obtain the following r
 \begin{figure}[H]
 \begin{center}
 \includegraphics[scale=0.75]{qpath.eps}
-\caption{Susceptibility results for a Q-path calculation. Please note that a prefactor of 2 is necessary to get the actual magnetic susceptibility. The plot script can be found in {\color{blue}\protect\Verb+/documentation/scripts/1D\_plot\_qpath.py+}}
+\caption{Susceptibility results for a q-path calculation. Please note that a prefactor of 2 is necessary to get the actual magnetic susceptibility. The plot script can be found in {\color{blue}\protect\Verb+/documentation/scripts/1D\_plot\_qpath.py+}}
 \end{center}
 \end{figure}
 
-Please note that these results are not the same as in \href{https://arxiv.org/abs/1710.06651}{arXiv:1710.06651}, where we used much larger box sizes in combination with asymptotic vertex behaviour.
+Please note that these results are not identical to the ones found in \href{https://arxiv.org/abs/1710.06651}{arXiv:1710.06651}, where we used much larger box sizes in combination with asymptotic vertex behaviour.
 
 \end{document}
