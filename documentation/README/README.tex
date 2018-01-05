@@ -14,7 +14,7 @@
 \usepackage{fancyvrb}
 \usepackage{hyperref}
 \usepackage{framed}
-\usepackage{color}
+\usepackage[dvipsnames]{xcolor}
 \usepackage{listings}
 \lstdefinestyle{base}{
   emptylines=1,
@@ -47,7 +47,7 @@
 \numberwithin{equation}{section} % reset after every section
 
 \begin{document}
-\section*{The AbinitioD$\Gamma$A Project v1.0: Non-local correlations beyond and susceptibilities within dynamical mean-field theory: README (December 2017)}
+\section*{The AbinitioD$\Gamma$A Project v1.0: Non-local correlations beyond and susceptibilities within dynamical mean-field theory: README (January 2018)}
 \begin{framed}
 \center{Anna Galler$^{a,b}$, Patrik Thunstr{\"o}m$^{a,c}$, Josef Kaufmann$^a$, Matthias Pickem$^a$, Jan M. Tomczak$^a$, Karsten Held$^a$}\\
 \center\textit{{$^a$Institute of Solid State Physics, TU Wien, 1040 Vienna, Austria\\
@@ -69,7 +69,7 @@ Starting point of any calculation is a converged DFT+DMFT solution, which we obt
 \verb|beta|, \verb|giw| (self-energy, double counting correction, chemical potential, inverse temperature, Green's function)
 and---depending on the run options---also \verb|hk| (Hamiltonian).
 The data structure of the \verb|w2dynamics| output is shown in Listing \ref{lst:dmft1}.
-In order to keep these instructions as concise as possible, only the parts relevant for AbinitioDGA are shown.
+In order to keep these instructions as concise as possible, only the parts relevant for \verb+ADGA+ are shown.
 (Information about the full contents and structure of an HDF5 file can usually be retrieved via  \verb|h5ls -lr|. For a basic HDF5 introduction
 please visit  {\color{blue}\verb+/documentation/hdf5_intro.pdf+}) In order to use
 input from another (DMFT) program, it is necessary to convert it into the group structure
@@ -97,7 +97,7 @@ the description general. \verb|NIW| is the number of positive fermionic frequenc
 \verb|NBANDS| is the number of correlated orbitals of the inequivalent atom \verb|ineq-001|, and \verb|NSPINS| is equal to 2.
 
 On top of this DMFT solution, the impurity two-particle Green's function (``vertex'') is computed, e.g. within \verb|w2dynamics|,
-which has the following structure: (again, groups not necessary for AbinitioD$\Gamma$A
+which has the following structure: (again, groups not necessary for \verb+ADGA+
 are omitted here.)
 \begin{lstlisting}[caption=HDF5-structure of the worm-sampled vertex, frame=single, basicstyle=\small, label={lst:dmft2}]
 /.axes/                                   Group
@@ -120,13 +120,13 @@ two-particle Green's function, respectively. \verb|NGRPS| is the maximal number 
 The group names in front of the \verb|value| and \verb|error| groups are integers
 from from 1 to NGRPS and represent a one-to-one mapping from a \emph{band-spin combination}
 to an integer, e.g.~$00001 \rightarrow (1\hspace{-4pt}\uparrow, 1\hspace{-4pt}\uparrow, 1\hspace{-4pt}\uparrow, 1\hspace{-4pt}\uparrow$).
-In general, the transformation of band-spin combination to an index ($b_i \in [1,n_{ndim}]$, $s_i \in [1,2] = [\uparrow, \downarrow]$)
+In general, the transformation of band-spin combination to an index ($b_i \in [1,n_{dim}]$, $s_i \in [1,2] = [\uparrow, \downarrow]$)
 \begin{equation*}
 b_1 s_1,b_2 s_2, b_3 s_3, b_4s_4 \rightarrow \mathrm{index},
 \end{equation*}
 is achieved via
 \begin{equation*}
-\mathrm{index} = 2^3 n_{dim}^3(2 b_1+s_1-3) + 2^2 n_{dim}^2(2 b_2+s_2-3) + 2 n_{dim}(2 b_3+s_3-3) + 2 b_1 + s_4 - 2
+\mathrm{index} = 2^3 n_{dim}^3(2 b_1+s_1-3) + 2^2 n_{dim}^2(2 b_2+s_2-3) + 2 n_{dim}(2 b_3+s_3-3) + 2 b_4 + s_4 - 2,
 \end{equation*}
 where $n_{dim}$ represents the number of correlated bands whithin the atom under consideration.
 The number of existing groups can be calculated via
@@ -140,7 +140,7 @@ where the factor $6$ comes from all the possible SU(2) combinations allowed for 
 
 \newpage
 \section{Fully nonlocal V(q) data}
-The $V(\mathbf{q})$ file creation is currently completely independent of the AbinitioD$\Gamma$A package but it must respect a certain HDF5 structure,
+The $V(\mathbf{q})$ file creation is currently completely independent of the \verb+ADGA+ package but it must respect a certain HDF5 structure,
 which will be explained by considering an example of a three-band system (a template can be found in {\color{blue}\verb+/documentation/hdf5_templates/+}):
 \begin{lstlisting}[caption=$V(q)$ file structure, frame=single,
 basicstyle=\small]
@@ -180,6 +180,7 @@ is achieved via
 \mathrm{index} = n_{dim}^3(i_1-1) + n_{dim}^2(i_2-1) + n_{dim}(i_3-1) + i_4,
 \end{equation*}
 where $n_{dim}$ represents the number of correlated bands.
+Please note that the $V(\mathbf{q})$ implementation at the moment only supports one impurity.
 
 \newpage
 \section{\protect\Verb+setupvertex+ - symmetrizing the vertex}
@@ -222,17 +223,44 @@ which is the centerpiece of the \verb+ADGA+ input. The group names in front of t
 
 \newpage
 \section{\protect\Verb+abinitiodga+ - main program}
-The last preparational step is the configuring of \verb+ADGA+. The main program's input options are contained in a config file (of arbitrary name). This config file is segmented into groups marked by squared braces. Subgroups are marked by double squared braces. In the {\color{red} \verb|[General]|} group we define what we want to calculate and how large our calculation should be (i.e. frequency box, momentum-space grid). In the {\color{red} \verb|[Atoms]|} group we define our local interactions and give information about the number of bands. In the {\color{red} \verb|[One-Particle]|} and {\color{red} \verb|[Two-Particle]|} group we define our files and in the {\color{red} \verb|[Output]|} group we define additional output parameters. One important thing to mention is that this config file is read by routines written in Fortran. Any kind of typos will not produce errors unless a check is imposed on that variable (Checks are mainly done for the existance of files and crucial run options).
+The last preparational step is the configuring of \verb+ADGA+.
+The main program's input options are contained in a config file (of arbitrary name).
+This config file is segmented into groups marked by squared braces.
+Subgroups are marked by double squared braces.
+In the {\color{red} \verb|[General]|} group we define what we want to calculate
+and how large our calculation should be (i.e. frequency box, momentum-space grid).
+In the {\color{red} \verb|[Atoms]|} group we define our local interactions and
+give information about the number of bands. In the {\color{red} \verb|[One-Particle]|}
+and {\color{red} \verb|[Two-Particle]|} group we define our files and in the {\color{red}
+\verb|[Output]|} group we define additional output parameters.
+One important thing to mention is that this config file is read by routines written in Fortran.
+Any kind of typos will not produce errors unless a check is imposed
+on that variable (Checks are mainly done for the existance of files and crucial run options).
 \\[\baselineskip]
-At the moment there are four (4) different major run options:
+At the moment there are six (6) different major run options.
+One thing to remember is that \verb+KDataFile+ only affects the equation of motion (eom)
+evaluation and that \verb+QDataFile+ affects the the whole calculation. Since the
+eom requires a homogeneous \verb+q-grid+ to be evaluated properly, providing a \verb+QDataFile+
+disables the possibility to run an eom calculation (and the other way around, i.e. they are mutually exclusive).
+Summarized this leads to the following configurations:
 \begin{itemize}
-\item {\color{green}\verb+calc-eom = T+}, {\color{green}\verb+calc-susc = T+}, {\color{red}\verb+QDataFile+ empty} $\rightarrow$ calculation on \verb+q-grid+
-\item {\color{green}\verb+calc-eom = T+}, {\color{red}\verb+calc-susc = F+}, {\color{red}\verb+QDataFile+ empty} $\rightarrow$ calculation on \verb+q-grid+
-\item {\color{red}\verb+calc-eom = F+}, {\color{green}\verb+calc-susc = T+}, {\color{red}\verb+QDataFile+ empty} $\rightarrow$ calculation on \verb+q-grid+
-\item {\color{red}\verb+calc-eom = F+}, {\color{green}\verb+calc-susc = T+}, {\color{green}\verb+QDataFile+ \textbf{exists}} $\rightarrow$ calculation along the given q-points.
+\item {\color{ForestGreen}\verb+calc-eom = T+}, {\color{ForestGreen}\verb+calc-susc = T+}, {\color{red}\verb+KDataFile+ empty}, {\color{red}\verb+QDataFile+ empty}
+\\ $\rightarrow$ eom-evaluation on the \verb+k-grid+ (Hamiltonian grid), calculation on \verb+q-grid+.
+\item {\color{ForestGreen}\verb+calc-eom = T+}, {\color{ForestGreen}\verb+calc-susc = T+}, {\color{ForestGreen}\verb+KDataFile+ exists}, {\color{red}\verb+QDataFile+ empty}
+\\ $\rightarrow$ eom-evaluation along the given k-points, calculation on \verb+q-grid+.
+\item {\color{ForestGreen}\verb+calc-eom = T+}, {\color{red}\verb+calc-susc = F+}, {\color{red}\verb+KDataFile+ empty}, {\color{red}\verb+QDataFile+ empty}
+\\ $\rightarrow$ eom-evaluation on the \verb+k-grid+ (Hamiltonian grid), calculation on \verb+q-grid+.
+\item {\color{ForestGreen}\verb+calc-eom = T+}, {\color{red}\verb+calc-susc = F+}, {\color{ForestGreen}\verb+KDataFile+ exists}, {\color{red}\verb+QDataFile+ empty}
+\\ $\rightarrow$ eom-evaluation along the given k-points, calculation on \verb+q-grid+.
+\item {\color{red}\verb+calc-eom = F+}, {\color{ForestGreen}\verb+calc-susc = T+}, {\color{red}\verb+KDataFile+ empty}, {\color{red}\verb+QDataFile+ empty}
+\\ $\rightarrow$ no eom evaluation, calculation on \verb+q-grid+.
+\item {\color{red}\verb+calc-eom = F+}, {\color{ForestGreen}\verb+calc-susc = T+}, {\color{red}\verb+KDataFile+ empty}, {\color{ForestGreen}\verb+QDataFile+ exists}
+\\ $\rightarrow$ no eom evaluation, calculation along given q-points.
+
+
 \end{itemize}
 
-Listings \ref{lst:configqgrid} and \ref{lst:configqpath} contain example config files with the first first and the fourth run option respectively.
+Listings \ref{lst:configqgrid} and \ref{lst:configqpath} contain example config files with the first first and the sixth run option respectively.
 For a complete overview over all input options please check out
 {\color{blue}\verb|/documentation/configspec|} where all options are described in detail.
 \\[\baselineskip]
@@ -338,7 +366,7 @@ The first thing created by \verb+abinitiodga+ is a log file called \verb+out+ in
 
 \begin{lstlisting}[caption=ADGA log file, frame=single, basicstyle=\footnotesize, label={lst:out}]
 
- /------------------------------------------------------------------\ 
+ /------------------------------------------------------------------\
  |  Ab initio dynamical vertex approximation program (abinitiodga)  |
  |  Running on           2 core(s) with     20    20    20 k-points |
  |     time             date           host                         |
@@ -396,7 +424,7 @@ The first thing created by \verb+abinitiodga+ is a log file called \verb+out+ in
 \end{lstlisting}
 
 \newpage
-Unless otherwise specified by \verb|text-output = T| in the {\color{red}\verb|[Output]|} group the data produced by \verb+abinitiodga+ is put into a partially compressed HDF5 file (for a basic HDF5 introdution please visit
+Unless otherwise specified by \verb|text-output = T| in the {\color{red}\verb|[Output]|} group the data produced by \verb+abinitiodga+ is put exclusively into a partially compressed HDF5 file (for a basic HDF5 introdution please visit
 
 {\color{blue}\verb+/documentation/hdf5_intro.pdf+}) . This data file contains, depending on the run options \verb|calc-eom| and \verb|calc-susc|, the following datasets:
 
@@ -506,7 +534,39 @@ Q-Grid calculation - full (q-grid = nqx, nqy, nqz)
 \end{lstlisting}
 
 \newpage
-\section{\protect\Verb+abinitiodga+ - srvo3 test results}
+Calculating the equation of motion on a given k-path (i.e. providing \verb+KDataFile+) also changes the HDF5 output.
+In doing so, the k-summed quantities are not written to the output and the three k directions
+get collapsed down to one dimension:
+
+\begin{lstlisting}[caption=equation of motion output comparison, frame=single, basicstyle=\small]
+K-Path calculation (KDataFile = kpath)
+
+/input/kpath_eom                 Dataset {NKP_EOM}
+/occupation                      Group
+/occupation/n_dga_k              Dataset {NBANDS, NBANDS, NKP_EOM}
+/selfenergy                      Group
+/selfenergy/loc                  Group
+/selfenergy/loc/dmft             Dataset {NBANDS, NBANDS, 2*N4IWF}
+/selfenergy/nonloc               Group
+/selfenergy/nonloc/dga           Dataset {NBANDS, NBANDS, NKP_EOM, 2*N4IWF}
+/selfenergy/nonloc/hartree_fock  Dataset {NBANDS, NBANDS, NKP_EOM, 2*N4IWF}
+
+K-Grid calculation (k-grid = nkx, nky, nkz)
+
+/occupation                      Group
+/occupation/n_dga                Dataset {NBANDS}
+/occupation/n_dga_k              Dataset {NBANDS, NBANDS, NKX, NKY, NKZ}
+/selfenergy                      Group
+/selfenergy/loc                  Group
+/selfenergy/loc/dga_ksum         Dataset {NBANDS, NBANDS, 2*N4IWF}
+/selfenergy/loc/dmft             Dataset {NBANDS, NBANDS, 2*N4IWF}
+/selfenergy/nonloc               Group
+/selfenergy/nonloc/dga           Dataset {NBANDS, NBANDS, NKX, NKY, NKZ, 2*N4IWF}
+/selfenergy/nonloc/hartree_fock  Dataset {NBANDS, NBANDS, NKX, NKY, NKZ, 2*N4IWF}
+\end{lstlisting}
+
+\newpage
+\section{\protect\Verb+abinitiodga+ - SrVO$_3$ test results}
 
 Finally, we present the results for the test data from the repository (\verb+/srvo3-testdata/+).
 Using the config files in Listings \ref{lst:configqgrid} and \ref{lst:configqpath}, as well as the plot scripts

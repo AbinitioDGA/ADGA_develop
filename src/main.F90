@@ -324,10 +324,12 @@ program main
 
   call cpu_time(start)
   call index_kq(kq_ind) ! new method
-  if (k_path_eom) then
-    call index_kq_eom(kq_ind_eom)
-  else
-    kq_ind_eom = kq_ind
+  if (do_eom) then
+    if (k_path_eom) then
+      call index_kq_eom(kq_ind_eom)
+    else
+      kq_ind_eom = kq_ind
+    endif
   endif
   call cpu_time(finish)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Time") .ne. 0))) then
