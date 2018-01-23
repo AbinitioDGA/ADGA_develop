@@ -152,7 +152,7 @@ def read_p2(ineq=None,input_p2=None,nbands=None,**kwargs):
 
 def read_p3(ineq=None,input_p3=None,nbands=None,**kwargs):
   if 'stat-001' in input_p3.keys(): # old format - statsteps and large array
-    p3 = input_p3["stat-001/ineq-{:03}/p3iw-worm/value".format(ineq)].value
+    p3 = input_p3["stat-001/ineq-{:03}/p3iw-worm/value".format(ineq)].value.transpose((3,2,1,0,4,5))
   elif 'worm-001' in input_p3.keys(): # new format - component sampling
     base_gr=input_p3["worm-001/ineq-{:03}/p3iw-worm".format(ineq)]
     groups=base_gr.keys()
@@ -163,7 +163,7 @@ def read_p3(ineq=None,input_p3=None,nbands=None,**kwargs):
     for gr in groups:
       bs,_,_=index2component_general(nbands,4,int(gr))
       #p3[bs]=base_gr[gr+'/value'].value[nf//2-nf_small//2:nf//2+nf_small//2,nb//2-nb_small//2:nb//2+nb_small//2+1]
-      p3[bs]=base_gr[gr+'/value'].value
+      p3[bs[::-1]]=base_gr[gr+'/value'].value
   return p3
 
 
@@ -273,11 +273,11 @@ if conf['do_p3']:# subtract all disconnected terms to get threeleg vertex
               
           # straight terms
           if i==j and k==l:
-            k2[i,j,k,l,:,n3iwb] -= giw[i,slice_center(2*n3iwf,2*niw)]*(1-dens[k])*conf['beta']
+            k2[i,j,k,l,:,n3iwb] -= giw[k,slice_center(2*n3iwf,2*niw)]*(1-dens[i])*conf['beta']
   
           # cross terms
           if i==l and j==k:
-            k2[i,j,k,l,:,:] -= gg_ph[i,k]
+            k2[i,j,k,l,:,:] -= gg_ph[k,i]
 
 
   # amputate 2 legs
@@ -285,7 +285,7 @@ if conf['do_p3']:# subtract all disconnected terms to get threeleg vertex
     for j in xrange(2*nbands):
       for k in xrange(2*nbands):
         for l in xrange(2*nbands):
-          k2[i,j,k,l,...]=np.divide(k2[i,j,k,l,...],gg_ph[i,j])
+          k2[i,j,k,l,...]=np.divide(k2[i,j,k,l,...],gg_ph[k,l])
            
   
   fout=h5py.File(options.threeleg_file,'a')
