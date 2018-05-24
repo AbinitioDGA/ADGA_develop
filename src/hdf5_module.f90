@@ -927,7 +927,7 @@ subroutine init_h5_output(filename_output, nonlocal)
   integer :: err,i1,i2,ikx,iky,ikz,i,qpoint_tmp(3)
   integer(hid_t) :: file_id,grp_id_input,grp_id_susc,grp_id_se,grp_id_occ,grp_id_green
   integer(hid_t) :: grp_id_chi_qw,grp_id_chi_loc
-  integer(hid_t) :: grp_id_se_loc,grp_id_se_nonloc
+  integer(hid_t) :: grp_id_se_loc,grp_id_se_nonloc,grp_id_gamma
   integer(kind=8) :: chi_qw_dims(3),chi_loc_dims(3),qpath_dims(2),k_ind_tmp
   integer(hid_t) :: dspace_scalar_id,dset_id_mu,dset_id_beta,dset_id_1,dspace_vec_id,dspace_qpoints_id,dset_id_qpoints
   integer(hid_t) :: dspace_dc_id,dset_dc_id,dspace_id_g,dspace_id_s,dset_id_g,dset_id_s,dset_id_hk,dspace_id_hk
@@ -970,6 +970,8 @@ subroutine init_h5_output(filename_output, nonlocal)
     call h5gclose_f(grp_id_se_loc,err)
     call h5gclose_f(grp_id_se,err)
   end if
+
+  call h5gcreate_f(file_id,'gamma',grp_id_gamma,err)
 
 ! create the group for parameters and input
   call h5gcreate_f(file_id,'input',grp_id_input,err)
@@ -1928,5 +1930,66 @@ subroutine output_occ_kpath_h5(filename_output)
   endif
 
 end subroutine output_occ_kpath_h5
+
+subroutine output_gamma(filename_output, gammaw, channel)
+  use parameters_module
+  implicit none
+  character(len=*),intent(in) :: filename_output
+  integer,intent(in) :: channel
+  complex(kind=8) :: gammaw(ndim2,(2*iwfmax_small)*ndim2,2*iwbmax_small+1)
+  integer :: err
+  integer(hid_t) :: file_id, grp_id_gamma
+  integer(hid_t) :: dspace_id_gamma
+  integer(hid_t) :: dset_id_gamma
+  integer(hid_t) :: dspace_id
+  integer(hsize_t),dimension(6) :: dims_gamma
+  complex(kind=8), allocatable :: gamma_arr(:,:,:,:,:,:)
+  integer :: iwf,iwb,i1,i2,i3,i4,i,j
+
+
+  call h5open_f(err)
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+  call h5gopen_f(file_id,'gamma',grp_id_gamma,err)
+
+  dims_gamma = (/2*iwbmax_small+1,2*iwfmax_small,ndim,ndim,ndim,ndim/)
+  allocate(gamma_arr(2*iwbmax_small+1,2*iwfmax_small,ndim,ndim,ndim,ndim))
+
+  do iwb = 1,2*iwbmax_small+1
+    j = 0
+    do iwf = 0,2*iwfmax_small-1
+      do i4 = 1,ndim
+        do i3 = 1,ndim
+          j = j+1
+          i = 0
+          do i1 = 1,ndim
+            do i2 = 1,ndim
+              i = i+1
+              gamma_arr(iwb,iwf+1,i4,i3,i2,i1) = gammaw(i,j,iwb)
+            enddo
+          enddo
+        enddo
+      enddo
+    enddo
+  enddo
+
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_gamma,err)
+  call h5sset_extent_simple_f(dspace_id_gamma,6,dims_gamma,dims_gamma,err)
+  if (channel==0) then
+    call h5dcreate_f(grp_id_gamma,'dens',compound_id, dspace_id_gamma, dset_id_gamma,err)
+  else
+    call h5dcreate_f(grp_id_gamma,'magn',compound_id, dspace_id_gamma, dset_id_gamma,err)
+  endif
+  call h5dwrite_f(dset_id_gamma,type_r_id, real(gamma_arr), dims_gamma, err)
+  call h5dwrite_f(dset_id_gamma,type_i_id, aimag(gamma_arr), dims_gamma, err)
+  call h5dclose_f(dset_id_gamma, err)
+  call h5gclose_f(grp_id_gamma,err)
+
+  deallocate(gamma_arr)
+
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+   write(ounit,*) 'gamma written to h5'
+  endif
+
+end subroutine output_gamma
 
 end module hdf5_module

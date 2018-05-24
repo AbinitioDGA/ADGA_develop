@@ -24,6 +24,7 @@ program main
   complex(kind=8), allocatable :: chi0wFd_slice(:,:)
   complex(kind=8), allocatable ::  chi0wFm_slice(:,:), chi0wFd(:,:), chi0wFm(:,:), chi_loc(:,:)
   complex(kind=8), allocatable ::  oneplusgammawm(:,:), oneplusgammawd(:,:), gammawd(:,:), gammawm(:,:)
+  complex(kind=8), allocatable ::  gammawd_full(:,:,:), gammawm_full(:,:,:)
   complex(kind=8), allocatable :: chi_qw_dens(:,:,:),chi_qw_magn(:,:,:),bubble_nl(:,:,:),chi_qw_full(:,:,:)
   complex(kind=8), allocatable :: chi_loc_dens(:,:,:),chi_loc_magn(:,:,:),bubble_loc(:,:,:),bubble_loc_tmp(:,:)
   complex(kind=8), allocatable :: chi_loc_qmc(:,:,:)
@@ -248,6 +249,7 @@ program main
   allocate(chi0q(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
   allocate(chi0w_inv(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
   allocate(gammawd(ndim2,maxdim), gammawm(ndim2,maxdim))
+  allocate(gammawd_full(ndim2,maxdim,2*iwbmax_small+1), gammawm_full(ndim2,maxdim,2*iwbmax_small+1))
   allocate(oneplusgammawd(ndim2,maxdim))
   allocate(oneplusgammawm(ndim2,maxdim))
   allocate(chi0wFd_slice(ndim2,maxdim))
@@ -532,6 +534,15 @@ end if
             call calc_chi_qw(chi_loc_dens(:,:,iwb),gammawd,chi0w)
             call calc_chi_qw(chi_loc_magn(:,:,iwb),gammawm,chi0w)
         end if
+
+        write(*,*) iwb
+        gammawd_full(:,:,iwb+iwbmax_small+1) = gammawd(:,:)
+        gammawm_full(:,:,iwb+iwbmax_small+1) = gammawm(:,:)
+
+        if(iq.eq.1 .and. iwb.eq.iwbmax_small) then
+          call output_gamma(output_filename, gammawd_full, 0)
+          call output_gamma(output_filename, gammawm_full, 1)
+        endif
 
 
 
