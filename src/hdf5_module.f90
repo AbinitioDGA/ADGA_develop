@@ -745,65 +745,81 @@ subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
 end subroutine read_vertex
 
 
-subroutine read_threeleg(gamma_loc_qmc,channel,iwb)
+subroutine read_threeleg(gamma_loc_dens,gamma_loc_magn,iwb)
   use parameters_module
   use aux
   implicit none
 
-  complex(kind=8),intent(out) :: gamma_loc_qmc(ndim2,maxdim)
-  complex(kind=8) :: gamma_loc_qmc_tmp(ndim,ndim,ndim,ndim,0:2*n3iwf-1)
-  character(len=*),intent(in) :: channel
+  complex(kind=8),intent(out) :: gamma_loc_dens(ndim2,maxdim),gamma_loc_magn(ndim2,maxdim)
   integer,intent(in) :: iwb
-  character(len=100) :: grpname,bgroup_name
-  integer(hid_t) :: file_id,grp_id,dset_id
+
+  complex(kind=8) :: gamma_loc_dens_tmp(ndim,ndim,ndim,ndim,0:2*n3iwf-1)
+  complex(kind=8) :: gamma_loc_magn_tmp(ndim,ndim,ndim,ndim,0:2*n3iwf-1)
+
+  character(len=100) :: grpname_magn,grpname_dens,bgroup_name
+  integer(hid_t) :: file_id,grp_magn_id,grp_dens_id,dset_id
   integer(hsize_t), dimension(1) :: p3_dims
   integer :: ineq,dimstart,dimend,i,ngroups,igr,b1,b2,b3,b4,ind_grp,itype,ind_iwb,iwf
   integer :: j,k,l,i1,i2
+
   double precision, dimension(2*n3iwf) :: tmp_r, tmp_i
   complex(kind=8),parameter :: ci = (0d0,1d0)
 
   p3_dims=(/2*n3iwf/)
   ind_iwb=iwb+n3iwb
 
-  gamma_loc_qmc=0.d0
-  gamma_loc_qmc_tmp=0.d0
+  gamma_loc_dens=0.d0
+  gamma_loc_magn=0.d0
+  gamma_loc_dens_tmp=0.d0
+  gamma_loc_magn_tmp=0.d0
 
   do ineq=1,nineq
+    write(grpname_magn,'("ineq-",I3.3,"/magn/",I5.5)') ineq,ind_iwb
+    write(grpname_dens,'("ineq-",I3.3,"/dens/",I5.5)') ineq,ind_iwb
+
     dimstart=1
     do i=2,ineq
       dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
     end do
     dimend=dimstart+ndims(ineq,1)-1
 
-    write(grpname,'("ineq-",I3.3,"/",(A),"/",I5.5)') ineq,channel,ind_iwb
-
-    !write(*,*) grpname
     call h5open_f(err)
     call h5fopen_f(filename_threelegs,h5f_acc_rdonly_f,file_id,err)
-    call h5gopen_f(file_id,grpname,grp_id,err)
-    call h5gn_members_f(file_id,grpname,ngroups,err)
+    call h5gopen_f(file_id,grpname_magn,grp_magn_id,err)
+    call h5gopen_f(file_id,grpname_dens,grp_dens_id,err)
+
+    call h5gn_members_f(file_id,grpname_magn,ngroups,err)
 
     do igr=0,ngroups-1
-      call h5gget_obj_info_idx_f(file_id, grpname, igr, bgroup_name, itype, err)
+      call h5gget_obj_info_idx_f(file_id, grpname_magn, igr, bgroup_name, itype, err)
       read(bgroup_name,'(I5.5)') ind_grp
 
       call index2component_band(dimend-dimstart+1, ind_grp, b1, b2, b3, b4)
 
-      call h5dopen_f(grp_id, bgroup_name, dset_id, err)
+      call h5dopen_f(grp_magn_id, bgroup_name, dset_id, err)
       call h5dread_f(dset_id, type_r_id, tmp_r, p3_dims, err)
       call h5dread_f(dset_id, type_i_id, tmp_i, p3_dims, err)
       call h5dclose_f(dset_id, err)
 
-      gamma_loc_qmc_tmp(dimstart+b1-1,dimstart+b2-1,dimstart+b3-1,dimstart+b4-1,:) = (tmp_r+ci*tmp_i)
+      gamma_loc_magn_tmp(dimstart+b1-1,dimstart+b2-1,dimstart+b3-1,dimstart+b4-1,:) = (tmp_r+ci*tmp_i)*beta
+
+      call h5dopen_f(grp_dens_id, bgroup_name, dset_id, err)
+      call h5dread_f(dset_id, type_r_id, tmp_r, p3_dims, err)
+      call h5dread_f(dset_id, type_i_id, tmp_i, p3_dims, err)
+      call h5dclose_f(dset_id, err)
+
+      gamma_loc_dens_tmp(dimstart+b1-1,dimstart+b2-1,dimstart+b3-1,dimstart+b4-1,:) = (tmp_r+ci*tmp_i)*beta
+
     enddo ! band groups
+
+    call h5gclose_f(grp_magn_id,err)
+    call h5gclose_f(grp_dens_id,err)
+    call h5fclose_f(file_id,err)
+    call h5close_f(err)
   end do ! ineq
-  call h5gclose_f(grp_id,err)
-  call h5fclose_f(file_id,err)
-  call h5close_f(err)
-  
 
 
-  ! go to compound index
+  ! go to compound index and remove the disconnected terms
   i1=0
   do i=1,ndim
     do j=1,ndim
@@ -813,7 +829,32 @@ subroutine read_threeleg(gamma_loc_qmc,channel,iwb)
         do k=1,ndim
           do l=1,ndim
             i2=i2+1
-            gamma_loc_qmc(i1,i2) = gamma_loc_qmc_tmp(i,j,l,k,n3iwf+iwf-iwfmax_small)
+
+            gamma_loc_dens(i1,i2) = gamma_loc_dens_tmp(k,l,j,i,n3iwf+iwf-iwfmax_small)
+            gamma_loc_magn(i1,i2) = gamma_loc_magn_tmp(k,l,j,i,n3iwf+iwf-iwfmax_small)
+
+            if ((i.eq.j) .and. (k.eq.l) .and. (iwb.eq.0)) then
+              if(index2cor(nineq,ndims,i,j,k,l)) then ! substracted in the correlated subspace
+                gamma_loc_dens(i1,i2) = gamma_loc_dens(i1,i2)+2.d0*beta*(1.d0-n_dmft(i))*giw(iwf-iwfmax_small,k)
+              endif
+            endif
+
+            if ((i.eq.k) .and. (j.eq.l)) then
+              if(index2cor(nineq,ndims,i,j,k,l)) then ! substracted in the correlated subspace
+                gamma_loc_dens(i1,i2) = gamma_loc_dens(i1,i2)+giw(iwf-iwfmax_small,i)*giw(iwf-iwfmax_small-iwb,j)
+                gamma_loc_magn(i1,i2) = gamma_loc_magn(i1,i2)+giw(iwf-iwfmax_small,i)*giw(iwf-iwfmax_small-iwb,j)
+              endif
+            endif
+
+            ! divide off two remaining legs
+            if(index2cor(nineq,ndims,i,j,k,l)) then ! substracted in the correlated subspace
+              gamma_loc_dens(i1,i2) = gamma_loc_dens(i1,i2)/(-1.d0*giw(iwf-iwfmax_small,i)*giw(iwf-iwfmax_small-iwb,j))
+              gamma_loc_magn(i1,i2) = gamma_loc_magn(i1,i2)/(-1.d0*giw(iwf-iwfmax_small,i)*giw(iwf-iwfmax_small-iwb,j))
+            endif
+            ! we do not divide by chi0 here but chi0/beta
+            ! reason: we defined gamma as summation over one fermionic frequency without
+            ! rescaling it with 1/beta
+
           end do
         end do
       end do

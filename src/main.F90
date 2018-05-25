@@ -249,7 +249,9 @@ program main
   allocate(chi0q(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
   allocate(chi0w_inv(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
   allocate(gammawd(ndim2,maxdim), gammawm(ndim2,maxdim))
-  allocate(gammawd_full(ndim2,maxdim,2*iwbmax_small+1), gammawm_full(ndim2,maxdim,2*iwbmax_small+1))
+  if (mpi_wrank .eq. master .and. (verbose .and. (index(verbstr,"Gamma") .ne. 0))) then
+    allocate(gammawd_full(ndim2,maxdim,2*iwbmax_small+1), gammawm_full(ndim2,maxdim,2*iwbmax_small+1))
+  endif
   allocate(oneplusgammawd(ndim2,maxdim))
   allocate(oneplusgammawm(ndim2,maxdim))
   allocate(chi0wFd_slice(ndim2,maxdim))
@@ -516,8 +518,7 @@ end if
         gammawd = 0.d0
 
         if (external_threelegs) then ! read gamma^w from external file
-          call read_threeleg(gammawm,'magn',iwb)
-          call read_threeleg(gammawd,'dens',iwb)
+          call read_threeleg(gammawd,gammawm,iwb)
 
         else ! calculate gamma^w=chi0^w.F^w
           do i1=1,ndim2
@@ -535,13 +536,14 @@ end if
             call calc_chi_qw(chi_loc_magn(:,:,iwb),gammawm,chi0w)
         end if
 
-        write(*,*) iwb
-        gammawd_full(:,:,iwb+iwbmax_small+1) = gammawd(:,:)
-        gammawm_full(:,:,iwb+iwbmax_small+1) = gammawm(:,:)
-
-        if(iq.eq.1 .and. iwb.eq.iwbmax_small) then
-          call output_gamma(output_filename, gammawd_full, 0)
-          call output_gamma(output_filename, gammawm_full, 1)
+        ! master gathers and outputs the gamma array
+        if (mpi_wrank .eq. master .and. (verbose .and. (index(verbstr,"Gamma") .ne. 0))) then
+          gammawd_full(:,:,iwb+iwbmax_small+1) = gammawd(:,:)
+          gammawm_full(:,:,iwb+iwbmax_small+1) = gammawm(:,:)
+          if(iq.eq.1 .and. iwb.eq.iwbmax_small) then
+            call output_gamma(output_filename, gammawd_full, 0)
+            call output_gamma(output_filename, gammawm_full, 1)
+          endif
         endif
 
 
@@ -717,11 +719,11 @@ end if
 
      !Output the calculation progress
      if (ounit .gt. 0 .and. .not. (verbose .and. (index(verbstr,"Noprogress") .ne. 0))) then
-      if (mod(iqw-qwstart,max((qwstop-qwstart)/10,2)) .eq. 0) then
+      ! if (mod(iqw-qwstart,max((qwstop-qwstart)/10,2)) .eq. 0) then
          write(ounit,'(1x,"Core:",I5,"  Completed qw-point: ",I7," (from ",I7," to ",I7,")  Time per point: ",F8.4)') &
                mpi_wrank, iqw, qwstart, qwstop, finish-start
          call flush(ounit)
-      endif
+      ! endif
      endif
   enddo !iqw
   if (ounit .ge. 1) then
