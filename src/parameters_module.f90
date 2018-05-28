@@ -44,6 +44,8 @@ module parameters_module
   integer :: gzip_compression
   integer :: vertex_type
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
+  integer :: summation_order ! order of geometric summation
+  logical :: bse_inversion = .true. 
 
   ! filenames
   character(len=150) :: filename_vertex, filename_vertex_sym

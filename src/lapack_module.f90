@@ -1,7 +1,7 @@
 module lapack_module
   implicit none
   private
-  public inverse_matrix
+  public inverse_matrix,geometric_summation
 
   interface inverse_matrix
     module procedure inverse_matrix_d, inverse_matrix_z
@@ -72,5 +72,26 @@ module lapack_module
     end if
     deallocate(ipiv,work)
   end subroutine inverse_matrix_d
+
+
+  ! Calculate the sum M + M**2 + ... + M**ord
+  ! TODO: If this works, better use a lapack routine (but don't optimize prematurely...)
+  subroutine geometric_summation(M,ord)
+    implicit none
+    double complex, intent(inout) :: M(:,:)
+    double complex,allocatable :: M_tmp(:,:),summand(:,:) 
+    integer, intent(in) :: ord
+    integer :: mat_size,i,j
+    mat_size = size(M,1)
+    allocate(M_tmp(mat_size,mat_size), summand(mat_size,mat_size))
+    M_tmp=M
+    summand=M
+    do j=2,ord
+      summand=matmul(summand,M)
+      M_tmp = M_tmp+summand
+    enddo
+    M=M_tmp
+    deallocate(M_tmp,summand)
+  end subroutine geometric_summation
 
 end module lapack_module

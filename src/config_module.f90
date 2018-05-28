@@ -332,6 +332,13 @@ subroutine read_config(er,erstr)
     call bool_find('text-output', text_output, search_start, search_end)
   endif
 
+  call group_find('[Selfconsistency]',search_start,search_end)
+  if (search_start .gt. 0) then 
+    call int_find('summation-order',summation_order,search_start,search_end)
+    bse_inversion = .false. ! default value: true
+  endif
+
+
   deallocate(file_save)
   return
 end subroutine read_config
