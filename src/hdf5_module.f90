@@ -268,7 +268,7 @@ module hdf5_module
      ! read frequency range of external threelegs
      if (external_threelegs) then
        if (ounit .ge. 1) then
-         write(ounit,*) 'threelegs in ',filename_threelegs
+         write(ounit,*) 'threelegs in ',trim(filename_threelegs)
        end if
      
        call h5fopen_f(filename_threelegs,h5f_acc_rdonly_f,file_id,err)
@@ -288,7 +288,7 @@ module hdf5_module
      ! read frequency range of external one-frequency susceptibility
      if (external_chi_loc) then
        if (ounit .ge. 1) then
-         write(ounit,*) 'chi loc in ',filename_chi_loc
+         write(ounit,*) 'chi loc in ',trim(filename_chi_loc)
        end if
      
        call h5fopen_f(filename_chi_loc,h5f_acc_rdonly_f,file_id,err)
@@ -869,7 +869,7 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
   implicit none
 
   character(len=*),intent(in) :: channel
-  complex(kind=8),intent(out) :: chi_loc_qmc(ndim2,ndim2,2*iwbmax_small+1)
+  complex(kind=8),intent(out) :: chi_loc_qmc(ndim2,ndim2,-iwbmax_small:iwbmax_small)
 
   complex(kind=8) :: chi_loc_qmc_tmp(ndim,ndim,ndim,ndim,2*iwbmax_small+1)
   character(len=100) :: grpname,bgroup_name
@@ -938,9 +938,17 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
         do l=1,ndim
           i2=i2+1
           chi_loc_qmc(i1,i2,:) = chi_loc_qmc_tmp(i,j,l,k,:)
+
+          ! removing density density term from equal-time object
+          ! for omega = 0 in the density channel
+          ! and only for specific QMC impurities
+          if (index2cor(nineq,ndims,i,j,k,l) .and. i==j .and. k==l .and. channel=='dens') then
+            chi_loc_qmc(i1,i2,0) = chi_loc_qmc(i1,i2,0) - 2.d0*beta*(1.d0-n_dmft(i))*(1.d0-n_dmft(k))
+          endif
+
           ! since this data comes from qmc we have to extend the bubble so we get the lattice susc bubble
           if(extend_chi_bubble .and. (.not. index2cor(nineq,ndims,i,j,k,l))) then ! add bubble term only if not in the same correlated subspace
-            if ((i .eq. l) .and. (j .eq. k)) then ! local propagators -> orbital diagonal
+            if ((i .eq. k) .and. (j .eq. l)) then ! local propagators -> orbital diagonal
               do iwb = -iwbmax_small, iwbmax_small
                 do iwf = -iwmax+iwbmax_small,iwmax-iwbmax_small-1
                   chi_loc_qmc(i1,i2,iwb) = chi_loc_qmc(i1,i2,iwb)-giw(iwf,i)*giw(iwf-iwb,j)/beta
@@ -949,6 +957,7 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
               enddo
             endif
           endif
+
         end do
       end do
     end do

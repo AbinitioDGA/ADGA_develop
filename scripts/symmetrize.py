@@ -77,7 +77,7 @@ def get_groups(infile='infile.hdf5',Nbands=[1],target=1,nineq=1,**kwargs):
   for ineq in xrange(nineq):
     f=h5py.File(infile,'r')
     if target=='1freq_b':
-      gr_str=f['ineq-{:03}'.format(ineq+1)].keys()
+      gr_str=f['worm-last/ineq-{:03}/p2iw-worm'.format(ineq+1)].keys()
     elif target=='2freq':
       gr_str=f['worm-last/ineq-{:03}/p3iw-worm'.format(ineq+1)].keys()
     elif target=='3freq':
@@ -112,7 +112,7 @@ def check_sym(**kwargs):
 def get_fbox(infile=None,target=None,**kwargs):
   f=h5py.File(infile,'r')
   if target=='1freq_b':
-    n2iwb=f['ineq-001/00001'].shape[0]
+    n2iwb=f['worm-last/ineq-001/p2iw-worm/00001/value'].shape[0]
     print n2iwb
     conf['n2iwb']=n2iwb//2
   elif target=='2freq':
@@ -218,7 +218,7 @@ def read_and_add(h5in,h5out,ineq,igr,channel,action,symgroups,target=None,n3iwb=
     sys.exit()
 
   if target=='1freq_b':
-    x = h5in['ineq-{:03}/{:05}'.format(ineq+1,igr)].value/float(prefactor*len(symgroups))
+    x = h5in['worm-last/ineq-{:03}/p2iw-worm/{:05}/value'.format(ineq+1,igr)].value/float(prefactor*len(symgroups))
     for gr in symgroups:
       if action=='+':
         h5out['ineq-{:03}/{}/{:05}'.format(ineq+1,channel,gr)][...]+=x
