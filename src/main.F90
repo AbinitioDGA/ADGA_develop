@@ -368,8 +368,8 @@ if (do_chi) then
   bubble_nl=0.d0
   bubble_loc=0.d0
   bubble_loc_tmp=0.d0
-  chi_loc_dens = 0
-  chi_loc_magn = 0
+  chi_loc_dens = 0.d0
+  chi_loc_magn = 0.d0
   if (external_chi_loc) then
      ! We read the local susceptibilities from file.
      if (ounit .ge. 1)  write(ounit,*) "Reading the local (frequency summed) susceptibilities from file."
@@ -471,7 +471,7 @@ end if
         enddo
         if (do_chi) then
            ! Use the big box
-           bubble_loc_tmp = 0 ! Initialize!
+           bubble_loc_tmp = 0.d0 ! Initialize!
            do iwf=iwstart,iwstop
               call get_chi0_loc(  iwf, iwb, chi0)
               bubble_loc_tmp = bubble_loc_tmp + chi0 ! Accumulate chi0 over iwf

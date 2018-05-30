@@ -82,6 +82,13 @@ def get_groups(infile='infile.hdf5',Nbands=[1],target=1,nineq=1,**kwargs):
       gr_str=f['worm-last/ineq-{:03}/p3iw-worm'.format(ineq+1)].keys()
     elif target=='3freq':
       gr_str=f['worm-last/ineq-{:03}/g4iw-worm'.format(ineq+1)].keys()
+
+    if len(gr_str) != 6*(3*Nbands[ineq]**2-2*Nbands[ineq]):
+      print('WARNING: ineq-{:03} - Number of groups is not consistent with Kanamori interaction'.format(ineq+1))
+      if (raw_input('Continue anyways? (y/n): ') != 'y'):
+        print('Exiting ...')
+        sys.exit()
+
     f.close()
     groups.append([])
     bgroups.append([])
@@ -266,10 +273,10 @@ if conf['target']=='1freq_f': # we do this completely seperate since we only hav
   for ineq in xrange(conf['nineq']):
     f2['dmft-last/ineq-{:03}/giw_unsymmetrized'.format(ineq+1)] = f2['dmft-last/ineq-{:03}/giw'.format(ineq+1)]
     del f2['dmft-last/ineq-{:03}/giw'.format(ineq+1)]
-    f2['dmft-last/ineq-{:03}/giw/value'.format(ineq+1)] = np.zeros_like(f2['dmft-last/ineq-{:03}/giw_old/value'.format(ineq+1)], dtype=np.complex128)
+    f2['dmft-last/ineq-{:03}/giw/value'.format(ineq+1)] = np.zeros_like(f2['dmft-last/ineq-{:03}/giw_unsymmetrized/value'.format(ineq+1)], dtype=np.complex128)
     f2['dmft-last/ineq-{:03}/siw_unsymmetrized'.format(ineq+1)] = f2['dmft-last/ineq-{:03}/siw'.format(ineq+1)]
     del f2['dmft-last/ineq-{:03}/siw'.format(ineq+1)]
-    f2['dmft-last/ineq-{:03}/siw/value'.format(ineq+1)] = np.zeros_like(f2['dmft-last/ineq-{:03}/siw_old/value'.format(ineq+1)], dtype=np.complex128)
+    f2['dmft-last/ineq-{:03}/siw/value'.format(ineq+1)] = np.zeros_like(f2['dmft-last/ineq-{:03}/siw_unsymmetrized/value'.format(ineq+1)], dtype=np.complex128)
     for band in xrange(conf['Nbands'][ineq]):
       for symband in conf['sym'][ineq][band]:
         f2['dmft-last/ineq-{:03}/giw/value'.format(ineq+1)][band,:,:] += \
