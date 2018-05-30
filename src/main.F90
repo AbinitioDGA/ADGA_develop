@@ -135,11 +135,6 @@ program main
   call check_freq_range(er)
   if (er .ne. 0) call mpi_stop('Frequency range error.')
 
-! after frequencies and dimensions are obtained, arrays can be allocated 
-  allocate(siw(-iwmax:iwmax-1,ndim))
-  allocate(giw(-iwmax:iwmax-1,ndim))
-  allocate(dc(2,ndim)) ! indices: spin band
-
 ! read Hamiltonian
   if(read_ext_hk) then
     call read_hk_w2w(er,erstr)
@@ -148,6 +143,16 @@ program main
     call read_hk_w2dyn(er,erstr)
     if (er .ne. 0) call mpi_stop(erstr,er)
   end if
+
+! after frequencies and dimensions are obtained, arrays can be allocated 
+  allocate(siw(-iwmax:iwmax-1,ndim))
+  if (sc_mode) then
+    allocate(skiw(-iwfmax_small-iwbmax_small:iwfmax-1+iwbmax_small,nkp,ndim,ndim))
+    write(*,*) shape(skiw)
+  endif
+  allocate(giw(-iwmax:iwmax-1,ndim))
+  allocate(dc(2,ndim)) ! indices: spin band
+
 
   call read_mu()   ! w2d chemical potential
   call read_beta() ! w2d inverse temperature
@@ -170,6 +175,9 @@ program main
   ! The calculation is necessary if one wants to do calculations with p-bands
   ! since read_giw reads the giw array which only ! contains correlated bands
   call read_siw()  ! w2d self energy
+  if (sc_mode) then
+    call read_skiw()
+  endif
 
   write(ounit,'(1X)')
   if(exist_p .or. (debug .and. (index(dbgstr,"Makegiw") .ne. 0))) then

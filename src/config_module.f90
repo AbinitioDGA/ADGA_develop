@@ -335,9 +335,18 @@ subroutine read_config(er,erstr)
   call group_find('[Selfconsistency]',search_start,search_end)
   if (search_start .gt. 0) then 
     call int_find('summation-order',summation_order,search_start,search_end)
-    bse_inversion = .false. ! default value: true
+    if (summation_order .lt. 0) then
+      bse_inversion = .true.
+    else
+      bse_inversion = .false. ! default value: true
+    end if
+
+    ! this can be omitted if it turns out that k-dependent selfenergy is always needed for SC
+    call bool_find('se-nonloc',sc_mode,search_start,search_end)
+
   endif
 
+  
 
   deallocate(file_save)
   return
