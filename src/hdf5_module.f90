@@ -841,15 +841,15 @@ subroutine read_threeleg(gamma_loc_dens,gamma_loc_magn,iwb)
 
             if ((i.eq.k) .and. (j.eq.l)) then
               if(index2cor(nineq,ndims,i,j,k,l)) then ! substracted in the correlated subspace
-                gamma_loc_dens(i1,i2) = gamma_loc_dens(i1,i2)+giw(iwf-iwfmax_small,i)*giw(iwf-iwfmax_small-iwb,j)
-                gamma_loc_magn(i1,i2) = gamma_loc_magn(i1,i2)+giw(iwf-iwfmax_small,i)*giw(iwf-iwfmax_small-iwb,j)
+                gamma_loc_dens(i1,i2) = gamma_loc_dens(i1,i2)+giw(iwf-iwfmax_small,k)*giw(iwf-iwfmax_small-iwb,l)
+                gamma_loc_magn(i1,i2) = gamma_loc_magn(i1,i2)+giw(iwf-iwfmax_small,k)*giw(iwf-iwfmax_small-iwb,l)
               endif
             endif
 
             ! divide off two remaining legs
             if(index2cor(nineq,ndims,i,j,k,l)) then ! substracted in the correlated subspace
-              gamma_loc_dens(i1,i2) = gamma_loc_dens(i1,i2)/(-1.d0*giw(iwf-iwfmax_small,i)*giw(iwf-iwfmax_small-iwb,j))
-              gamma_loc_magn(i1,i2) = gamma_loc_magn(i1,i2)/(-1.d0*giw(iwf-iwfmax_small,i)*giw(iwf-iwfmax_small-iwb,j))
+              gamma_loc_dens(i1,i2) = gamma_loc_dens(i1,i2)/(-1.d0*giw(iwf-iwfmax_small,k)*giw(iwf-iwfmax_small-iwb,l))
+              gamma_loc_magn(i1,i2) = gamma_loc_magn(i1,i2)/(-1.d0*giw(iwf-iwfmax_small,k)*giw(iwf-iwfmax_small-iwb,l))
             endif
             ! we do not divide by chi0 here but chi0/beta
             ! reason: we defined gamma as summation over one fermionic frequency without
@@ -1548,7 +1548,6 @@ subroutine output_chi_qpath_full_h5(filename_output,channel,chi)
   call h5fclose_f(file_id,err)
   call h5close_f(err)
 
-  write(*,*)'q-path susceptibility ',channel,' written to h5'
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
    write(ounit,*) 'full q-path susceptibility ',channel,' written to h5'
   endif

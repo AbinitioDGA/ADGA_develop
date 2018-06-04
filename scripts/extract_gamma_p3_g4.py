@@ -43,7 +43,7 @@ def spinband2index(nbands, bands, spins):
   if bands >= 1111 and bands <= (nbands*1111) and spins >= 1111 and spins <= 2222:
     b1,b2,b3,b4 = int(str(bands)[0]),int(str(bands)[1]),int(str(bands)[2]),int(str(bands)[3])
     s1,s2,s3,s4 = int(str(spins)[0]),int(str(spins)[1]),int(str(spins)[2]),int(str(spins)[3])
-    index = 8*nbands**3*(2*b1+s1-3) + 4*nbands*+3*(2*b2+s2-3)+2*nbands*(2*b3+s3-3)+2*b4+s4-2
+    index = 8*nbands**3*(2*b1+s1-3) + 4*nbands**2*(2*b2+s2-3)+2*nbands*(2*b3+s3-3)+2*b4+s4-2
     return index
   else:
     print('Wrong band- or spin-combination')
@@ -173,10 +173,10 @@ if (options.channel == 0):
   #horizontal
   if b1 == b4 and b3 == b2 and s1 == s4 and s3 == s2:
     for nbos in xrange(2*n3iwb+1):
-      gamma[:,nbos] += giw[b1,niw-n3iwf:niw+n3iwf]*giw[b2,niw-n3iwf+n3iwb-nbos:niw+n3iwf+n3iwb-nbos]
+      gamma[:,nbos] += giw[b4,niw-n3iwf:niw+n3iwf]*giw[b3,niw-n3iwf+n3iwb-nbos:niw+n3iwf+n3iwb-nbos]
 
   for nbos in xrange(2*n3iwb+1):
-    gamma[:,nbos] = gamma[:,nbos] * (-1.0/(beta*giw[b1,niw-n3iwf:niw+n3iwf]*giw[b2,niw-n3iwf+n3iwb-nbos:niw+n3iwf+n3iwb-nbos]))
+    gamma[:,nbos] = gamma[:,nbos] * (-1.0/(beta*giw[b4,niw-n3iwf:niw+n3iwf]*giw[b3,niw-n3iwf+n3iwb-nbos:niw+n3iwf+n3iwb-nbos]))
 else:
   gamma_d = (gamma_1 + gamma_2 + gamma_3 + gamma_4)/2.0
   gamma_m = (gamma_1 + gamma_2 - gamma_3 - gamma_4 + gamma_5 + gamma_6)/4.0
@@ -188,12 +188,12 @@ else:
   #horizontal
   if b1 == b4 and b3 == b2:
     for nbos in xrange(2*n3iwb+1):
-      gamma_d[:,nbos] += giw[b1,niw-n3iwf:niw+n3iwf]*giw[b2,niw-n3iwf+n3iwb-nbos:niw+n3iwf+n3iwb-nbos]
-      gamma_m[:,nbos] += giw[b1,niw-n3iwf:niw+n3iwf]*giw[b2,niw-n3iwf+n3iwb-nbos:niw+n3iwf+n3iwb-nbos]
+      gamma_d[:,nbos] += giw[b4,niw-n3iwf:niw+n3iwf]*giw[b3,niw-n3iwf+n3iwb-nbos:niw+n3iwf+n3iwb-nbos]
+      gamma_m[:,nbos] += giw[b4,niw-n3iwf:niw+n3iwf]*giw[b3,niw-n3iwf+n3iwb-nbos:niw+n3iwf+n3iwb-nbos]
 
   for nbos in xrange(2*n3iwb+1):
-    gamma_d[:,nbos] = gamma_d[:,nbos] * (-1.0/(beta*giw[b1,niw-n3iwf:niw+n3iwf]*giw[b2,niw-n3iwf+n3iwb-nbos:niw+n3iwf+n3iwb-nbos]))
-    gamma_m[:,nbos] = gamma_m[:,nbos] * (-1.0/(beta*giw[b1,niw-n3iwf:niw+n3iwf]*giw[b2,niw-n3iwf+n3iwb-nbos:niw+n3iwf+n3iwb-nbos]))
+    gamma_d[:,nbos] = gamma_d[:,nbos] * (-1.0/(beta*giw[b4,niw-n3iwf:niw+n3iwf]*giw[b3,niw-n3iwf+n3iwb-nbos:niw+n3iwf+n3iwb-nbos]))
+    gamma_m[:,nbos] = gamma_m[:,nbos] * (-1.0/(beta*giw[b4,niw-n3iwf:niw+n3iwf]*giw[b3,niw-n3iwf+n3iwb-nbos:niw+n3iwf+n3iwb-nbos]))
 
 
 if (options.channel == 0) and True:
