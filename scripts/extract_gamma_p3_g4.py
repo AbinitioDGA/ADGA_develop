@@ -11,11 +11,12 @@ end of the script to your own likings.
 from __future__ import print_function, division, absolute_import
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import h5py
 import sys
 from optparse import OptionParser
 
-__version__ = 0.5
+__version__ = 0.6
 __author__ = "Matthias Pickem"
 
 parser = OptionParser(usage = "usage: python %prog [Options]")
@@ -138,9 +139,11 @@ else:
 
     g2_dens[:,:,nbos] = g2_dens[:,:,nbos].dot(chi0_inv[:,:,nbos])
     g2_magn[:,:,nbos] = g2_magn[:,:,nbos].dot(chi0_inv[:,:,nbos])
+    # we devide off on the RIGHT side
 
   gamma_sum_d = np.sum(g2_dens, axis=0)
   gamma_sum_m = np.sum(g2_magn, axis=0)
+  # threeleg (gamma) is defined with the left 2 legs closed -> axis = 0
 
 
 # COMPARISON WITH DIRECTLY MEASURED GAMMA
@@ -196,31 +199,31 @@ else:
     gamma_m[:,nbos] = gamma_m[:,nbos] * (-1.0/(beta*giw[b4,niw-n3iwf:niw+n3iwf]*giw[b3,niw-n3iwf+n3iwb-nbos:niw+n3iwf+n3iwb-nbos]))
 
 
-if (options.channel == 0) and True:
-  g = plt.figure()
-  # beware of that beta, because we defined gamma without 1/beta in ADGA
-  # we have to multiply the directly extracted quantity here with beta
-  # in order to arrive at the same level
-  plt.plot(beta*gamma[n3iwf-n4iwf:n3iwf+n4iwf,n3iwb].real, label='P3')
-  plt.plot(gamma_sum[:,n4iwb].real, label='G4')
-  plt.legend(loc='best')
-  plt.show()
-  sys.exit()
+# beware of that beta factor at P3!
+# reason: we defined gamma with a matsubara summation
+# however without the 1/beta prefactor
+# we have to multiply the directly extracted quantity here with beta
+# in order to arrive at the same level
 
 
 if (options.channel == 0) and True:
-  g = plt.figure(figsize=(15,7))
-  ax1 = g.add_subplot(121)
+  g = plt.figure(figsize=(15,10))
+  spec = gridspec.GridSpec(ncols=2,nrows=2)
+  ax1 = g.add_subplot(spec[0,0])
   ax1.set_title(r'$P3$')
   plt.pcolormesh(beta*gamma[n3iwf-n4iwf:n3iwf+n4iwf,n3iwb-n4iwb:n3iwb+n4iwb+1].real)
   vmin, vmax = plt.gci().get_clim()
   plt.colorbar()
 
-  ax2 = g.add_subplot(122)
+  ax2 = g.add_subplot(spec[0,1])
   ax2.set_title(r'$G4$')
   plt.pcolormesh(gamma_sum[:,:].real, vmin=vmin, vmax=vmax)
   plt.colorbar()
 
+  ax3 = g.add_subplot(spec[1,0:])
+  plt.plot(beta*gamma[n3iwf-n4iwf:n3iwf+n4iwf,n3iwb].real, label='P3')
+  plt.plot(gamma_sum[:,n4iwb].real, label='G4')
+  plt.legend(loc='best')
   plt.show()
 
 if (options.channel == 1) and True:
@@ -243,10 +246,15 @@ if (options.channel == 1) and True:
   plt.pcolormesh(gamma_sum_d.real,vmin=vmind,vmax=vmaxd)
   plt.colorbar()
 
-  ax4 = g.add_subplot(244, sharex=ax3, sharey=ax3)
+  ax4 = g.add_subplot(224, sharex=ax3, sharey=ax3)
   ax4.set_title(r'$\gamma_m(G4)$')
   plt.pcolormesh(gamma_sum_m.real,vmin=vminm,vmax=vmaxm)
   plt.colorbar()
+
+  # compare it directly with the internally calculated threelegs
+  # available in 'gamma' branch
+
+  # input_internal = h5py.File('file_from_adga.hdf5','r')
 
   # ax3 = g.add_subplot(242)
   # ax3.set_title(r'$\gamma_d$')
