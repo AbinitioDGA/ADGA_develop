@@ -445,10 +445,11 @@ module hdf5_module
        call h5dget_space_f(skiw_id, skiw_space_id, err)
        call h5sget_simple_extent_dims_f(skiw_space_id, skiw_dims, skiw_maxdims, err)
        niw_skiw=skiw_dims(1)/2
+       write(*,*) 'skiw_dims',skiw_dims
        allocate(skiw_r(-niw_skiw:niw_skiw-1,nkpz,nkpy,nkpx,ndim,ndim)) !indices: iw kz,ky,kx,norb,norb
        allocate(skiw_i(-niw_skiw:niw_skiw-1,nkpz,nkpy,nkpx,ndim,ndim)) !indices: iw kz,ky,kx,norb,norb
        call h5dread_f(skiw_id, type_r_id, skiw_r, skiw_dims, err)
-       call h5dread_f(skiw_id, type_i_id, skiw_r, skiw_dims, err)
+       call h5dread_f(skiw_id, type_i_id, skiw_i, skiw_dims, err)
        call h5dclose_f(skiw_id, err)
        call h5fclose_f(file_id,err)
        ik=0

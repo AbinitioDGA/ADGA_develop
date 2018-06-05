@@ -388,6 +388,11 @@ if (external_threelegs) then
   if (ounit .ge. 1) write(ounit,*) "Reading the local threeleg vertex gamma^w from file."
 end if
 
+if (sc_mode) then
+  if (ounit .ge. 1) write(ounit,*) "Using nonlocal self-energy skiw"
+endif
+
+
 if (do_eom) then
   allocate(gammaqd(ndim2,maxdim))
   allocate(sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom), sigma_hf(ndim,ndim,nkp_eom))
@@ -397,6 +402,7 @@ if (do_eom) then
   sigma_hf = 0d0
   sigma_dmft = 0d0
 end if
+
 
 
 if (mpi_wrank.eq. master .and. (verbose .and. (index(verbstr,"Kpoints") .ne. 0))) then
