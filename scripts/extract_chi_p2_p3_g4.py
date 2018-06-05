@@ -15,7 +15,7 @@ import h5py
 import sys
 from optparse import OptionParser
 
-__version__ = 0.1
+__version__ = 0.2
 __author__ = "Matthias Pickem"
 
 parser = OptionParser(usage = "usage: python %prog [Options]")
@@ -135,6 +135,10 @@ else:
   n3iwf = gamma_1.shape[0]//2
   n3iwb = gamma_2.shape[-1]//2
 
+if n3iwf < n4iwf or n3iwb < n4iwb:
+  print('P3 box too small: exiting...')
+  sys.exit()
+
 occ = input_g1["dmft-last/ineq-{:03}/occ/value".format(ineq)][()]
 dens = np.diagonal(np.diagonal(occ,0,-4,-2),0,-3,-2)
 
@@ -144,6 +148,7 @@ if (options.channel == 0):
     gamma[:,n3iwb] += beta*giw[b1,niw-n3iwf:niw+n3iwf]*(1.0-dens[b3,s3])
 
   chi_p3_sum = np.sum(gamma, axis=0)/beta
+  # chi_p3_sum = np.sum(gamma[n3iwb-n4iwb:n3iwb+n4iwb,:], axis=0)/beta
 else:
   gamma_d = (gamma_1 + gamma_2 + gamma_3 + gamma_4)/2.0
   gamma_m = (gamma_1 + gamma_2 - gamma_3 - gamma_4 + gamma_5 + gamma_6)/4.0
@@ -152,8 +157,13 @@ else:
   if b1 == b2 and b3 == b4: #and s1 == s2 and s3 == s4:
     gamma_d[:,n3iwb] += 2*beta*giw[b1,niw-n3iwf:niw+n3iwf]*(1.0-dens[b3,0])
 
+  # we can directly use the complete range of P3
   chi_p3_sum_d = np.sum(gamma_d, axis=0)/beta
   chi_p3_sum_m = np.sum(gamma_m, axis=0)/beta
+
+  # this is done in ADGA
+  # chi_p3_sum_d = np.sum(gamma_d[n3iwb-n4iwb:n3iwb+n4iwb,:], axis=0)/beta
+  # chi_p3_sum_m = np.sum(gamma_m[n3iwb-n4iwb:n3iwb+n4iwb,:], axis=0)/beta
 
 # DATA FROM P2
 input_p2 = h5py.File(options.chi,'r')
@@ -169,6 +179,10 @@ else:
   chi_6 = input_p2["worm-001/ineq-{:03}/p2iw-worm/{:05}/value".format(ineq,bandspin6)][()]
   n2iwb = chi_1.shape[0]//2
 
+if n2iwb < n3iwb:
+  print('P2 box too small: exiting...')
+  sys.exit()
+
 if (options.channel == 0):
   if b1 == b2 and b3 == b4 and s1 == s2 and s3 == s4:
     chi[n2iwb] -= beta*(1.0-dens[b1,s1])*(1.0-dens[b3,s3])
@@ -179,6 +193,8 @@ else:
 
   # vertical
   if b1 == b2 and b3 == b4: #and s1 == s2 and s3 == s4:
+    # this causes minimal difference between ADGA and here
+    # because this term is really sensible in regards to the occupation
     chi_d[n2iwb] -= 2*beta*(1.0-dens[b1,0])*(1.0-dens[b3,0])
 
 if (options.channel == 0) and True:
@@ -193,11 +209,20 @@ if (options.channel == 0) and True:
 if (options.channel == 1) and True:
   g=plt.figure(figsize=(12,10))
 
+  # if one wants to compare it directly to the ADGA internally calculated values
+  # g4 = h5py.File('adga-g4.hdf5','r')
+  # p3 = h5py.File('adga-p3.hdf5','r')
+  # p2 = h5py.File('adga-p2.hdf5','r')
+
   ax1 = g.add_subplot(211)
   ax1.set_title(r'$\mathrm{density}$')
   plt.plot(chi_g4_sum_d[:].real, label='G4')
   plt.plot(chi_p3_sum_d[n3iwb-n4iwb:n3iwb+n4iwb].real, label='P3')
   plt.plot(chi_d[n2iwb-n4iwb:n2iwb+n4iwb].real, label='P2')
+
+  # plt.plot(g4['susceptibility/loc/dens'][b1,b2,b3,b4].real, label='G4-internal')
+  # plt.plot(p3['susceptibility/loc/dens'][b1,b2,b3,b4].real, label='P3-internal')
+  # plt.plot(p2['susceptibility/loc/dens'][b1,b2,b3,b4].real, label='P2-internal')
   plt.legend(loc='best')
 
   ax2 = g.add_subplot(212, sharex=ax1)
@@ -205,6 +230,10 @@ if (options.channel == 1) and True:
   plt.plot(chi_g4_sum_m[:].real, label='G4')
   plt.plot(chi_p3_sum_m[n3iwb-n4iwb:n3iwb+n4iwb].real, label='P3')
   plt.plot(chi_m[n2iwb-n4iwb:n2iwb+n4iwb].real, label='P2')
+
+  # plt.plot(g4['susceptibility/loc/magn'][b1,b2,b3,b4].real, label='G4-internal')
+  # plt.plot(p3['susceptibility/loc/magn'][b1,b2,b3,b4].real, label='P3-internal')
+  # plt.plot(p2['susceptibility/loc/magn'][b1,b2,b3,b4].real, label='P2-internal')
   plt.legend(loc='best')
 
   plt.show()
