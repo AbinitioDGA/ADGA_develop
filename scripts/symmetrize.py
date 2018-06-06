@@ -77,11 +77,18 @@ def get_groups(infile='infile.hdf5',Nbands=[1],target=1,nineq=1,**kwargs):
   for ineq in xrange(nineq):
     f=h5py.File(infile,'r')
     if target=='1freq_b':
-      gr_str=f['ineq-{:03}'.format(ineq+1)].keys()
+      gr_str=f['worm-last/ineq-{:03}/p2iw-worm'.format(ineq+1)].keys()
     elif target=='2freq':
-      gr_str=f['ineq-{:03}'.format(ineq+1)].keys()
+      gr_str=f['worm-last/ineq-{:03}/p3iw-worm'.format(ineq+1)].keys()
     elif target=='3freq':
       gr_str=f['worm-last/ineq-{:03}/g4iw-worm'.format(ineq+1)].keys()
+
+    if len(gr_str) != 6*(3*Nbands[ineq]**2-2*Nbands[ineq]):
+      print('WARNING: ineq-{:03} - Number of groups is not consistent with Kanamori interaction'.format(ineq+1))
+      if (raw_input('Continue anyways? (y/n): ') != 'y'):
+        print('Exiting ...')
+        sys.exit()
+
     f.close()
     groups.append([])
     bgroups.append([])
@@ -112,11 +119,11 @@ def check_sym(**kwargs):
 def get_fbox(infile=None,target=None,**kwargs):
   f=h5py.File(infile,'r')
   if target=='1freq_b':
-    n2iwb=f['ineq-001/00001'].shape[0]
+    n2iwb=f['worm-last/ineq-001/p2iw-worm/00001/value'].shape[0]
     print n2iwb
     conf['n2iwb']=n2iwb//2
   elif target=='2freq':
-    n3iwf,n3iwb = f['ineq-001/00001'].shape
+    n3iwf,n3iwb = f['worm-last/ineq-001/p3iw-worm/00001/value'].shape
     conf['n3iwf'],conf['n3iwb'] = n3iwf//2,n3iwb//2
     n3iwf,n3iwb=conf['n3iwf'],conf['n3iwb']
   elif target=='3freq':
@@ -218,7 +225,7 @@ def read_and_add(h5in,h5out,ineq,igr,channel,action,symgroups,target=None,n3iwb=
     sys.exit()
 
   if target=='1freq_b':
-    x = h5in['ineq-{:03}/{:05}'.format(ineq+1,igr)].value/float(prefactor*len(symgroups))
+    x = h5in['worm-last/ineq-{:03}/p2iw-worm/{:05}/value'.format(ineq+1,igr)].value/float(prefactor*len(symgroups))
     for gr in symgroups:
       if action=='+':
         h5out['ineq-{:03}/{}/{:05}'.format(ineq+1,channel,gr)][...]+=x
@@ -227,7 +234,7 @@ def read_and_add(h5in,h5out,ineq,igr,channel,action,symgroups,target=None,n3iwb=
       elif action=='0':
         pass
   elif target=='2freq':
-    x = h5in['ineq-{:03}/{:05}'.format(ineq+1,igr)].value/float(prefactor*len(symgroups))
+    x = h5in['worm-last/ineq-{:03}/p3iw-worm/{:05}/value'.format(ineq+1,igr)].value/float(prefactor*len(symgroups))
     for iwb in xrange(2*n3iwb+1):
       for gr in symgroups:
         if action=='+':
@@ -266,10 +273,10 @@ if conf['target']=='1freq_f': # we do this completely seperate since we only hav
   for ineq in xrange(conf['nineq']):
     f2['dmft-last/ineq-{:03}/giw_unsymmetrized'.format(ineq+1)] = f2['dmft-last/ineq-{:03}/giw'.format(ineq+1)]
     del f2['dmft-last/ineq-{:03}/giw'.format(ineq+1)]
-    f2['dmft-last/ineq-{:03}/giw/value'.format(ineq+1)] = np.zeros_like(f2['dmft-last/ineq-{:03}/giw_old/value'.format(ineq+1)], dtype=np.complex128)
+    f2['dmft-last/ineq-{:03}/giw/value'.format(ineq+1)] = np.zeros_like(f2['dmft-last/ineq-{:03}/giw_unsymmetrized/value'.format(ineq+1)], dtype=np.complex128)
     f2['dmft-last/ineq-{:03}/siw_unsymmetrized'.format(ineq+1)] = f2['dmft-last/ineq-{:03}/siw'.format(ineq+1)]
     del f2['dmft-last/ineq-{:03}/siw'.format(ineq+1)]
-    f2['dmft-last/ineq-{:03}/siw/value'.format(ineq+1)] = np.zeros_like(f2['dmft-last/ineq-{:03}/siw_old/value'.format(ineq+1)], dtype=np.complex128)
+    f2['dmft-last/ineq-{:03}/siw/value'.format(ineq+1)] = np.zeros_like(f2['dmft-last/ineq-{:03}/siw_unsymmetrized/value'.format(ineq+1)], dtype=np.complex128)
     for band in xrange(conf['Nbands'][ineq]):
       for symband in conf['sym'][ineq][band]:
         f2['dmft-last/ineq-{:03}/giw/value'.format(ineq+1)][band,:,:] += \

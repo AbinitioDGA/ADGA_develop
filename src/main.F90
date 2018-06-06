@@ -24,6 +24,8 @@ program main
   complex(kind=8), allocatable :: chi0wFd_slice(:,:)
   complex(kind=8), allocatable ::  chi0wFm_slice(:,:), chi0wFd(:,:), chi0wFm(:,:), chi_loc(:,:)
   complex(kind=8), allocatable ::  oneplusgammawm(:,:), oneplusgammawd(:,:), gammawd(:,:), gammawm(:,:)
+  complex(kind=8), allocatable ::  gammawd_full(:,:,:), gammawm_full(:,:,:)
+  complex(kind=8), allocatable ::  gammawd_gather(:,:,:), gammawm_gather(:,:,:)
   complex(kind=8), allocatable :: chi_qw_dens(:,:,:),chi_qw_magn(:,:,:),bubble_nl(:,:,:),chi_qw_full(:,:,:)
   complex(kind=8), allocatable :: chi_loc_dens(:,:,:),chi_loc_magn(:,:,:),bubble_loc(:,:,:),bubble_loc_tmp(:,:)
   complex(kind=8), allocatable :: chi_loc_qmc(:,:,:)
@@ -364,8 +366,8 @@ if (do_chi) then
   bubble_nl=0.d0
   bubble_loc=0.d0
   bubble_loc_tmp=0.d0
-  chi_loc_dens = 0
-  chi_loc_magn = 0
+  chi_loc_dens = 0.d0
+  chi_loc_magn = 0.d0
   if (external_chi_loc) then
      ! We read the local susceptibilities from file.
      if (ounit .ge. 1)  write(ounit,*) "Reading the local (frequency summed) susceptibilities from file."
@@ -417,6 +419,12 @@ end if
 
   nonlocal = .not. (debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) ! Do the non-local quantities!
 
+  if (.not. nonlocal .and. verbose .and. (index(verbstr,"Gamma") .ne. 0)) then
+    allocate(gammawd_full(ndim2,maxdim,qwstart:qwstop), gammawm_full(ndim2,maxdim,qwstart:qwstop))
+    gammawd_full = 0.d0
+    gammawm_full = 0.d0
+  endif
+
   if (mpi_wrank .eq. master) then
     write(ounit,'(1x)')
     write(ounit,*) 'Writing hdf5 output to ',trim(output_filename)
@@ -467,7 +475,7 @@ end if
         enddo
         if (do_chi) then
            ! Use the big box
-           bubble_loc_tmp = 0 ! Initialize!
+           bubble_loc_tmp = 0.d0 ! Initialize!
            do iwf=iwstart,iwstop
               call get_chi0_loc(  iwf, iwb, chi0)
               bubble_loc_tmp = bubble_loc_tmp + chi0 ! Accumulate chi0 over iwf
@@ -514,8 +522,7 @@ end if
         gammawd = 0.d0
 
         if (external_threelegs) then ! read gamma^w from external file
-          call read_threeleg(gammawm,'magn',iwb)
-          call read_threeleg(gammawd,'dens',iwb)
+          call read_threeleg(gammawd,gammawm,iwb)
 
         else ! calculate gamma^w=chi0^w.F^w
           do i1=1,ndim2
@@ -532,6 +539,41 @@ end if
             call calc_chi_qw(chi_loc_dens(:,:,iwb),gammawd,chi0w)
             call calc_chi_qw(chi_loc_magn(:,:,iwb),gammawm,chi0w)
         end if
+
+
+        ! master gathers and outputs the gamma array
+        if (verbose .and. (index(verbstr,"Gamma") .ne. 0) .and. .not. nonlocal) then
+          gammawd_full(:,:,iqw) = gammawd(:,:)
+          gammawm_full(:,:,iqw) = gammawm(:,:)
+
+          if (iqw .eq. qwstop) then
+
+            if (mpi_wrank .eq. master) then
+              allocate(gammawd_gather(ndim2,maxdim,2*iwbmax_small+1))
+              allocate(gammawm_gather(ndim2,maxdim,2*iwbmax_small+1))
+            else
+              allocate(gammawd_gather(1,1,1))
+              allocate(gammawm_gather(1,1,1))
+            endif
+#ifdef MPI
+            ! multiply rct and displ with maxdim/ndim2 because of the way they are defined in mpi_org
+            call MPI_gatherv(gammawd_full,(qwstop-qwstart+1)*ndim2*maxdim, &
+                 MPI_DOUBLE_COMPLEX, gammawd_gather, rct*maxdim/ndim2, disp*maxdim/ndim2, &
+                 MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
+            call MPI_gatherv(gammawm_full,(qwstop-qwstart+1)*ndim2*maxdim, &
+                 MPI_DOUBLE_COMPLEX, gammawm_gather, rct*maxdim/ndim2, disp*maxdim/ndim2, &
+                 MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
+#else
+            gammawd_gather = gammawd_full
+            gammawm_gather = gammawm_full
+#endif
+            if (mpi_wrank .eq. master) then
+              call output_gamma(output_filename, gammawd_gather, 0)
+              call output_gamma(output_filename, gammawm_gather, 1)
+            endif
+            deallocate(gammawd_gather, gammawm_gather)
+          endif
+        endif
 
 
 
@@ -706,11 +748,11 @@ end if
 
      !Output the calculation progress
      if (ounit .gt. 0 .and. .not. (verbose .and. (index(verbstr,"Noprogress") .ne. 0))) then
-      if (mod(iqw-qwstart,max((qwstop-qwstart)/10,2)) .eq. 0) then
+      ! if (mod(iqw-qwstart,max((qwstop-qwstart)/10,2)) .eq. 0) then
          write(ounit,'(1x,"Core:",I5,"  Completed qw-point: ",I7," (from ",I7," to ",I7,")  Time per point: ",F8.4)') &
                mpi_wrank, iqw, qwstart, qwstop, finish-start
          call flush(ounit)
-      endif
+      ! endif
      endif
   enddo !iqw
   if (ounit .ge. 1) then

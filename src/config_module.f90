@@ -414,6 +414,8 @@ subroutine check_freq_range(er)
   implicit none
   integer :: mpi_wrank, master, er
 
+  if (ounit .gt. 0) write(ounit,'(1x)')
+
   if (iwfmax_small .le. 0) then
     iwfmax_small = iwfmax
     if (ounit .gt. 0) then
@@ -487,6 +489,8 @@ subroutine check_freq_range(er)
     endif
     return
   endif
+
+  if (ounit .gt. 0) write(ounit,'(1x)')
 
 end subroutine check_freq_range
 
