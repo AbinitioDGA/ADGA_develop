@@ -1021,7 +1021,7 @@ subroutine init_h5_output(filename_output, nonlocal)
     call h5gclose_f(grp_id_se,err)
   end if
 
-  if (verbose .and. (index(verbstr,"Gamma") .ne. 0)) then
+  if (.not. nonlocal .and. verbose .and. (index(verbstr,"Gamma") .ne. 0)) then
     call h5gcreate_f(file_id,'gamma',grp_id_gamma,err)
   endif
 

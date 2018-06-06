@@ -25,6 +25,7 @@ program main
   complex(kind=8), allocatable ::  chi0wFm_slice(:,:), chi0wFd(:,:), chi0wFm(:,:), chi_loc(:,:)
   complex(kind=8), allocatable ::  oneplusgammawm(:,:), oneplusgammawd(:,:), gammawd(:,:), gammawm(:,:)
   complex(kind=8), allocatable ::  gammawd_full(:,:,:), gammawm_full(:,:,:)
+  complex(kind=8), allocatable ::  gammawd_gather(:,:,:), gammawm_gather(:,:,:)
   complex(kind=8), allocatable :: chi_qw_dens(:,:,:),chi_qw_magn(:,:,:),bubble_nl(:,:,:),chi_qw_full(:,:,:)
   complex(kind=8), allocatable :: chi_loc_dens(:,:,:),chi_loc_magn(:,:,:),bubble_loc(:,:,:),bubble_loc_tmp(:,:)
   complex(kind=8), allocatable :: chi_loc_qmc(:,:,:)
@@ -249,9 +250,6 @@ program main
   allocate(chi0q(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
   allocate(chi0w_inv(ndim2,ndim2,-iwfmax_small:iwfmax_small-1))
   allocate(gammawd(ndim2,maxdim), gammawm(ndim2,maxdim))
-  if (mpi_wrank .eq. master .and. (verbose .and. (index(verbstr,"Gamma") .ne. 0))) then
-    allocate(gammawd_full(ndim2,maxdim,2*iwbmax_small+1), gammawm_full(ndim2,maxdim,2*iwbmax_small+1))
-  endif
   allocate(oneplusgammawd(ndim2,maxdim))
   allocate(oneplusgammawm(ndim2,maxdim))
   allocate(chi0wFd_slice(ndim2,maxdim))
@@ -421,6 +419,12 @@ end if
 
   nonlocal = .not. (debug .and. (index(dbgstr,"Onlydmft") .ne. 0)) ! Do the non-local quantities!
 
+  if (.not. nonlocal .and. verbose .and. (index(verbstr,"Gamma") .ne. 0)) then
+    allocate(gammawd_full(ndim2,maxdim,qwstart:qwstop), gammawm_full(ndim2,maxdim,qwstart:qwstop))
+    gammawd_full = 0.d0
+    gammawm_full = 0.d0
+  endif
+
   if (mpi_wrank .eq. master) then
     write(ounit,'(1x)')
     write(ounit,*) 'Writing hdf5 output to ',trim(output_filename)
@@ -536,13 +540,38 @@ end if
             call calc_chi_qw(chi_loc_magn(:,:,iwb),gammawm,chi0w)
         end if
 
+
         ! master gathers and outputs the gamma array
-        if (mpi_wrank .eq. master .and. (verbose .and. (index(verbstr,"Gamma") .ne. 0))) then
-          gammawd_full(:,:,iwb+iwbmax_small+1) = gammawd(:,:)
-          gammawm_full(:,:,iwb+iwbmax_small+1) = gammawm(:,:)
-          if(iq.eq.1 .and. iwb.eq.iwbmax_small) then
-            call output_gamma(output_filename, gammawd_full, 0)
-            call output_gamma(output_filename, gammawm_full, 1)
+        if (verbose .and. (index(verbstr,"Gamma") .ne. 0) .and. .not. nonlocal) then
+          gammawd_full(:,:,iqw) = gammawd(:,:)
+          gammawm_full(:,:,iqw) = gammawm(:,:)
+
+          if (iqw .eq. qwstop) then
+
+            if (mpi_wrank .eq. master) then
+              allocate(gammawd_gather(ndim2,maxdim,2*iwbmax_small+1))
+              allocate(gammawm_gather(ndim2,maxdim,2*iwbmax_small+1))
+            else
+              allocate(gammawd_gather(1,1,1))
+              allocate(gammawm_gather(1,1,1))
+            endif
+#ifdef MPI
+            ! multiply rct and displ with maxdim/ndim2 because of the way they are defined in mpi_org
+            call MPI_gatherv(gammawd_full,(qwstop-qwstart+1)*ndim2*maxdim, &
+                 MPI_DOUBLE_COMPLEX, gammawd_gather, rct*maxdim/ndim2, disp*maxdim/ndim2, &
+                 MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
+            call MPI_gatherv(gammawm_full,(qwstop-qwstart+1)*ndim2*maxdim, &
+                 MPI_DOUBLE_COMPLEX, gammawm_gather, rct*maxdim/ndim2, disp*maxdim/ndim2, &
+                 MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
+#else
+            gammawd_gather = gammawd_full
+            gammawm_gather = gammawm_full
+#endif
+            if (mpi_wrank .eq. master) then
+              call output_gamma(output_filename, gammawd_gather, 0)
+              call output_gamma(output_filename, gammawm_gather, 1)
+            endif
+            deallocate(gammawd_gather, gammawm_gather)
           endif
         endif
 
