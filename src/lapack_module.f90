@@ -75,23 +75,25 @@ module lapack_module
 
 
   ! Calculate the sum M + M**2 + ... + M**ord
-  ! TODO: If this works, better use a lapack routine (but don't optimize prematurely...)
   subroutine geometric_summation(M,ord)
     implicit none
     double complex, intent(inout) :: M(:,:)
-    double complex,allocatable :: M_tmp(:,:),summand(:,:) 
+    double complex,allocatable :: M_power(:,:),M_tmp(:,:)
+    double complex :: alpha, beta
     integer, intent(in) :: ord
     integer :: mat_size,i,j
     mat_size = size(M,1)
-    allocate(M_tmp(mat_size,mat_size), summand(mat_size,mat_size))
+    allocate(M_power(mat_size,mat_size),M_tmp(mat_size,mat_size))
+    M_power=M
     M_tmp=M
-    summand=M
+    alpha=1.d0
+    beta=0.d0
     do j=2,ord
-      summand=matmul(summand,M)
-      M_tmp = M_tmp+summand
+      call zgemm('N','N',mat_size,mat_size,mat_size,alpha,M,mat_size,M_power,mat_size,beta,M_tmp,mat_size)
+      M_power = M_tmp
+      M = M + M_power
     enddo
-    M=M_tmp
-    deallocate(M_tmp,summand)
+    deallocate(M_power)
   end subroutine geometric_summation
 
 end module lapack_module
