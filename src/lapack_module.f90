@@ -78,22 +78,24 @@ module lapack_module
   subroutine geometric_summation(M,ord)
     implicit none
     double complex, intent(inout) :: M(:,:)
-    double complex,allocatable :: M_power(:,:),M_tmp(:,:)
+    double complex,allocatable :: M_power(:,:),M_tmp(:,:),M_tmp_2(:,:)
     double complex :: alpha, beta
     integer, intent(in) :: ord
     integer :: mat_size,i,j
     mat_size = size(M,1)
-    allocate(M_power(mat_size,mat_size),M_tmp(mat_size,mat_size))
+    allocate(M_power(mat_size,mat_size),M_tmp(mat_size,mat_size),M_tmp_2(mat_size,mat_size))
     M_power=M
     M_tmp=M
+    M_tmp_2=0.d0
     alpha=1.d0
     beta=0.d0
     do j=2,ord
-      call zgemm('N','N',mat_size,mat_size,mat_size,alpha,M,mat_size,M_power,mat_size,beta,M_tmp,mat_size)
-      M_power = M_tmp
-      M = M + M_power
+      call zgemm('N','N',mat_size,mat_size,mat_size,alpha,M,mat_size,M_power,mat_size,beta,M_tmp_2,mat_size)
+      M_power = M_tmp_2
+      M_tmp = M_tmp + M_power
     enddo
-    deallocate(M_power)
+    M = M_tmp
+    deallocate(M_power,M_tmp,M_tmp_2)
   end subroutine geometric_summation
 
 end module lapack_module
