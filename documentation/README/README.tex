@@ -184,8 +184,9 @@ where $n_{dim}$ represents the number of correlated bands.
 Please note that the $V(\mathbf{q})$ implementation at the moment only supports one impurity.
 
 \newpage
-\section{\protect\Verb+setupvertex+ - symmetrizing the vertex}
-In order to use the vertex it must first be symmetrized and transformed into the density and magnetic channels according to
+\section{\protect\Verb+symmetrize.py+ - symmetrizing the two-particle Green's function}
+
+In order to use the two-particle Green's function, it must first be symmetrized and transformed into the density and magnetic channels according to
 \begin{equation*}
 G_d = \frac{1}{2}\left[G_{\uparrow\uparrow\uparrow\uparrow} + G_{\downarrow\downarrow\downarrow\downarrow} + G_{\uparrow\uparrow\downarrow\downarrow} + G_{\downarrow\downarrow\uparrow\uparrow} \right]
 \end{equation*}
@@ -194,15 +195,22 @@ G_m = \frac{1}{2}\left[G_{\uparrow\downarrow\downarrow\uparrow} + G_{\downarrow\
 \end{equation*}
 where we additionally used the SU(2) symmetry.
 %
-This symmetrization can be done with the \verb|setupvertex| program. One simply has to execute this program, with \verb+$ADGA_DIR+ as your \verb+ADGA+ parent directory, and follow the instructions given (colored text represents user input).
-\begin{lstlisting}[caption=exemplary setupvertex execution, frame=single, basicstyle=\small, style=base][H]
-$ @$ADGA_DIR/bin/setupvertex@
+This symmetrization can be done with the \verb|symmetrize.py| program. 
+One simply has to execute this program, with \verb+$ADGA_DIR+ as the 
+\verb+ADGA+ parent directory, and follow the instructions given (colored text represents user input).
+%
+\begin{lstlisting}[caption=exemplary symmetrize.py execution, frame=single, basicstyle=\small, style=base][H]
+$ @$ADGA_DIR/scripts/symmetrize.py@
+Which quantity do you want to symmetrize?
+0 -> 1 frequency (f), 1 -> 1 frequency (b), 2 -> 2 frequencies (fb), 3 -> 3 frequencies (ffb): @3@
+Filename of the not symmetrized data: @srvo3-2pg-repo.hdf5@
 Number of inequivalent atoms: @1@
-Vertex file : @srvo3-2pg-repo.hdf5@
-Number of correlated bands for inequivalent atom 1: @3@
-Outputfile for symmetrized Vertex: @srvo3-2pg-symmetrized.hdf5@
-
-SU2 symmetry only (s) or SU2 AND orbital symmetry (o)?: @o@
+  Atom 1:
+    Number of correlated bands: @3@
+    Band 1: symmetric bands (separated by spaces): @1 2 3@
+    Band 2: symmetric bands (separated by spaces): @1 2 3@
+    Band 3: symmetric bands (separated by spaces): @1 2 3@
+Outputfile for symmetrized data: @srvo3-2pg-symmetrized.hdf5@
 \end{lstlisting}
 This produces an HDF5 file of the following structure:
 \begin{lstlisting}[caption=symmetrized vertex structure, frame=single, basicstyle=\small]
@@ -220,7 +228,28 @@ This produces an HDF5 file of the following structure:
 ...
 \end{lstlisting}
 
-which is the centerpiece of the \verb+ADGA+ input. The group names in front of the \verb|value| groups again represent a one-to-one mapping from a  \emph{band combination} to an integer. ($00001 \rightarrow (1,1,1,1)$). The group before that represents a bosonic frequency which is shifted so we start at 0 (00000) and go to $2\ast$\verb|N4IWB|.
+which is the centerpiece of the \verb+ADGA+ input. 
+The group names in front of the \verb|value| groups again
+represent a one-to-one mapping from a  \emph{band combination}
+to an integer. ($00001 \rightarrow (1,1,1,1)$). 
+The group before that represents a bosonic frequency 
+which is shifted so we start at 0 (00000) and go to $2\ast$\verb|N4IWB|.\\
+As can be seen in the exemplary \verb=symmetrize.py= session above, 
+the user is prompted to choose a quantity to symmetrize.
+\begin{itemize}
+  \item Option 0 enforces orbital symmetry in one-particle quantities
+    (\emph{f} for \emph{fermionic} frequency),
+  \item option 1 is for symmetrizing two-particle Greens-functions with 
+    one bosonic frequency,
+  \item option 2 is for two-particle Green's functions with a bosonic and
+    a fermionic frequency,
+  \item and option 3 for the standard two-particle Green's function. 
+\end{itemize}
+The two-particle Green's functions with reduced frequency dependence are
+symmetrized in the exact same way as the standard two-particle Green's function. 
+It is necessary to choose the quantity merely because the file structures
+are different. 
+
 
 \newpage
 \section{\protect\Verb+abinitiodga+ - main program}
