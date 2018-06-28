@@ -376,7 +376,6 @@ module hdf5_module
        call h5dget_space_f(siw_id, siw_space_id, err)
        call h5sget_simple_extent_dims_f(siw_space_id, siw_dims, siw_maxdims, err)
        ! ndims = siw_dims(3)
-       write(*,*) 'siw_dims',siw_dims
        allocate(siw_data(2,-iwmax:iwmax-1,siw_dims(2),siw_dims(3))) !indices: real/imag iw spin band
        call h5dread_f(siw_id, compound_id, siw_data, siw_dims, err)
 
