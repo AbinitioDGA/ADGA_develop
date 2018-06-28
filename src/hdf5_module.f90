@@ -376,6 +376,7 @@ module hdf5_module
        call h5dget_space_f(siw_id, siw_space_id, err)
        call h5sget_simple_extent_dims_f(siw_space_id, siw_dims, siw_maxdims, err)
        ! ndims = siw_dims(3)
+       write(*,*) 'siw_dims',siw_dims
        allocate(siw_data(2,-iwmax:iwmax-1,siw_dims(2),siw_dims(3))) !indices: real/imag iw spin band
        call h5dread_f(siw_id, compound_id, siw_data, siw_dims, err)
 
@@ -411,6 +412,71 @@ module hdf5_module
 
 
  end subroutine read_siw
+
+ ! read k-dependent selfenergy in SC iteration
+ subroutine read_skiw()
+     use parameters_module
+     implicit none
+     integer :: i,j,iw,ineq,iband,dimstart, dimend,iwf
+     integer :: ik,ix,iy,iz
+     integer(hid_t) :: file_id,skiw_id, skiw_space_id
+     integer(hsize_t), dimension(6) :: skiw_dims, skiw_maxdims
+     integer :: niw_skiw
+     double precision, allocatable :: skiw_data(:,:,:,:,:,:,:)
+     double precision, allocatable :: skiw_r(:,:,:,:,:,:)
+     double precision, allocatable :: skiw_i(:,:,:,:,:,:)
+     character(len=200) :: name_buffer
+     complex(kind=8),parameter :: ci = (0d0,1d0)
+     
+     skiw=0.d0
+
+     do ineq=1,nineq
+       dimstart=1
+       do i=2,ineq
+         dimstart=dimstart+ndims(i-1,1)+ndims(i-1,2)
+       enddo
+       dimend=dimstart+ndims(ineq,1)-1 ! here we are only interested in the interacting orbitals
+
+       write(name_buffer,'("ineq-",I3.3)') ineq
+       ! read skiw:
+       ! nonlocal self energy - matrix in orbital dimensions and k-space
+       call h5fopen_f(filename_1p, h5f_acc_rdonly_f, file_id, err)
+       call h5dopen_f(file_id, trim(adjustl(dmft_iter))//"/"//trim(name_buffer)//"/skiw/value", skiw_id, err)
+       call h5dget_space_f(skiw_id, skiw_space_id, err)
+       call h5sget_simple_extent_dims_f(skiw_space_id, skiw_dims, skiw_maxdims, err)
+       niw_skiw=skiw_dims(1)/2
+       write(*,*) 'skiw_dims',skiw_dims
+       allocate(skiw_r(-niw_skiw:niw_skiw-1,nkpz,nkpy,nkpx,ndim,ndim)) !indices: iw kz,ky,kx,norb,norb
+       allocate(skiw_i(-niw_skiw:niw_skiw-1,nkpz,nkpy,nkpx,ndim,ndim)) !indices: iw kz,ky,kx,norb,norb
+       call h5dread_f(skiw_id, type_r_id, skiw_r, skiw_dims, err)
+       call h5dread_f(skiw_id, type_i_id, skiw_i, skiw_dims, err)
+       call h5dclose_f(skiw_id, err)
+       call h5fclose_f(file_id,err)
+       ik=0
+       do ix=1,nkpx
+         do iy=1,nkpy
+           do iz=1,nkpz
+             ik=ik+1
+             skiw(:,ik,:,:) = &
+                  skiw_r(-iwfmax_small-iwbmax_small:iwfmax_small+iwbmax_small-1,iz,iy,ix,:,:) + &
+               ci*skiw_i(-iwfmax_small-iwbmax_small:iwfmax_small+iwbmax_small-1,iz,iy,ix,:,:)
+           enddo
+         enddo
+       enddo
+
+       deallocate(skiw_r,skiw_i)
+
+     enddo ! loop over inequivalent atoms
+
+!     ! outside of small frequency box, extend skiw with siw (k-independent, orbital-diagonal)
+!     do iwf=1,iwbmax_small
+!       do i=1,ndim
+!         skiw(-iwfmax_small-iwf,:,i,i) = siw(-iwfmax_small-iwf,i)
+!         skiw(iwfmax_small-1+iwf,:,i,i) = siw(iwfmax_small-1+iwf,i)
+!       enddo
+!     enddo
+
+ end subroutine read_skiw
 
  subroutine read_giw()
      use parameters_module

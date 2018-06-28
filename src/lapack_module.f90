@@ -1,7 +1,7 @@
 module lapack_module
   implicit none
   private
-  public inverse_matrix
+  public inverse_matrix,geometric_summation
 
   interface inverse_matrix
     module procedure inverse_matrix_d, inverse_matrix_z
@@ -72,5 +72,30 @@ module lapack_module
     end if
     deallocate(ipiv,work)
   end subroutine inverse_matrix_d
+
+
+  ! Calculate the sum M + M**2 + ... + M**ord
+  subroutine geometric_summation(M,ord)
+    implicit none
+    double complex, intent(inout) :: M(:,:)
+    double complex,allocatable :: M_power(:,:),M_tmp(:,:),M_tmp_2(:,:)
+    double complex :: alpha, beta
+    integer, intent(in) :: ord
+    integer :: mat_size,i,j
+    mat_size = size(M,1)
+    allocate(M_power(mat_size,mat_size),M_tmp(mat_size,mat_size),M_tmp_2(mat_size,mat_size))
+    M_power=M
+    M_tmp=M
+    M_tmp_2=0.d0
+    alpha=1.d0
+    beta=0.d0
+    do j=2,ord
+      call zgemm('N','N',mat_size,mat_size,mat_size,alpha,M,mat_size,M_power,mat_size,beta,M_tmp_2,mat_size)
+      M_power = M_tmp_2
+      M_tmp = M_tmp + M_power
+    enddo
+    M = M_tmp
+    deallocate(M_power,M_tmp,M_tmp_2)
+  end subroutine geometric_summation
 
 end module lapack_module

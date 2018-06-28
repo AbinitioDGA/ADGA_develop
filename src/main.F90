@@ -137,11 +137,6 @@ program main
   call check_freq_range(er)
   if (er .ne. 0) call mpi_stop('Frequency range error.')
 
-! after frequencies and dimensions are obtained, arrays can be allocated 
-  allocate(siw(-iwmax:iwmax-1,ndim))
-  allocate(giw(-iwmax:iwmax-1,ndim))
-  allocate(dc(2,ndim)) ! indices: spin band
-
 ! read Hamiltonian
   if(read_ext_hk) then
     call read_hk_w2w(er,erstr)
@@ -150,6 +145,16 @@ program main
     call read_hk_w2dyn(er,erstr)
     if (er .ne. 0) call mpi_stop(erstr,er)
   end if
+
+! after frequencies and dimensions are obtained, arrays can be allocated 
+  allocate(siw(-iwmax:iwmax-1,ndim))
+  if (sc_mode) then
+    allocate(skiw(-iwfmax_small-iwbmax_small:iwfmax-1+iwbmax_small,nkp,ndim,ndim))
+    write(*,*) shape(skiw)
+  endif
+  allocate(giw(-iwmax:iwmax-1,ndim))
+  allocate(dc(2,ndim)) ! indices: spin band
+
 
   call read_mu()   ! w2d chemical potential
   call read_beta() ! w2d inverse temperature
@@ -172,6 +177,9 @@ program main
   ! The calculation is necessary if one wants to do calculations with p-bands
   ! since read_giw reads the giw array which only ! contains correlated bands
   call read_siw()  ! w2d self energy
+  if (sc_mode) then
+    call read_skiw()
+  endif
 
   write(ounit,'(1X)')
   if(exist_p .or. (debug .and. (index(dbgstr,"Makegiw") .ne. 0))) then
@@ -382,6 +390,11 @@ if (external_threelegs) then
   if (ounit .ge. 1) write(ounit,*) "Reading the local threeleg vertex gamma^w from file."
 end if
 
+if (sc_mode) then
+  if (ounit .ge. 1) write(ounit,*) "Using nonlocal self-energy skiw"
+endif
+
+
 if (do_eom) then
   allocate(gammaqd(ndim2,maxdim))
   allocate(sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom), sigma_hf(ndim,ndim,nkp_eom))
@@ -391,6 +404,7 @@ if (do_eom) then
   sigma_hf = 0d0
   sigma_dmft = 0d0
 end if
+
 
 
 if (mpi_wrank.eq. master .and. (verbose .and. (index(verbstr,"Kpoints") .ne. 0))) then
@@ -687,24 +701,43 @@ end if
       timings(3) = timings(3) + tfinish - tstart
       tstart = tfinish ! TIME: inv
 
-      ! We need to add the identity before the inversion: 
-      ! bigwork_dens = [1 - chi0^{nl,q}.F^w_d - 2*beta^{-2}*chi0^q.v^q.(1 + gamma^w)]
-      ! bigwork_magn = [1 - chi0^{nl,q}.F^w_m ]
-      do i=1,maxdim
-         bigwork_dens(i,i) = bigwork_dens(i,i) + 1d0
-         bigwork_magn(i,i) = bigwork_magn(i,i) + 1d0
-      enddo
 
-      call inverse_matrix(bigwork_dens,erstr,er)
-      if (er .ne. 0) call mpi_stop(erstr,er)
-      call inverse_matrix(bigwork_magn,erstr,er)
-      if (er .ne. 0) call mpi_stop(erstr,er)
 
-      ! We need to subtract the identity before the multiplication from the left with (1 + gamma^w): 
-      do i=1,maxdim
-         bigwork_dens(i,i) = bigwork_dens(i,i) - 1d0
-         bigwork_magn(i,i) = bigwork_magn(i,i) - 1d0
-      enddo
+
+! relation between inversion and geometric summation:
+! (matrix A, unit matrix I)
+! (A+I)^{-1} - I = \sum_{n=1}^\infty (-A)^n 
+
+      if (bse_inversion) then ! do the complete inversion
+        
+        ! We need to add the identity before the inversion: 
+        ! bigwork_dens = [1 - chi0^{nl,q}.F^w_d - 2*beta^{-2}*chi0^q.v^q.(1 + gamma^w)]
+        ! bigwork_magn = [1 - chi0^{nl,q}.F^w_m ]
+        do i=1,maxdim
+           bigwork_dens(i,i) = bigwork_dens(i,i) + 1d0
+           bigwork_magn(i,i) = bigwork_magn(i,i) + 1d0
+        enddo
+
+
+        call inverse_matrix(bigwork_dens,erstr,er)
+        if (er .ne. 0) call mpi_stop(erstr,er)
+        call inverse_matrix(bigwork_magn,erstr,er)
+        if (er .ne. 0) call mpi_stop(erstr,er)
+
+
+        ! We need to subtract the identity before the multiplication from the left with (1 + gamma^w): 
+        do i=1,maxdim
+           bigwork_dens(i,i) = bigwork_dens(i,i) - 1d0
+           bigwork_magn(i,i) = bigwork_magn(i,i) - 1d0
+        enddo
+     
+      else ! only compute the geometric series up to specified order
+        bigwork_dens = bigwork_dens*(-1.d0)
+        bigwork_magn = bigwork_magn*(-1.d0)
+        call geometric_summation(bigwork_dens,summation_order)
+        call geometric_summation(bigwork_magn,summation_order)
+      endif
+
       ! TIME: inv
       call cpu_time(tfinish)
       timings(4) = timings(4) + tfinish - tstart

@@ -209,11 +209,17 @@ subroutine accumulate_chi0(ik, ikq, iwf, iwb, chi0)
   integer :: er
   character(len=200) :: erstr
 
-  g1(:,:) = -hk(:,:,ik)
-  do i=1,ndim
-     g1(i,i) = ci*iw_data(iwf)+mu-hk(i,i,ik)-dc(1,i)-siw(iwf,i)
-  enddo
-
+  if (sc_mode) then
+    g1(:,:) = -hk(:,:,ik) - skiw(iwf,ik,:,:)
+    do i=1,ndim
+      g1(i,i) = ci*iw_data(iwf) + mu - hk(i,i,ik) -dc(1,i) - skiw(iwf,ik,i,i)
+    enddo
+  else
+    g1(:,:) = -hk(:,:,ik)
+    do i=1,ndim
+       g1(i,i) = ci*iw_data(iwf)+mu-hk(i,i,ik)-dc(1,i)-siw(iwf,i)
+    enddo
+  endif
 
   if (ndim .eq. 1) then
     g1(1,1)=1.d0/g1(1,1)
@@ -226,10 +232,17 @@ subroutine accumulate_chi0(ik, ikq, iwf, iwb, chi0)
     if (er .ne. 0) call mpi_stop(erstr,er)
   end if
 
-  g2(:,:) = -hk(:,:,ikq)
-  do i=1,ndim
-     g2(i,i) = ci*iw_data(iwf-iwb)+mu-hk(i,i,ikq)-dc(1,i)-siw(iwf-iwb,i)
-  enddo
+  if (sc_mode) then
+    g2(:,:) = -hk(:,:,ikq) - skiw(iwf-iwb,ikq,:,:)
+    do i=1,ndim
+      g2(i,i) = ci*iw_data(iwf-iwb) + mu - hk(i,i,ikq) - dc(1,i) - skiw(iwf-iwb,ikq,i,i)
+    enddo
+  else
+    g2(:,:) = -hk(:,:,ikq)
+    do i=1,ndim
+       g2(i,i) = ci*iw_data(iwf-iwb)+mu-hk(i,i,ikq)-dc(1,i)-siw(iwf-iwb,i)
+    enddo
+  endif
 
   if (ndim .eq. 1) then
     g2(1,1)=1.d0/g2(1,1)
