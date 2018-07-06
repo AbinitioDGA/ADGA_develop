@@ -283,7 +283,7 @@ program main
      endif
      close(ounit)
      call mpi_close()
-     return
+     stop
   endif
 
   ! small arrays
