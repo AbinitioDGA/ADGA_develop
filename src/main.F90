@@ -756,10 +756,16 @@ end if
 
      !Output the calculation progress
      if (ounit .gt. 0 .and. .not. (verbose .and. (index(verbstr,"Noprogress") .ne. 0))) then
-       if (mod(iqw-qwstart,max((qwstop-qwstart)/10,2)) .eq. 0) then
-         write(ounit,'(1x,"Core:",I5,"  Calculating qw-point interval: ",I7," to ",I7," Time per point: ",F8.4)') &
-               mpi_wrank, iqw, iqw+max((qwstop-qwstart)/10,2), finish-start
+       if (verbose .and. (index(verbstr,"Allprogress")) .ne. 0) then
+         write(ounit,'(1x,"Core:",I5,"  Completed qw-point: ",I7," (from ",I7," to ",I7,")  Time per point: ",F8.4)') &
+               mpi_wrank, iqw, qwstart, qwstop, finish-start
          call flush(ounit)
+       else
+         if (mod(iqw-qwstart,max((qwstop-qwstart)/10,2)) .eq. 0) then
+           write(ounit,'(1x,"Core:",I5,"  Completed qw-point: ",I7," (from ",I7," to ",I7,")  Time per point: ",F8.4)') &
+                 mpi_wrank, iqw, qwstart, qwstop, finish-start
+           call flush(ounit)
+         endif
        endif
      endif
   enddo !iqw

@@ -16,11 +16,11 @@ N4iwb     = (default = -1)            # number of bosonic frequencies of the ver
  #                                                                |
  # frequency/orbital notation: Chi^{w v v'}_{l m m' l'} =         |
  #                                                                |
- #      v,l ___>___ v,l'         v,l  _>___________>_ v',l'       |
+ #      v,l ___<___ v,l'         v,l  _<___________<_ v',l'       |
  #                                       |       |                |
  #  -                      +             |       |                |
  #                                       |       |                |
- #    v-w,m ___<___ v-w,m'     v-w,m  _<_|_______|_<_ v'-w,m'     |
+ #    v-w,m ___>___ v-w,m'     v-w,m  _>_|_______|_>_ v'-w,m'     |
  #                                                                |
  #________________________________________________________________|
 
@@ -87,7 +87,7 @@ ________________________________________________________________________________
 [Verbose]                             # Verbose flag (Add keywords to produce more output)
                                       # Current verbose keywords:
                                       # Output, Extra, Hdf5, Umatrix, Time, Kpoints
-                                      # Noprogress, Test, Mpi, Dmft, Gamma
+                                      # Allprogress, Noprogress, Test, Mpi, Dmft, Gamma
 ________________________________________________________________________________
 [Debug]                               # Debug flag (Add keywords to change the way the calculation is performed, i.e. "Experts Only")
                                       # Current debug keywords: Onlydmft, Bubble, Dmft_phbar, Makegiw
