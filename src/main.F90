@@ -702,11 +702,12 @@ end if
       if (calc_eigen) then
         allocate(bigwork_evproblem(maxdim,maxdim), bigwork_vectors(maxdim,maxdim), bigwork_values(maxdim))
         ! *(-1) because we are interested in the evs of chi0^nl.F^w_r
+        ! write(ounit,*) 'MAGNETIC'
         bigwork_evproblem = bigwork_magn*(-1)
         call eigenvalues_matrix(bigwork_evproblem, bigwork_vectors, bigwork_values, erstr, er)
         if (er .ne. 0) call mpi_stop(erstr,er)
-        write(ounit,*) bigwork_values
-        write(ounit,'(1x)')
+        ! write(ounit,*) bigwork_values
+        ! write(ounit,'(1x)')
         maxev = 0
         maxevpos = 0
         do i=1,maxdim
@@ -715,8 +716,29 @@ end if
             maxevpos = i
           endif
         enddo
-        write(ounit,*) maxev, maxevpos
-        write(ounit,*) bigwork_vectors(:,maxevpos)
+        write(ounit,*) 'magn', iq , maxev
+        ! write(ounit,*) 'maximum magn eigenvalue (>0) :', maxev
+        ! write(ounit,*) 'eigenvalue position in our matrix: ', maxevpos
+        ! write(ounit,*) bigwork_vectors(:,maxevpos)
+
+        ! write(ounit,*) 'DENSITY'
+        bigwork_evproblem = bigwork_dens*(-1)
+        call eigenvalues_matrix(bigwork_evproblem, bigwork_vectors, bigwork_values, erstr, er)
+        if (er .ne. 0) call mpi_stop(erstr,er)
+        ! write(ounit,*) bigwork_values
+        ! write(ounit,'(1x)')
+        maxev = 0
+        maxevpos = 0
+        do i=1,maxdim
+          if (real(bigwork_values(i)) .gt. maxev) then
+            maxev = real(bigwork_values(i))
+            maxevpos = i
+          endif
+        enddo
+        write(ounit,*) 'dens', iq, maxev
+        ! write(ounit,*) 'maximum dens eigenvalue (>0) :', maxev
+        ! write(ounit,*) 'eigenvalue position in our matrix: ', maxevpos
+        ! write(ounit,*) bigwork_vectors(:,maxevpos)
         deallocate(bigwork_evproblem, bigwork_vectors, bigwork_values)
       endif
 

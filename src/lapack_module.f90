@@ -9,7 +9,7 @@ module lapack_module
 
   ! right eigenvalues
   interface eigenvalues_matrix
-    module procedure eigenvalues_matrix_z
+    module procedure eigenvalues_matrix_z, eigenvalues_matrix_d
   end interface eigenvalues_matrix
 
   contains
@@ -86,7 +86,6 @@ module lapack_module
     integer                         :: ndim, lwork
     double complex, allocatable     :: work(:)
     double complex                  :: work_query(1)
-    double complex                  :: dummy
     double precision, allocatable   :: rwork(:)
 
     ndim = size(M,1) ! identical to maxdim
@@ -105,5 +104,30 @@ module lapack_module
     endif
     deallocate(work,rwork)
   end subroutine eigenvalues_matrix_z
+
+  subroutine eigenvalues_matrix_d(M, Ve, Var, Vai, erstr, ierr)
+    implicit none
+    double precision, intent(inout) :: M(:,:), Ve(:,:), Var(:), Vai(:)! matrix, vectors, values(r, i)
+    integer, intent(out)            :: ierr
+    character(len=200), intent(out) :: erstr
+    integer                         :: ndim, lwork
+    double precision, allocatable   :: work(:)
+    double precision                :: work_query(1)
+
+    ndim = size(M,1) ! identical to maxdim
+    call dgeev('n','v',ndim,M,ndim,Var,Vai,Ve,ndim,Ve,ndim,work_query,-1,ierr)
+    if (ierr .ne. 0) then
+      erstr = "ERROR in DGEEV at workspace query"
+      return
+    endif
+    lwork = work_query(1)
+    allocate(work(lwork))
+    call dgeev('n','v',ndim,M,ndim,Var,Vai,Ve,ndim,Ve,ndim,work,lwork,ierr)
+    if (ierr .ne. 0) then
+      erstr = "ERROR in DGEEV"
+      return
+    endif
+    deallocate(work)
+  end subroutine eigenvalues_matrix_d
 
 end module lapack_module
