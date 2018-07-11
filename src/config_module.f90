@@ -236,6 +236,12 @@ subroutine read_config(er,erstr)
      k_path_eom = .false.
   endif
 
+  if (debug .and. (index(dbgstr,"Eigenvalues") .ne. 0)) then
+    calc_eigen = .true.
+  else
+    calc_eigen = .false.
+  endif
+
   allocate(interaction(nineq))
   allocate(interaction_mode(nineq))
   allocate(ndims(nineq,2))

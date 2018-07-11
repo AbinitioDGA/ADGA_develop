@@ -31,6 +31,7 @@ program main
   complex(kind=8), allocatable :: chi_loc_qmc(:,:,:)
   integer, allocatable :: kq_ind(:,:), qw(:,:), kq_ind_eom(:,:)
   complex(kind=8), allocatable :: bigwork_magn(:,:), etaqd(:,:), etaqm(:,:), rectanglework(:,:)
+  complex(kind=8), allocatable :: bigwork_evproblem(:,:), bigwork_vectors(:,:), bigwork_values(:)
   complex(kind=8), allocatable :: smallwork(:,:), bigwork_dens(:,:)
   real(kind=8 ):: start, finish
   real(kind=8 ):: tstart, tfinish, timings(7) ! timings: local, chi0, gammas, eta inversion, eta construct, eom, chi
@@ -48,6 +49,8 @@ program main
   logical :: verbose_extra
   integer :: er ! error flag
   logical :: nonlocal ! Do the nonlocal quantities
+  real(kind=8) :: maxev
+  integer :: maxevpos
 #ifdef MPI
   character(len=MPI_MAX_PROCESSOR_NAME) :: hostname
 #endif
@@ -242,6 +245,23 @@ program main
 !compute k-dependent filling for Fock-term (computed in the EOM):
   call get_nfock() ! writes n_fock.dat
 
+  ! we have to do this before the mesh information output obviously
+  if (q_path_susc) then
+    if (do_chi) then
+      call qdata_from_file()
+    endif
+    if (do_eom) then
+      call mpi_stop('Error: it is currently not possible to use both do_eom and q_path_susc',er)
+    endif
+  elseif (q_vol) then ! the only other option we have
+    nqp=nqpx*nqpy*nqpz
+    if ((nqpx .le. 0) .or. (nqpy .le. 0) .or. (nqpz .le. 0)) then
+      call mpi_stop('Error: Given q-grid is not valid', er)
+    endif
+    allocate(q_data(nqp))
+    call generate_q_vol(nqpx,nqpy,nqpz,q_data)
+  endif
+
   if (ounit .ge. 1) then
     write(ounit,'(1x)')
     if (.not. do_vq) then
@@ -310,28 +330,12 @@ program main
   allocate(chi0wFm(maxdim,maxdim))
   allocate(chi0wFd(maxdim,maxdim))
 
-  if (q_path_susc) then
-    if (do_chi) then
-      call qdata_from_file()
-    endif
-    if (do_eom) then
-      call mpi_stop('Error: it is currently not possible to use both do_eom and q_path_susc',er)
-    endif
-  elseif (q_vol) then ! the only other option we have
-    nqp=nqpx*nqpy*nqpz
-    if ((nqpx .le. 0) .or. (nqpy .le. 0) .or. (nqpz .le. 0)) then
-      call mpi_stop('Error: Given q-grid is not valid', er)
-    endif
-    allocate(q_data(nqp))
-    call generate_q_vol(nqpx,nqpy,nqpz,q_data)
-  endif
-
-  ! calculate the index of all \vec{k} - \vec{q}
   allocate(kq_ind(nkp,nqp)) ! full k-grid -- for chi k summation
   if (do_eom) then
     allocate(kq_ind_eom(nkp_eom,nqp)) ! eom k-grid
   endif
 
+  ! calculate the index of all \vec{k} - \vec{q}
   call cpu_time(start)
   call index_kq(kq_ind) ! new method
   if (do_eom) then
@@ -694,6 +698,27 @@ end if
       call cpu_time(tfinish)
       timings(3) = timings(3) + tfinish - tstart
       tstart = tfinish ! TIME: inv
+
+      if (calc_eigen) then
+        allocate(bigwork_evproblem(maxdim,maxdim), bigwork_vectors(maxdim,maxdim), bigwork_values(maxdim))
+        ! *(-1) because we are interested in the evs of chi0^nl.F^w_r
+        bigwork_evproblem = bigwork_magn*(-1)
+        call eigenvalues_matrix(bigwork_evproblem, bigwork_vectors, bigwork_values, erstr, er)
+        if (er .ne. 0) call mpi_stop(erstr,er)
+        write(ounit,*) bigwork_values
+        write(ounit,'(1x)')
+        maxev = 0
+        maxevpos = 0
+        do i=1,maxdim
+          if (real(bigwork_values(i)) .gt. maxev) then
+            maxev = real(bigwork_values(i))
+            maxevpos = i
+          endif
+        enddo
+        write(ounit,*) maxev, maxevpos
+        write(ounit,*) bigwork_vectors(:,maxevpos)
+        deallocate(bigwork_evproblem, bigwork_vectors, bigwork_values)
+      endif
 
       ! We need to add the identity before the inversion: 
       ! bigwork_dens = [1 - chi0^{nl,q}.F^w_d - 2*beta^{-2}*chi0^q.v^q.(1 + gamma^w)]
