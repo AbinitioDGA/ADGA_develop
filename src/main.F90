@@ -35,6 +35,11 @@ program main
   complex(kind=8), allocatable :: smallwork(:,:), bigwork_dens(:,:)
   real(kind=8 ):: start, finish
   real(kind=8 ):: tstart, tfinish, timings(7) ! timings: local, chi0, gammas, eta inversion, eta construct, eom, chi
+
+  complex(kind=8), allocatable :: eigenvalues(:,:,:), eigenvalues_gather(:,:,:)
+  complex(kind=8), allocatable :: eigenvectors(:,:,:,:), eigenvectors_gather(:,:,:,:)
+  logical, allocatable :: eigenvalue_mask(:)
+
   complex(kind=8) :: alpha, delta
   integer :: iqw
   integer :: offset
@@ -49,8 +54,7 @@ program main
   logical :: verbose_extra
   integer :: er ! error flag
   logical :: nonlocal ! Do the nonlocal quantities
-  real(kind=8) :: maxev
-  integer :: maxevpos
+  integer :: evpos(1) ! array ...
 #ifdef MPI
   character(len=MPI_MAX_PROCESSOR_NAME) :: hostname
 #endif
@@ -363,6 +367,15 @@ program main
         qw(2,i1) = iq
      enddo
   enddo
+
+! distribute for eigenvalues
+if (calc_eigen) then
+  allocate(eigenvalues(number_eigenvalues,2,qwstart:qwstop)) ! 2 because dens/magn
+  allocate(eigenvalue_mask(maxdim))
+  if (save_eigenvectors) then
+    allocate(eigenvectors(maxdim,number_eigenvalues,2,qwstart:qwstop))
+  endif
+endif
 
 !distribute the qw compound index:
 if (do_chi) then
@@ -702,43 +715,37 @@ end if
       if (calc_eigen) then
         allocate(bigwork_evproblem(maxdim,maxdim), bigwork_vectors(maxdim,maxdim), bigwork_values(maxdim))
         ! *(-1) because we are interested in the evs of chi0^nl.F^w_r
-        ! write(ounit,*) 'MAGNETIC'
+
+        ! for the magnetic channel
         bigwork_evproblem = bigwork_magn*(-1)
         call eigenvalues_matrix(bigwork_evproblem, bigwork_vectors, bigwork_values, erstr, er)
         if (er .ne. 0) call mpi_stop(erstr,er)
-        ! write(ounit,*) bigwork_values
-        ! write(ounit,'(1x)')
-        maxev = 0
-        maxevpos = 0
-        do i=1,maxdim
-          if (real(bigwork_values(i)) .gt. maxev) then
-            maxev = real(bigwork_values(i))
-            maxevpos = i
+
+        eigenvalue_mask = .true. ! to filter the max value one after the other
+        do i=1,number_eigenvalues
+          evpos = maxloc(real(bigwork_values), eigenvalue_mask) ! this is a 1dim-array ..
+          eigenvalue_mask(evpos(1)) = .false. ! update mask
+          eigenvalues(i,2,iqw) = bigwork_values(evpos(1)) ! save it in the global array 2::magn
+          if (save_eigenvectors) then
+            eigenvectors(:,i,2,iqw) = bigwork_vectors(:,evpos(1)) ! save the vector
           endif
         enddo
-        write(ounit,*) 'magn', iq , maxev
-        ! write(ounit,*) 'maximum magn eigenvalue (>0) :', maxev
-        ! write(ounit,*) 'eigenvalue position in our matrix: ', maxevpos
-        ! write(ounit,*) bigwork_vectors(:,maxevpos)
 
-        ! write(ounit,*) 'DENSITY'
+        ! same thing for the density channel
         bigwork_evproblem = bigwork_dens*(-1)
         call eigenvalues_matrix(bigwork_evproblem, bigwork_vectors, bigwork_values, erstr, er)
         if (er .ne. 0) call mpi_stop(erstr,er)
-        ! write(ounit,*) bigwork_values
-        ! write(ounit,'(1x)')
-        maxev = 0
-        maxevpos = 0
-        do i=1,maxdim
-          if (real(bigwork_values(i)) .gt. maxev) then
-            maxev = real(bigwork_values(i))
-            maxevpos = i
+
+        eigenvalue_mask = .true. ! to filter the max value one after the other
+        do i=1,number_eigenvalues
+          evpos = maxloc(real(bigwork_values), eigenvalue_mask)
+          eigenvalue_mask(evpos(1)) = .false. ! update mask
+          eigenvalues(i,1,iqw) = bigwork_values(evpos(1)) ! save it in the global array 1::dens (alphabetically)
+          if (save_eigenvectors) then
+            eigenvectors(:,i,1,iqw) = bigwork_vectors(:,evpos(1)) ! save the vector
           endif
         enddo
-        write(ounit,*) 'dens', iq, maxev
-        ! write(ounit,*) 'maximum dens eigenvalue (>0) :', maxev
-        ! write(ounit,*) 'eigenvalue position in our matrix: ', maxevpos
-        ! write(ounit,*) bigwork_vectors(:,maxevpos)
+
         deallocate(bigwork_evproblem, bigwork_vectors, bigwork_values)
       endif
 
@@ -855,6 +862,42 @@ end if
   deallocate(chi0wFm,chi0wFd,v,rectanglework)
   deallocate(chi0wFd_slice,chi0wFm_slice)
   deallocate(chi0)
+
+
+  if (calc_eigen) then
+    if (mpi_wrank .eq. master) then
+      allocate(eigenvalues_gather(number_eigenvalues,2,nqp*(2*iwbmax_small+1)))
+      if (save_eigenvectors) then
+        allocate(eigenvectors_gather(maxdim,number_eigenvalues,2,nqp*(2*iwbmax_small+1)))
+      endif
+    else
+      allocate(eigenvalues_gather(1,1,1))
+      allocate(eigenvectors_gather(1,1,1,1))
+    endif
+#ifdef MPI
+    call MPI_gatherv(eigenvalues,(qwstop-qwstart+1)*2*number_eigenvalues, &
+         MPI_DOUBLE_COMPLEX, eigenvalues_gather, rct*2*number_eigenvalues/ndim2**2, &
+         disp*2*number_eigenvalues/ndim2**2, MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
+    if (save_eigenvectors) then
+      call MPI_gatherv(eigenvectors,(qwstop-qwstart+1)*2*number_eigenvalues*maxdim, &
+           MPI_DOUBLE_COMPLEX, eigenvectors_gather, rct*2*number_eigenvalues*maxdim/ndim2**2, &
+           disp*2*number_eigenvalues*maxdim/ndim2**2, MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
+    endif
+#else
+    eigenvalues_gather = eigenvalues
+    if (save_eigenvectors) then
+      eigenvectors_gather = eigenvectors
+    endif
+#endif
+
+    ! write(ounit,*) eigenvalues_gather
+    ! hdf5 output here
+    if (q_vol) then
+      call output_eigenvalue_qw_h5(output_filename,eigenvalues_gather)
+    endif
+
+    deallocate(eigenvalues_gather)
+  endif
 
   ! MPI reduction and output
   if (do_eom) then

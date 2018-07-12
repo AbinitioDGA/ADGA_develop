@@ -121,6 +121,10 @@ subroutine read_config(er,erstr)
   iwbmax_small=-1
   nkpx = 0; nkpy = 0; nkpz = 0
   nqpx = 0; nqpy = 0; nqpz = 0
+
+  calc_eigen=.false.
+  number_eigenvalues = 1
+  save_eigenvectors = .true.
   !================================================================================
 
   ! search for General stuff + Allocation of values
@@ -234,12 +238,6 @@ subroutine read_config(er,erstr)
      q_vol = .true.
      q_path_susc =.false.
      k_path_eom = .false.
-  endif
-
-  if (debug .and. (index(dbgstr,"Eigenvalues") .ne. 0)) then
-    calc_eigen = .true.
-  else
-    calc_eigen = .false.
   endif
 
   allocate(interaction(nineq))
@@ -424,6 +422,15 @@ subroutine read_config(er,erstr)
     call bool_find('susc-full-output', susc_full_output, search_start, search_end)
     call int_find('gzip-compression', gzip_compression, search_start, search_end)
     call bool_find('text-output', text_output, search_start, search_end)
+  endif
+
+  call group_find('[Eigenvalues]', search_start, search_end)
+  if (search_start .gt. 0) then ! group was found -- this is an optional group
+    calc_eigen = .true.
+    call int_find('Nvalues', number_eigenvalues, search_start, search_end)
+    call bool_find('save-vectors', save_eigenvectors, search_start, search_end)
+  else
+    calc_eigen = .false.
   endif
 
   deallocate(file_save)

@@ -976,6 +976,7 @@ subroutine init_h5_output(filename_output, nonlocal)
 
   integer :: err,i1,i2,ikx,iky,ikz,i,qpoint_tmp(3)
   integer(hid_t) :: file_id,grp_id_input,grp_id_susc,grp_id_se,grp_id_occ,grp_id_green
+  integer(hid_t) :: grp_id_eigen,grp_id_dens,grp_id_magn
   integer(hid_t) :: grp_id_chi_qw,grp_id_chi_loc
   integer(hid_t) :: grp_id_se_loc,grp_id_se_nonloc,grp_id_gamma
   integer(kind=8) :: chi_qw_dims(3),chi_loc_dims(3),qpath_dims(2),k_ind_tmp
@@ -996,6 +997,13 @@ subroutine init_h5_output(filename_output, nonlocal)
   call h5fcreate_f(filename_output, h5f_acc_trunc_f, file_id, err)
 
 ! create the groups for the ADGA results
+
+  if (calc_eigen) then
+    call h5gcreate_f(file_id,'eigenproblem',grp_id_eigen,err)
+    call h5gcreate_f(grp_id_eigen,'dens',grp_id_dens,err)
+    call h5gcreate_f(grp_id_eigen,'magn',grp_id_magn,err)
+  endif
+
   if (do_chi) then
     call h5gcreate_f(file_id,'susceptibility',grp_id_susc,err)
     if (nonlocal) then
@@ -2034,6 +2042,7 @@ subroutine output_gamma(filename_output, gammaw, channel)
   call h5dwrite_f(dset_id_gamma,type_i_id, aimag(gamma_arr), dims_gamma, err)
   call h5dclose_f(dset_id_gamma, err)
   call h5gclose_f(grp_id_gamma,err)
+  call h5close_f(err)
 
   deallocate(gamma_arr)
 
@@ -2042,5 +2051,134 @@ subroutine output_gamma(filename_output, gammaw, channel)
   endif
 
 end subroutine output_gamma
+
+subroutine output_eigenvalue_qw_h5(filename_output,eigenvalues)
+  use parameters_module
+  implicit none
+  character(len=*) :: filename_output
+  integer :: err,rank_ev_qw
+  integer :: iwb,iqx,iqy,iqz,i1
+  integer(kind=8),dimension(:),allocatable :: dims_ev_qw
+  integer(hid_t) :: file_id,grp_id_ev
+  integer(hid_t) :: dspace_id_ev_qw
+  integer(hid_t) :: dset_id_ev_qw
+  complex(kind=8),dimension(number_eigenvalues,2,nqp*(2*iwbmax_small+1)) :: eigenvalues
+  complex(kind=8),dimension(2*iwbmax_small+1,nqpz,nqpy,nqpx,number_eigenvalues) :: evd_outputarray
+  complex(kind=8),dimension(2*iwbmax_small+1,nqpz,nqpy,nqpx,number_eigenvalues) :: evm_outputarray
+
+  rank_ev_qw=5
+  allocate(dims_ev_qw(rank_ev_qw))
+  dims_ev_qw=(/ 2*iwbmax_small+1,nqpz,nqpy,nqpx,number_eigenvalues/)
+
+  do iwb=1,2*iwbmax_small+1
+    do iqz=1,nqpz
+      do iqy=1,nqpy
+        do iqx=1,nqpx
+          do i1=1,number_eigenvalues
+            !density
+            evd_outputarray(iwb,iqz,iqy,iqx,i1) = &
+            eigenvalues(i1,1,(iwb-1)*nqp+(iqz-1)+(iqy-1)*nqpz+(iqx-1)*nqpy*nqpz+1)
+            !magnetic
+            evm_outputarray(iwb,iqz,iqy,iqx,i1) = &
+            eigenvalues(i1,2,(iwb-1)*nqp+(iqz-1)+(iqy-1)*nqpz+(iqx-1)*nqpy*nqpz+1)
+          end do ! i1
+        end do ! nqpx
+      end do ! nqpy
+    end do ! nqpz
+  end do ! iwb
+
+  call h5open_f(err)
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+
+  call h5gopen_f(file_id,'eigenproblem/dens',grp_id_ev,err)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_ev_qw,err)
+  call h5sset_extent_simple_f(dspace_id_ev_qw,rank_ev_qw,dims_ev_qw,dims_ev_qw,err)
+  call h5dcreate_f(grp_id_ev,'values',compound_id,dspace_id_ev_qw,dset_id_ev_qw,err)
+  call h5dwrite_f(dset_id_ev_qw,type_r_id,real(evd_outputarray),dims_ev_qw,err)
+  call h5dwrite_f(dset_id_ev_qw,type_i_id,aimag(evd_outputarray),dims_ev_qw,err)
+  call h5dclose_f(dset_id_ev_qw,err)
+  call h5sclose_f(dspace_id_ev_qw,err)
+  call h5gclose_f(grp_id_ev,err)
+
+  call h5gopen_f(file_id,'eigenproblem/magn',grp_id_ev,err)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_ev_qw,err)
+  call h5sset_extent_simple_f(dspace_id_ev_qw,rank_ev_qw,dims_ev_qw,dims_ev_qw,err)
+  call h5dcreate_f(grp_id_ev,'values',compound_id,dspace_id_ev_qw,dset_id_ev_qw,err)
+  call h5dwrite_f(dset_id_ev_qw,type_r_id,real(evm_outputarray),dims_ev_qw,err)
+  call h5dwrite_f(dset_id_ev_qw,type_i_id,aimag(evm_outputarray),dims_ev_qw,err)
+  call h5dclose_f(dset_id_ev_qw,err)
+  call h5sclose_f(dspace_id_ev_qw,err)
+  call h5gclose_f(grp_id_ev,err)
+
+  call h5close_f(err)
+
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+    write(ounit,*) 'eigenvalues written to h5'
+  endif
+
+  deallocate(dims_ev_qw)
+  return
+end subroutine output_eigenvalue_qw_h5
+
+
+
+!subroutine output_chi_qpath_full_h5(filename_output,channel,chi)
+!  use parameters_module
+!  implicit none
+!  character(len=*)::filename_output,channel
+!  integer::err,rank_chi
+!  integer::i1,i2,i3,i4,iq,iwb
+!  integer(kind=8),dimension(:),allocatable::dims_chi
+!  integer(hid_t)::file_id,grp_id_chi
+!  integer(hid_t)::dspace_id_chi
+!  integer(hid_t)::dset_id_chi
+!  complex(kind=8),dimension(ndim**2,ndim**2,nqp*(2*iwbmax_small+1))::chi
+!  complex(kind=8),dimension(2*iwbmax_small+1,nqp,ndim,ndim,ndim,ndim)::chi_outputarray
+
+!  rank_chi=6
+!  allocate(dims_chi(rank_chi))
+!  dims_chi=(/2*iwbmax_small+1,nqp,ndim,ndim,ndim,ndim/)
+
+
+!  ! reshape and transpose the array, i.e. break up thecompound index
+!  do i1=1,ndim
+!    do i2=1,ndim
+!      do i3=1,ndim
+!        do i4=1,ndim
+!          do iq=1,nqp
+!            do iwb=1,2*iwbmax_small+1
+!            chi_outputarray(iwb,iq,i4,i3,i2,i1)=chi(ndim*(i1-1)+i2,ndim*(i4-1)+i3,(iwb-1)*nqp+iq)
+!            end do
+!          end do
+!        end do
+!      end do
+!    end do
+!  end do
+
+!  !open file and group
+!  call h5open_f(err)
+!  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+!  call h5gopen_f(file_id,'susceptibility/nonloc',grp_id_chi,err)
+
+!  !create dataspace
+!  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi,err)
+!  call h5sset_extent_simple_f(dspace_id_chi,rank_chi,dims_chi,dims_chi,err)
+
+!  ! create dataset
+!  call h5dcreate_f(grp_id_chi,channel,compound_id,dspace_id_chi,dset_id_chi,err)
+!  call h5dwrite_f(dset_id_chi,type_r_id,real(chi_outputarray),dims_chi,err)
+!  call h5dwrite_f(dset_id_chi,type_i_id,aimag(chi_outputarray),dims_chi,err)
+
+!  !close dataset, group and file
+!  call h5dclose_f(dset_id_chi,err)
+!  call h5gclose_f(grp_id_chi,err)
+!  call h5fclose_f(file_id,err)
+!  call h5close_f(err)
+
+!  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+!   write(ounit,*) 'full q-path susceptibility ',channel,' written to h5'
+!  endif
+
+!end subroutine output_chi_qpath_full_h5
 
 end module hdf5_module

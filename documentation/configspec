@@ -90,5 +90,5 @@ ________________________________________________________________________________
                                       # Allprogress, Noprogress, Test, Mpi, Dmft, Gamma
 ________________________________________________________________________________
 [Debug]                               # Debug flag (Add keywords to change the way the calculation is performed, i.e. "Experts Only")
-                                      # Current debug keywords: Onlydmft, Bubble, Dmft_phbar, Makegiw
+                                      # Current debug keywords: Onlydmft, Bubble, Dmft_phbar, Makegiw, Eigenvalues
 
