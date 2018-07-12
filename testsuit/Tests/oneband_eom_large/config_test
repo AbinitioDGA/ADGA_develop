@@ -11,20 +11,20 @@ N4iwb = 15
 
 # General Files
 HkFile = ../oneband_data/Ham.hk
-VqFile =
-QpathFile =
-UFile =
+#VqFile =
+#QpathFile =
+#UFile =
 
 # Hamiltonian (k) & Calculation (q) grid
 k-grid = 20 20 20
 q-grid = 4 4 4
 
 # Calculate the whole q-grid
-qvol = T
+#qvol = T
 
 # No path calculations
-k-path-eom = F
-q-path-susc = F
+#k-path-eom = F
+#q-path-susc = F
 
 # Output folder gets created on execution
 Output = output-test
