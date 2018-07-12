@@ -84,6 +84,16 @@ gzip-compression = (default = 4)      # gzip compression level in the hdf5 outpu
 text-output = (default = F)           # default output only produces the hdf5 data output
 
 ________________________________________________________________________________
+[Eigenvalues]
+Nvalues = (default = 1)               # number of leading eigenvalues to be extracted
+save-vectors = (default = T)          # save the respective eigenvectors as well
+
+________________________________________________________________________________
+[Selfconsistency]
+summation-order = (default = 0)       # number of terms in the geometric series
+se-nonloc = (default = F)             # read in k-dependent self-energy
+
+________________________________________________________________________________
 [Verbose]                             # Verbose flag (Add keywords to produce more output)
                                       # Current verbose keywords:
                                       # Output, Extra, Hdf5, Umatrix, Time, Kpoints

@@ -31,9 +31,15 @@ program main
   complex(kind=8), allocatable :: chi_loc_qmc(:,:,:)
   integer, allocatable :: kq_ind(:,:), qw(:,:), kq_ind_eom(:,:)
   complex(kind=8), allocatable :: bigwork_magn(:,:), etaqd(:,:), etaqm(:,:), rectanglework(:,:)
+  complex(kind=8), allocatable :: bigwork_evproblem(:,:), bigwork_vectors(:,:), bigwork_values(:)
   complex(kind=8), allocatable :: smallwork(:,:), bigwork_dens(:,:)
   real(kind=8 ):: start, finish
-  real(kind=8 ):: tstart, tfinish, timings(7) ! timings: local, chi0, gammas, eta inversion, eta construct, eom, chi
+  real(kind=8 ):: tstart, tfinish, timings(8) ! timings: local, chi0, gammas, eta inversion, eta construct, eom, chi
+
+  complex(kind=8), allocatable :: eigenvalues(:,:,:), eigenvalues_gather(:,:,:)
+  complex(kind=8), allocatable :: eigenvectors(:,:,:,:), eigenvectors_gather(:,:,:,:)
+  logical, allocatable :: eigenvalue_mask(:)
+
   complex(kind=8) :: alpha, delta
   integer :: iqw
   integer :: offset
@@ -48,6 +54,7 @@ program main
   logical :: verbose_extra
   integer :: er ! error flag
   logical :: nonlocal ! Do the nonlocal quantities
+  integer :: evpos(1) ! array ...
 #ifdef MPI
   character(len=MPI_MAX_PROCESSOR_NAME) :: hostname
 #endif
@@ -129,7 +136,7 @@ program main
 
 
 !##################  READ W2DYNAMICS HDF5 OUTPUT FILE ##################
-! open the hdf5-fortran interface
+! open the hdf5-fortran interface and create complex datatype
   call init_h5()
 
 ! read bosonic and fermionic Matsubara axes of one- and two-particle data
@@ -190,7 +197,6 @@ program main
     call read_giw()  ! w2d greens function G_dmft
   endif
 
-  call finalize_h5() ! close the hdf5-fortran interface
 
 
   !read umatrix from separate file:
@@ -249,6 +255,23 @@ program main
   call get_ndmft() ! writes n_dmft.dat if we have the verbose keyword "Dmft"
 !compute k-dependent filling for Fock-term (computed in the EOM):
   call get_nfock() ! writes n_fock.dat
+
+  ! we have to do this before the mesh information output obviously
+  if (q_path_susc) then
+    if (do_chi) then
+      call qdata_from_file()
+    endif
+    if (do_eom) then
+      call mpi_stop('Error: it is currently not possible to use both do_eom and q_path_susc',er)
+    endif
+  elseif (q_vol) then ! the only other option we have
+    nqp=nqpx*nqpy*nqpz
+    if ((nqpx .le. 0) .or. (nqpy .le. 0) .or. (nqpz .le. 0)) then
+      call mpi_stop('Error: Given q-grid is not valid', er)
+    endif
+    allocate(q_data(nqp))
+    call generate_q_vol(nqpx,nqpy,nqpz,q_data)
+  endif
 
   if (ounit .ge. 1) then
     write(ounit,'(1x)')
@@ -318,28 +341,12 @@ program main
   allocate(chi0wFm(maxdim,maxdim))
   allocate(chi0wFd(maxdim,maxdim))
 
-  if (q_path_susc) then
-    if (do_chi) then
-      call qdata_from_file()
-    endif
-    if (do_eom) then
-      call mpi_stop('Error: it is currently not possible to use both do_eom and q_path_susc',er)
-    endif
-  elseif (q_vol) then ! the only other option we have
-    nqp=nqpx*nqpy*nqpz
-    if ((nqpx .le. 0) .or. (nqpy .le. 0) .or. (nqpz .le. 0)) then
-      call mpi_stop('Error: Given q-grid is not valid', er)
-    endif
-    allocate(q_data(nqp))
-    call generate_q_vol(nqpx,nqpy,nqpz,q_data)
-  endif
-
-  ! calculate the index of all \vec{k} - \vec{q}
   allocate(kq_ind(nkp,nqp)) ! full k-grid -- for chi k summation
   if (do_eom) then
     allocate(kq_ind_eom(nkp_eom,nqp)) ! eom k-grid
   endif
 
+  ! calculate the index of all \vec{k} - \vec{q}
   call cpu_time(start)
   call index_kq(kq_ind) ! new method
   if (do_eom) then
@@ -367,6 +374,15 @@ program main
         qw(2,i1) = iq
      enddo
   enddo
+
+! distribute for eigenvalues
+if (calc_eigen) then
+  allocate(eigenvalues(number_eigenvalues,2,qwstart:qwstop)) ! 2 because dens/magn
+  allocate(eigenvalue_mask(maxdim))
+  if (save_eigenvectors) then
+    allocate(eigenvectors(maxdim,number_eigenvalues,2,qwstart:qwstop))
+  endif
+endif
 
 !distribute the qw compound index:
 if (do_chi) then
@@ -624,7 +640,7 @@ end if
      ! Calculate local quantities
      if (do_eom .and. iq .eq. 1) call calc_eom_dmft(gammawd,gammawm,iwb,sigma_dmft)
      call cpu_time(tfinish) ! TIME: eom
-     timings(6) = timings(6) + tfinish - tstart
+     timings(7) = timings(7) + tfinish - tstart
      tstart = tfinish ! TIME: chi0 
 
      if (nonlocal) then
@@ -653,7 +669,7 @@ end if
          call calc_chi_qw(chi_qw_magn(:,:,iqw),gammawm,chi0nl)
       end if
       call cpu_time(tfinish) ! TIME: chi
-      timings(7) = timings(7) + tfinish - tstart
+      timings(8) = timings(8) + tfinish - tstart
       tstart = tfinish ! TIME: gamma
 
       ! Now we construct eta^q (in the small box..)
@@ -707,18 +723,64 @@ end if
       ! TIME: gamma
       call cpu_time(tfinish)
       timings(3) = timings(3) + tfinish - tstart
-      tstart = tfinish ! TIME: inv
+      tstart = tfinish ! TIME: inv // eigenvalue
 
+      if (calc_eigen) then
+        allocate(bigwork_evproblem(maxdim,maxdim), bigwork_vectors(maxdim,maxdim), bigwork_values(maxdim))
+        ! *(-1) because we are interested in the evs of chi0^nl.F^w_r
 
+        ! for the magnetic channel
+        bigwork_evproblem = bigwork_magn*(-1)
+        call eigenvalues_matrix(bigwork_evproblem, bigwork_vectors, bigwork_values, erstr, er)
+        if (er .ne. 0) call mpi_stop(erstr,er)
 
+        eigenvalue_mask = .true. ! to filter the max value one after the other
+        do i=1,number_eigenvalues ! filter out the largest real values
+          evpos = maxloc(real(bigwork_values), eigenvalue_mask) ! this is a 1dim-array ..
+          eigenvalue_mask(evpos(1)) = .false. ! update mask
+          eigenvalues(i,2,iqw) = bigwork_values(evpos(1)) ! save it in the global array 2::magn
+          if (save_eigenvectors) then
+            eigenvectors(:,i,2,iqw) = bigwork_vectors(:,evpos(1)) ! save the vector
+          endif
+        enddo
+
+        ! same thing for the density channel
+        bigwork_evproblem = bigwork_dens*(-1)
+        call eigenvalues_matrix(bigwork_evproblem, bigwork_vectors, bigwork_values, erstr, er)
+        if (er .ne. 0) call mpi_stop(erstr,er)
+
+        eigenvalue_mask = .true. ! to filter the max value one after the other
+        do i=1,number_eigenvalues
+          evpos = maxloc(real(bigwork_values), eigenvalue_mask)
+          eigenvalue_mask(evpos(1)) = .false. ! update mask
+          eigenvalues(i,1,iqw) = bigwork_values(evpos(1)) ! save it in the global array 1::dens (alphabetically)
+          if (save_eigenvectors) then
+            eigenvectors(:,i,1,iqw) = bigwork_vectors(:,evpos(1)) ! save the vector
+          endif
+        enddo
+
+        deallocate(bigwork_evproblem, bigwork_vectors, bigwork_values)
+
+        call cpu_time(tfinish)
+        timings(5) = timings(5) + tfinish-tstart
+        tstart = tfinish
+      endif
+
+      ! We need to add the identity before the inversion:
+      ! bigwork_dens = [1 - chi0^{nl,q}.F^w_d - 2*beta^{-2}*chi0^q.v^q.(1 + gamma^w)]
+      ! bigwork_magn = [1 - chi0^{nl,q}.F^w_m ]
+      do i=1,maxdim
+         bigwork_dens(i,i) = bigwork_dens(i,i) + 1d0
+         bigwork_magn(i,i) = bigwork_magn(i,i) + 1d0
+      enddo
 
 ! relation between inversion and geometric summation:
 ! (matrix A, unit matrix I)
-! (A+I)^{-1} - I = \sum_{n=1}^\infty (-A)^n 
+! (A+I)^{-1} - I = \sum_{n=1}^\infty (-A)^n
 
       if (bse_inversion) then ! do the complete inversion
-        
-        ! We need to add the identity before the inversion: 
+
+        ! We need to add the identity before the inversion:
         ! bigwork_dens = [1 - chi0^{nl,q}.F^w_d - 2*beta^{-2}*chi0^q.v^q.(1 + gamma^w)]
         ! bigwork_magn = [1 - chi0^{nl,q}.F^w_m ]
         do i=1,maxdim
@@ -733,12 +795,12 @@ end if
         if (er .ne. 0) call mpi_stop(erstr,er)
 
 
-        ! We need to subtract the identity before the multiplication from the left with (1 + gamma^w): 
+        ! We need to subtract the identity before the multiplication from the left with (1 + gamma^w):
         do i=1,maxdim
            bigwork_dens(i,i) = bigwork_dens(i,i) - 1d0
            bigwork_magn(i,i) = bigwork_magn(i,i) - 1d0
         enddo
-     
+
       else ! only compute the geometric series up to specified order
         bigwork_dens = bigwork_dens*(-1.d0)
         bigwork_magn = bigwork_magn*(-1.d0)
@@ -765,7 +827,7 @@ end if
       deallocate(bigwork_dens, bigwork_magn)
       ! TIME: eta
       call cpu_time(tfinish)
-      timings(5) = timings(5) + tfinish - tstart
+      timings(6) = timings(6) + tfinish - tstart
       tstart = tfinish ! TIME: chi or EOM
 
       if (do_chi) then
@@ -773,7 +835,7 @@ end if
          call calc_chi_qw(chi_qw_dens(:,:,iqw),etaqd,chi0q)
          call calc_chi_qw(chi_qw_magn(:,:,iqw),etaqm,chi0q)
          call cpu_time(tfinish)  ! TIME: chi
-         timings(7) = timings(7) + tfinish - tstart
+         timings(8) = timings(8) + tfinish - tstart
          tstart = tfinish ! restart the timer
       end if
       if (do_eom) then
@@ -781,7 +843,7 @@ end if
          call calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind_eom,iwb,iq,v,sigma_nl) 
          ! TIME: eom
          call cpu_time(tfinish)
-         timings(6) = timings(6) + tfinish - tstart
+         timings(7) = timings(7) + tfinish - tstart
          tstart = tfinish ! restart the timer
       end if
      endif ! non-local
@@ -790,7 +852,7 @@ end if
      !Output the calculation progress
      if (ounit .gt. 0 .and. .not. (verbose .and. (index(verbstr,"Noprogress") .ne. 0))) then
        if (verbose .and. (index(verbstr,"Allprogress")) .ne. 0) then
-         write(ounit,'(1x,"Core:",I5,"  Completed qw-point: ",I7," (from ",I7," to ",I7,")  Time per point: ",F8.4)') &
+         write(ounit,'(1x,"Core:",I5,"  Completed qw-point: ",I7," (from ",I7," to ",I7,")  Time for point: ",F8.4)') &
                mpi_wrank, iqw, qwstart, qwstop, finish-start
          call flush(ounit)
        else
@@ -814,15 +876,15 @@ end if
 #ifdef MPI
      if (ounit .ge. 1) then
        write(ounit,'(1x,"TIME: Wall time per qw-point: (Rank ",i6,")")') mpi_wrank
-       write(ounit,'(1x,"       Local,       Chi0,     Gammas,  Inversion,   Eta rest,        EOM,        Chi")') 
-       write(ounit,'(1x,7f12.5)') timings/(qwstop-qwstart+1)
+       write(ounit,'(1x,"      Local,       Chi0,     Gammas,    Inversion,  Eigenvalue,  Eta rest,     EOM,        Chi")')
+       write(ounit,'(1x,8f12.5)') timings/(qwstop-qwstart+1)
      endif
      call MPI_allreduce(MPI_IN_PLACE,timings,size(timings), MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
      if (ounit .ge. 1) then
        write(ounit,'(1x,"TIME: Wall time per qw-point:")')
-       write(ounit,'(1x,"       Local,       Chi0,     Gammas,  Inversion,   Eta rest,        EOM,        Chi")') 
-       write(ounit,'(1x,7f12.5)') timings/(nqp*(2*iwbmax_small+1))
+       write(ounit,'(1x,"      Local,       Chi0,     Gammas,    Inversion,  Eigenvalue,  Eta rest,     EOM,        Chi")')
+       write(ounit,'(1x,8f12.5)') timings/(nqp*(2*iwbmax_small+1))
        write(ounit,'(1x)')
        call flush(ounit)
      endif
@@ -841,6 +903,53 @@ end if
   deallocate(chi0wFm,chi0wFd,v,rectanglework)
   deallocate(chi0wFd_slice,chi0wFm_slice)
   deallocate(chi0)
+
+  !output timings
+  call cpu_time(start)
+
+  if (calc_eigen) then
+    if (mpi_wrank .eq. master) then
+      allocate(eigenvalues_gather(number_eigenvalues,2,nqp*(2*iwbmax_small+1)))
+      if (save_eigenvectors) then
+        allocate(eigenvectors_gather(maxdim,number_eigenvalues,2,nqp*(2*iwbmax_small+1)))
+      endif
+    else
+      allocate(eigenvalues_gather(1,1,1))
+      allocate(eigenvectors_gather(1,1,1,1))
+    endif
+#ifdef MPI
+    call MPI_gatherv(eigenvalues,(qwstop-qwstart+1)*2*number_eigenvalues, &
+         MPI_DOUBLE_COMPLEX, eigenvalues_gather, rct*2*number_eigenvalues/ndim2**2, &
+         disp*2*number_eigenvalues/ndim2**2, MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
+    if (save_eigenvectors) then
+      call MPI_gatherv(eigenvectors,(qwstop-qwstart+1)*2*number_eigenvalues*maxdim, &
+           MPI_DOUBLE_COMPLEX, eigenvectors_gather, rct*2*number_eigenvalues*maxdim/ndim2**2, &
+           disp*2*number_eigenvalues*maxdim/ndim2**2, MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
+    endif
+#else
+    eigenvalues_gather = eigenvalues
+    if (save_eigenvectors) then
+      eigenvectors_gather = eigenvectors
+    endif
+#endif
+
+    if (mpi_wrank .eq. master) then
+      if (q_vol) then
+        call output_eigenvalue_qw_h5(output_filename,eigenvalues_gather)
+      else
+        call output_eigenvalue_qpath_h5(output_filename,eigenvalues_gather)
+      endif
+      if (save_eigenvectors) then
+        if (q_vol) then
+          call output_eigenvector_qw_h5(output_filename,eigenvectors_gather)
+        else
+          call output_eigenvector_qpath_h5(output_filename,eigenvectors_gather)
+        endif
+      endif
+    endif
+
+    deallocate(eigenvalues_gather)
+  endif
 
   ! MPI reduction and output
   if (do_eom) then
@@ -1177,6 +1286,11 @@ end if
     deallocate(bubble_nl)
   end if
 
+  call cpu_time(finish)
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Time") .ne. 0))) then
+    write(ounit,'(1x,"TIME: Gathering data and output: ",f12.5)') finish-start
+  endif
+
 
 ! deallocation
   deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,qw)
@@ -1191,5 +1305,7 @@ end if
       write(ounit,'(1x,"End of Program")')
   endif
   close(ounit)
-  call mpi_close()
+
+  call finalize_h5() ! close the hdf5-fortran interface
+  call mpi_close()   ! close the mpi interface
 end program main

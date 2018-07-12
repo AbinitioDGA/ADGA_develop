@@ -10,7 +10,7 @@ module parameters_module
 
   !complex(kind=8),parameter :: ci=(0.d0,1.d0)
   !double precision,parameter :: pi=3.1415926535897932385d0
-  
+
   ! different loop variables and information about box sizes
   integer :: iwstart,iwstop
   integer :: nqp, nkp_eom
@@ -26,7 +26,7 @@ module parameters_module
   real(kind=8), allocatable :: k_data(:,:)
   complex(kind=8), allocatable :: u(:,:), u_tilde(:,:) ! u matrices in compound indices
   complex(kind=8), allocatable :: hk(:,:,:),dc(:,:)
-  complex(kind=8), allocatable :: siw(:,:),giw(:,:) 
+  complex(kind=8), allocatable :: siw(:,:),giw(:,:)
   complex(kind=8), allocatable :: n_dmft(:), n_fock(:,:,:)
 
   ! input data created from previous ADGA in SC cycle
@@ -77,6 +77,11 @@ module parameters_module
   real(8), allocatable :: Upp(:),Vpp(:),Jpp(:)
   character(len=150), allocatable :: interaction(:)
   integer,allocatable :: interaction_mode(:)
+
+  ! eigenvalues parameters and arrays
+  logical :: calc_eigen
+  integer :: number_eigenvalues
+  logical :: save_eigenvectors
 
   contains
 

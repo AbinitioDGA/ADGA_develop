@@ -121,6 +121,10 @@ subroutine read_config(er,erstr)
   iwbmax_small=-1
   nkpx = 0; nkpy = 0; nkpz = 0
   nqpx = 0; nqpy = 0; nqpz = 0
+
+  calc_eigen=.false.
+  number_eigenvalues = 1
+  save_eigenvectors = .true.
   !================================================================================
 
   ! search for General stuff + Allocation of values
@@ -434,7 +438,14 @@ subroutine read_config(er,erstr)
 
   endif
 
-  
+  call group_find('[Eigenvalues]', search_start, search_end)
+  if (search_start .gt. 0) then ! group was found -- this is an optional group
+    calc_eigen = .true.
+    call int_find('Nvalues', number_eigenvalues, search_start, search_end)
+    call bool_find('save-vectors', save_eigenvectors, search_start, search_end)
+  else
+    calc_eigen = .false.
+  endif
 
   deallocate(file_save)
   return
