@@ -635,7 +635,6 @@ subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
     enddo
     dimend=dimstart+ndims(ineq,1)-1
 
-    call h5open_f(err)
     call h5fopen_f(filename_vertex_sym, h5f_acc_rdonly_f, file_vert_id, err)
     call h5gopen_f(file_vert_id, grpname_magn, grp_magn_id, err)
     call h5gopen_f(file_vert_id, grpname_dens, grp_dens_id, err)
@@ -673,7 +672,6 @@ subroutine read_vertex(chi_loc_dens_full,chi_loc_magn_full,iwb)
     call h5gclose_f(grp_dens_id, err)
     call h5gclose_f(grp_magn_id, err)
     call h5fclose_f(file_vert_id, err)
-    call h5close_f(err)
 
   enddo ! loop for inequivalent atoms
 
@@ -783,7 +781,6 @@ subroutine read_threeleg(gamma_loc_dens,gamma_loc_magn,iwb)
     end do
     dimend=dimstart+ndims(ineq,1)-1
 
-    call h5open_f(err)
     call h5fopen_f(filename_threelegs,h5f_acc_rdonly_f,file_id,err)
     call h5gopen_f(file_id,grpname_magn,grp_magn_id,err)
     call h5gopen_f(file_id,grpname_dens,grp_dens_id,err)
@@ -815,7 +812,6 @@ subroutine read_threeleg(gamma_loc_dens,gamma_loc_magn,iwb)
     call h5gclose_f(grp_magn_id,err)
     call h5gclose_f(grp_dens_id,err)
     call h5fclose_f(file_id,err)
-    call h5close_f(err)
   end do ! ineq
 
 
@@ -902,7 +898,6 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
 
     write(grpname,'("ineq-",I3.3,"/",(A),"/")') ineq,channel
     !write(*,*) grpname
-    call h5open_f(err)
     call h5fopen_f(filename_chi_loc, h5f_acc_rdonly_f, file_id, err)
     call h5gopen_f(file_id, grpname, grp_id, err)
     call h5gn_members_f(file_id, grpname, ngroups, err)
@@ -926,7 +921,6 @@ subroutine read_chi_loc(chi_loc_qmc,channel)
   end do ! ineq
   call h5gclose_f(grp_id,err)
   call h5fclose_f(file_id,err)
-  call h5close_f(err)
 
   ! go to compound index
   i1=0
@@ -993,7 +987,7 @@ subroutine init_h5_output(filename_output, nonlocal)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
    write(ounit,*) 'initialize output file'
   endif
-  call h5open_f(err)
+
   call h5fcreate_f(filename_output, h5f_acc_trunc_f, file_id, err)
 
 ! create the groups for the ADGA results
@@ -1242,7 +1236,6 @@ subroutine output_chi_loc_full_h5(filename_output,channel,chi_loc)
 
 
   
-  call h5open_f(err)                                              ! open hdf5 fortran interface
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)      ! open output file
   call h5gopen_f(file_id,'susceptibility/loc',grp_id_chi_loc,err) ! open group for chi_loc
 
@@ -1265,7 +1258,6 @@ subroutine output_chi_loc_full_h5(filename_output,channel,chi_loc)
   call h5pclose_f(plist_id,err)
   call h5dclose_f(dset_id_chi_loc,err)
   call h5gclose_f(grp_id_chi_loc,err)
-  call h5close_f(err)
  
   deallocate(dims_chi_loc,cdims)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
@@ -1309,7 +1301,6 @@ subroutine output_chi_loc_reduced_h5(filename_output,channel,chi_loc)
   end do
 
   
-  call h5open_f(err)                                              ! open hdf5 fortran interface
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)      ! open output file
   call h5gopen_f(file_id,'susceptibility/loc',grp_id_chi_loc,err) ! open group for chi_loc
 
@@ -1332,7 +1323,6 @@ subroutine output_chi_loc_reduced_h5(filename_output,channel,chi_loc)
   call h5pclose_f(plist_id,err)
   call h5dclose_f(dset_id_chi_loc,err)
   call h5gclose_f(grp_id_chi_loc,err)
-  call h5close_f(err)
  
   deallocate(dims_chi_loc,cdims)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
@@ -1367,7 +1357,6 @@ subroutine output_chi_qw_full_h5(filename_output,channel,chi_qw)
   block=(/1,1,1,1,1,1,1,1/)
   chi_slice=1.d0
 
-  call h5open_f(err)
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
   call h5gopen_f(file_id,'susceptibility/nonloc',grp_id_chi_qw,err)
 
@@ -1429,7 +1418,6 @@ subroutine output_chi_qw_full_h5(filename_output,channel,chi_qw)
 
   call h5pclose_f(plist_id,err)
   call h5gclose_f(grp_id_chi_qw,err)
-  call h5close_f(err)
  
   deallocate(dims_chi_qw,cdims,dims_chi_slice,stride,block,offset_chi_slice)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
@@ -1473,7 +1461,6 @@ subroutine output_chi_qw_reduced_h5(filename_output,channel,chi_qw)
     end do ! nqpz
   end do ! iwb
 
-  call h5open_f(err)
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
   call h5gopen_f(file_id,'susceptibility/nonloc',grp_id_chi_qw,err)
 
@@ -1494,7 +1481,6 @@ subroutine output_chi_qw_reduced_h5(filename_output,channel,chi_qw)
   call h5pclose_f(plist_id,err)
   call h5dclose_f(dset_id_chi_qw,err)
   call h5gclose_f(grp_id_chi_qw,err)
-  call h5close_f(err)
  
   deallocate(dims_chi_qw,cdims)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
@@ -1539,7 +1525,6 @@ subroutine output_chi_qpath_full_h5(filename_output,channel,chi)
   end do
 
   !open file and group
-  call h5open_f(err)
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
   call h5gopen_f(file_id,'susceptibility/nonloc',grp_id_chi,err)
 
@@ -1556,7 +1541,6 @@ subroutine output_chi_qpath_full_h5(filename_output,channel,chi)
   call h5dclose_f(dset_id_chi,err)
   call h5gclose_f(grp_id_chi,err)
   call h5fclose_f(file_id,err)
-  call h5close_f(err)
 
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
    write(ounit,*) 'full q-path susceptibility ',channel,' written to h5'
@@ -1598,7 +1582,6 @@ subroutine output_chi_qpath_reduced_h5(filename_output,channel,chi)
   end do
 
   !open file and group
-  call h5open_f(err)
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
   call h5gopen_f(file_id,'susceptibility/nonloc',grp_id_chi,err)
 
@@ -1615,7 +1598,6 @@ subroutine output_chi_qpath_reduced_h5(filename_output,channel,chi)
   call h5dclose_f(dset_id_chi,err)
   call h5gclose_f(grp_id_chi,err)
   call h5fclose_f(file_id,err)
-  call h5close_f(err)
 
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
    write(ounit,*) 'reduced q-path susceptibility ',channel,' written to h5'
@@ -1643,11 +1625,7 @@ subroutine output_eom_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_
 
   integer :: i1,i2,ikx,iky,ikz,iw
 
-
-  call h5open_f(err)
-
   if (nonlocal) then
-
     ! create outputarray (essentially just reshape the original array)
     ! doing this in-place would be much more memory-efficient!
     do i1=1,ndim
@@ -1772,7 +1750,6 @@ subroutine output_eom_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,sigma_
 
   call h5gclose_f(grp_id_siwk,err)
   call h5fclose_f(file_id,err)
-  call h5close_f(err)
 
 end subroutine output_eom_h5
 
@@ -1792,9 +1769,6 @@ subroutine output_eom_kpath_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,
   complex(kind=8) :: siw_outputarray(2*iwfmax_small,ndim,ndim)
 
   integer :: i1,i2,ik,iw
-
-
-  call h5open_f(err)
 
 
   ! create outputarray (essentially just reshape the original array)
@@ -1885,7 +1859,6 @@ subroutine output_eom_kpath_h5(filename_output,sigma_sum,sigma_sum_hf,sigma_loc,
 
   call h5gclose_f(grp_id_siwk,err)
   call h5fclose_f(file_id,err)
-  call h5close_f(err)
 
 end subroutine output_eom_kpath_h5
 
@@ -1904,7 +1877,6 @@ subroutine output_occ_h5(filename_output)
   integer :: i1,i2,ikx,iky,ikz
 
 
-  call h5open_f(err)
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
   call h5gopen_f(file_id,'occupation',grp_id_occ,err)
 
@@ -1960,7 +1932,6 @@ subroutine output_occ_kpath_h5(filename_output)
   integer :: i1,i2,ik
 
 
-  call h5open_f(err)
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
   call h5gopen_f(file_id,'occupation',grp_id_occ,err)
 
@@ -2006,7 +1977,6 @@ subroutine output_gamma(filename_output, gammaw, channel)
   integer :: iwf,iwb,i1,i2,i3,i4,i,j
 
 
-  call h5open_f(err)
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
   call h5gopen_f(file_id,'gamma',grp_id_gamma,err)
 
@@ -2042,7 +2012,7 @@ subroutine output_gamma(filename_output, gammaw, channel)
   call h5dwrite_f(dset_id_gamma,type_i_id, aimag(gamma_arr), dims_gamma, err)
   call h5dclose_f(dset_id_gamma, err)
   call h5gclose_f(grp_id_gamma,err)
-  call h5close_f(err)
+  call h5fclose_f(file_id,err)
 
   deallocate(gamma_arr)
 
@@ -2087,7 +2057,6 @@ subroutine output_eigenvalue_qw_h5(filename_output,eigenvalues)
     end do ! nqpz
   end do ! iwb
 
-  call h5open_f(err)
   call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
 
   call h5gopen_f(file_id,'eigenproblem/dens',grp_id_ev,err)
@@ -2096,8 +2065,8 @@ subroutine output_eigenvalue_qw_h5(filename_output,eigenvalues)
   call h5dcreate_f(grp_id_ev,'values',compound_id,dspace_id_ev_qw,dset_id_ev_qw,err)
   call h5dwrite_f(dset_id_ev_qw,type_r_id,real(evd_outputarray),dims_ev_qw,err)
   call h5dwrite_f(dset_id_ev_qw,type_i_id,aimag(evd_outputarray),dims_ev_qw,err)
-  call h5dclose_f(dset_id_ev_qw,err)
   call h5sclose_f(dspace_id_ev_qw,err)
+  call h5dclose_f(dset_id_ev_qw,err)
   call h5gclose_f(grp_id_ev,err)
 
   call h5gopen_f(file_id,'eigenproblem/magn',grp_id_ev,err)
@@ -2106,11 +2075,11 @@ subroutine output_eigenvalue_qw_h5(filename_output,eigenvalues)
   call h5dcreate_f(grp_id_ev,'values',compound_id,dspace_id_ev_qw,dset_id_ev_qw,err)
   call h5dwrite_f(dset_id_ev_qw,type_r_id,real(evm_outputarray),dims_ev_qw,err)
   call h5dwrite_f(dset_id_ev_qw,type_i_id,aimag(evm_outputarray),dims_ev_qw,err)
-  call h5dclose_f(dset_id_ev_qw,err)
   call h5sclose_f(dspace_id_ev_qw,err)
+  call h5dclose_f(dset_id_ev_qw,err)
   call h5gclose_f(grp_id_ev,err)
 
-  call h5close_f(err)
+  call h5fclose_f(file_id,err)
 
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
     write(ounit,*) 'eigenvalues written to h5'
@@ -2120,65 +2089,197 @@ subroutine output_eigenvalue_qw_h5(filename_output,eigenvalues)
   return
 end subroutine output_eigenvalue_qw_h5
 
+subroutine output_eigenvalue_qpath_h5(filename_output,eigenvalues)
+  use parameters_module
+  implicit none
+  character(len=*) :: filename_output
+  integer :: err,rank_ev_qpath
+  integer :: iwb,iq,i1
+  integer(kind=8),dimension(:),allocatable :: dims_ev_qpath
+  integer(hid_t) :: file_id,grp_id_ev
+  integer(hid_t) :: dspace_id_ev_qpath
+  integer(hid_t) :: dset_id_ev_qpath
+  complex(kind=8),dimension(number_eigenvalues,2,nqp*(2*iwbmax_small+1)) :: eigenvalues
+  complex(kind=8),dimension(2*iwbmax_small+1,nqp,number_eigenvalues) :: evd_outputarray
+  complex(kind=8),dimension(2*iwbmax_small+1,nqp,number_eigenvalues) :: evm_outputarray
 
+  rank_ev_qpath=3
+  allocate(dims_ev_qpath(rank_ev_qpath))
+  dims_ev_qpath=(/ 2*iwbmax_small+1,nqp,number_eigenvalues/)
 
-!subroutine output_chi_qpath_full_h5(filename_output,channel,chi)
-!  use parameters_module
-!  implicit none
-!  character(len=*)::filename_output,channel
-!  integer::err,rank_chi
-!  integer::i1,i2,i3,i4,iq,iwb
-!  integer(kind=8),dimension(:),allocatable::dims_chi
-!  integer(hid_t)::file_id,grp_id_chi
-!  integer(hid_t)::dspace_id_chi
-!  integer(hid_t)::dset_id_chi
-!  complex(kind=8),dimension(ndim**2,ndim**2,nqp*(2*iwbmax_small+1))::chi
-!  complex(kind=8),dimension(2*iwbmax_small+1,nqp,ndim,ndim,ndim,ndim)::chi_outputarray
+  do iwb=1,2*iwbmax_small+1
+    do iq=1,nqp
+      do i1=1,number_eigenvalues
+        !density
+        evd_outputarray(iwb,iq,i1) = eigenvalues(i1,1,(iwb-1)*nqp+iq)
+        !magnetic
+        evm_outputarray(iwb,iq,i1) = eigenvalues(i1,2,(iwb-1)*nqp+iq)
+      end do ! i1
+    end do ! nqp
+  end do ! iwb
 
-!  rank_chi=6
-!  allocate(dims_chi(rank_chi))
-!  dims_chi=(/2*iwbmax_small+1,nqp,ndim,ndim,ndim,ndim/)
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
 
+  call h5gopen_f(file_id,'eigenproblem/dens',grp_id_ev,err)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_ev_qpath,err)
+  call h5sset_extent_simple_f(dspace_id_ev_qpath,rank_ev_qpath,dims_ev_qpath,dims_ev_qpath,err)
+  call h5dcreate_f(grp_id_ev,'values',compound_id,dspace_id_ev_qpath,dset_id_ev_qpath,err)
+  call h5dwrite_f(dset_id_ev_qpath,type_r_id,real(evd_outputarray),dims_ev_qpath,err)
+  call h5dwrite_f(dset_id_ev_qpath,type_i_id,aimag(evd_outputarray),dims_ev_qpath,err)
+  call h5dclose_f(dset_id_ev_qpath,err)
+  call h5sclose_f(dspace_id_ev_qpath,err)
+  call h5gclose_f(grp_id_ev,err)
 
-!  ! reshape and transpose the array, i.e. break up thecompound index
-!  do i1=1,ndim
-!    do i2=1,ndim
-!      do i3=1,ndim
-!        do i4=1,ndim
-!          do iq=1,nqp
-!            do iwb=1,2*iwbmax_small+1
-!            chi_outputarray(iwb,iq,i4,i3,i2,i1)=chi(ndim*(i1-1)+i2,ndim*(i4-1)+i3,(iwb-1)*nqp+iq)
-!            end do
-!          end do
-!        end do
-!      end do
-!    end do
-!  end do
+  call h5gopen_f(file_id,'eigenproblem/magn',grp_id_ev,err)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_ev_qpath,err)
+  call h5sset_extent_simple_f(dspace_id_ev_qpath,rank_ev_qpath,dims_ev_qpath,dims_ev_qpath,err)
+  call h5dcreate_f(grp_id_ev,'values',compound_id,dspace_id_ev_qpath,dset_id_ev_qpath,err)
+  call h5dwrite_f(dset_id_ev_qpath,type_r_id,real(evm_outputarray),dims_ev_qpath,err)
+  call h5dwrite_f(dset_id_ev_qpath,type_i_id,aimag(evm_outputarray),dims_ev_qpath,err)
+  call h5dclose_f(dset_id_ev_qpath,err)
+  call h5sclose_f(dspace_id_ev_qpath,err)
+  call h5gclose_f(grp_id_ev,err)
 
-!  !open file and group
-!  call h5open_f(err)
-!  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
-!  call h5gopen_f(file_id,'susceptibility/nonloc',grp_id_chi,err)
+  call h5fclose_f(file_id,err)
 
-!  !create dataspace
-!  call h5screate_f(H5S_SIMPLE_F,dspace_id_chi,err)
-!  call h5sset_extent_simple_f(dspace_id_chi,rank_chi,dims_chi,dims_chi,err)
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+    write(ounit,*) 'eigenvalues written to h5'
+  endif
 
-!  ! create dataset
-!  call h5dcreate_f(grp_id_chi,channel,compound_id,dspace_id_chi,dset_id_chi,err)
-!  call h5dwrite_f(dset_id_chi,type_r_id,real(chi_outputarray),dims_chi,err)
-!  call h5dwrite_f(dset_id_chi,type_i_id,aimag(chi_outputarray),dims_chi,err)
+  deallocate(dims_ev_qpath)
+  return
+end subroutine output_eigenvalue_qpath_h5
 
-!  !close dataset, group and file
-!  call h5dclose_f(dset_id_chi,err)
-!  call h5gclose_f(grp_id_chi,err)
-!  call h5fclose_f(file_id,err)
-!  call h5close_f(err)
+subroutine output_eigenvector_qw_h5(filename_output,eigenvectors)
+  use parameters_module
+  implicit none
+  character(len=*) :: filename_output
+  integer :: err,rank_ev_qw
+  integer :: iwb,iqx,iqy,iqz,i1,i2
+  integer(kind=8),dimension(:),allocatable :: dims_ev_qw
+  integer(hid_t) :: file_id,grp_id_ev
+  integer(hid_t) :: dspace_id_ev_qw
+  integer(hid_t) :: dset_id_ev_qw
+  complex(kind=8),dimension(maxdim,number_eigenvalues,2,nqp*(2*iwbmax_small+1)) :: eigenvectors
+  complex(kind=8),dimension(2*iwbmax_small+1,nqpz,nqpy,nqpx,maxdim,number_eigenvalues) :: evd_outputarray
+  complex(kind=8),dimension(2*iwbmax_small+1,nqpz,nqpy,nqpx,maxdim,number_eigenvalues) :: evm_outputarray
 
-!  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
-!   write(ounit,*) 'full q-path susceptibility ',channel,' written to h5'
-!  endif
+  rank_ev_qw=6
+  allocate(dims_ev_qw(rank_ev_qw))
+  dims_ev_qw=(/ 2*iwbmax_small+1,nqpz,nqpy,nqpx,maxdim,number_eigenvalues/)
 
-!end subroutine output_chi_qpath_full_h5
+  do iwb=1,2*iwbmax_small+1
+    do iqz=1,nqpz
+      do iqy=1,nqpy
+        do iqx=1,nqpx
+          do i1=1,number_eigenvalues
+            do i2=1,maxdim
+              !density
+              evd_outputarray(iwb,iqz,iqy,iqx,i2,i1) = &
+              eigenvectors(i2,i1,1,(iwb-1)*nqp+(iqz-1)+(iqy-1)*nqpz+(iqx-1)*nqpy*nqpz+1)
+              !magnetic
+              evm_outputarray(iwb,iqz,iqy,iqx,i2,i1) = &
+              eigenvectors(i2,i1,2,(iwb-1)*nqp+(iqz-1)+(iqy-1)*nqpz+(iqx-1)*nqpy*nqpz+1)
+            end do ! i2
+          end do ! i1
+        end do ! nqpx
+      end do ! nqpy
+    end do ! nqpz
+  end do ! iwb
+
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+
+  call h5gopen_f(file_id,'eigenproblem/dens',grp_id_ev,err)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_ev_qw,err)
+  call h5sset_extent_simple_f(dspace_id_ev_qw,rank_ev_qw,dims_ev_qw,dims_ev_qw,err)
+  call h5dcreate_f(grp_id_ev,'vectors',compound_id,dspace_id_ev_qw,dset_id_ev_qw,err)
+  call h5dwrite_f(dset_id_ev_qw,type_r_id,real(evd_outputarray),dims_ev_qw,err)
+  call h5dwrite_f(dset_id_ev_qw,type_i_id,aimag(evd_outputarray),dims_ev_qw,err)
+  call h5dclose_f(dset_id_ev_qw,err)
+  call h5sclose_f(dspace_id_ev_qw,err)
+  call h5gclose_f(grp_id_ev,err)
+
+  call h5gopen_f(file_id,'eigenproblem/magn',grp_id_ev,err)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_ev_qw,err)
+  call h5sset_extent_simple_f(dspace_id_ev_qw,rank_ev_qw,dims_ev_qw,dims_ev_qw,err)
+  call h5dcreate_f(grp_id_ev,'vectors',compound_id,dspace_id_ev_qw,dset_id_ev_qw,err)
+  call h5dwrite_f(dset_id_ev_qw,type_r_id,real(evm_outputarray),dims_ev_qw,err)
+  call h5dwrite_f(dset_id_ev_qw,type_i_id,aimag(evm_outputarray),dims_ev_qw,err)
+  call h5dclose_f(dset_id_ev_qw,err)
+  call h5sclose_f(dspace_id_ev_qw,err)
+  call h5gclose_f(grp_id_ev,err)
+
+  call h5fclose_f(file_id,err)
+
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+    write(ounit,*) 'eigenvectors written to h5'
+  endif
+
+  deallocate(dims_ev_qw)
+  return
+end subroutine output_eigenvector_qw_h5
+
+subroutine output_eigenvector_qpath_h5(filename_output,eigenvectors)
+  use parameters_module
+  implicit none
+  character(len=*) :: filename_output
+  integer :: err,rank_ev_qpath
+  integer :: iwb,iq,i1,i2
+  integer(kind=8),dimension(:),allocatable :: dims_ev_qpath
+  integer(hid_t) :: file_id,grp_id_ev
+  integer(hid_t) :: dspace_id_ev_qpath
+  integer(hid_t) :: dset_id_ev_qpath
+  complex(kind=8),dimension(maxdim,number_eigenvalues,2,nqp*(2*iwbmax_small+1)) :: eigenvectors
+  complex(kind=8),dimension(2*iwbmax_small+1,nqp,maxdim,number_eigenvalues) :: evd_outputarray
+  complex(kind=8),dimension(2*iwbmax_small+1,nqp,maxdim,number_eigenvalues) :: evm_outputarray
+
+  rank_ev_qpath=4
+  allocate(dims_ev_qpath(rank_ev_qpath))
+  dims_ev_qpath=(/ 2*iwbmax_small+1,nqp,maxdim,number_eigenvalues/)
+
+  do iwb=1,2*iwbmax_small+1
+    do iq=1,nqp
+      do i1=1,number_eigenvalues
+        do i2=1,maxdim
+          !density
+          evd_outputarray(iwb,iq,i2,i1) = eigenvectors(i2,i1,1,(iwb-1)*nqp+iq)
+          !magnetic
+          evm_outputarray(iwb,iq,i2,i1) = eigenvectors(i2,i1,2,(iwb-1)*nqp+iq)
+        end do ! i2
+      end do ! i1
+    end do ! nqp
+  end do ! iwb
+
+  call h5fopen_f(filename_output,H5F_ACC_RDWR_F,file_id,err)
+
+  call h5gopen_f(file_id,'eigenproblem/dens',grp_id_ev,err)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_ev_qpath,err)
+  call h5sset_extent_simple_f(dspace_id_ev_qpath,rank_ev_qpath,dims_ev_qpath,dims_ev_qpath,err)
+  call h5dcreate_f(grp_id_ev,'vectors',compound_id,dspace_id_ev_qpath,dset_id_ev_qpath,err)
+  call h5dwrite_f(dset_id_ev_qpath,type_r_id,real(evd_outputarray),dims_ev_qpath,err)
+  call h5dwrite_f(dset_id_ev_qpath,type_i_id,aimag(evd_outputarray),dims_ev_qpath,err)
+  call h5dclose_f(dset_id_ev_qpath,err)
+  call h5sclose_f(dspace_id_ev_qpath,err)
+  call h5gclose_f(grp_id_ev,err)
+
+  call h5gopen_f(file_id,'eigenproblem/magn',grp_id_ev,err)
+  call h5screate_f(H5S_SIMPLE_F,dspace_id_ev_qpath,err)
+  call h5sset_extent_simple_f(dspace_id_ev_qpath,rank_ev_qpath,dims_ev_qpath,dims_ev_qpath,err)
+  call h5dcreate_f(grp_id_ev,'vectors',compound_id,dspace_id_ev_qpath,dset_id_ev_qpath,err)
+  call h5dwrite_f(dset_id_ev_qpath,type_r_id,real(evm_outputarray),dims_ev_qpath,err)
+  call h5dwrite_f(dset_id_ev_qpath,type_i_id,aimag(evm_outputarray),dims_ev_qpath,err)
+  call h5dclose_f(dset_id_ev_qpath,err)
+  call h5sclose_f(dspace_id_ev_qpath,err)
+  call h5gclose_f(grp_id_ev,err)
+
+  call h5fclose_f(file_id,err)
+
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Output") .ne. 0))) then
+    write(ounit,*) 'eigenvectors written to h5'
+  endif
+
+  deallocate(dims_ev_qpath)
+  return
+end subroutine output_eigenvector_qpath_h5
 
 end module hdf5_module

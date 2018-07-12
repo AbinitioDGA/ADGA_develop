@@ -242,6 +242,7 @@ program symmetrize_vertex
   enddo
 
   call h5fclose_f(new_file_id, err)
+  call h5close_f(err) ! closes the library
 
   call cpu_time(finish)
   write(*,*)'cpu-time =', finish-start

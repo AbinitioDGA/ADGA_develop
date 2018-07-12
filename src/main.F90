@@ -34,7 +34,7 @@ program main
   complex(kind=8), allocatable :: bigwork_evproblem(:,:), bigwork_vectors(:,:), bigwork_values(:)
   complex(kind=8), allocatable :: smallwork(:,:), bigwork_dens(:,:)
   real(kind=8 ):: start, finish
-  real(kind=8 ):: tstart, tfinish, timings(7) ! timings: local, chi0, gammas, eta inversion, eta construct, eom, chi
+  real(kind=8 ):: tstart, tfinish, timings(8) ! timings: local, chi0, gammas, eta inversion, eta construct, eom, chi
 
   complex(kind=8), allocatable :: eigenvalues(:,:,:), eigenvalues_gather(:,:,:)
   complex(kind=8), allocatable :: eigenvectors(:,:,:,:), eigenvectors_gather(:,:,:,:)
@@ -136,7 +136,7 @@ program main
 
 
 !##################  READ W2DYNAMICS HDF5 OUTPUT FILE ##################
-! open the hdf5-fortran interface
+! open the hdf5-fortran interface and create complex datatype
   call init_h5()
 
 ! read bosonic and fermionic Matsubara axes of one- and two-particle data
@@ -189,7 +189,6 @@ program main
     call read_giw()  ! w2d greens function G_dmft
   endif
 
-  call finalize_h5() ! close the hdf5-fortran interface
 
 
   !read umatrix from separate file:
@@ -627,7 +626,7 @@ end if
      ! Calculate local quantities
      if (do_eom .and. iq .eq. 1) call calc_eom_dmft(gammawd,gammawm,iwb,sigma_dmft)
      call cpu_time(tfinish) ! TIME: eom
-     timings(6) = timings(6) + tfinish - tstart
+     timings(7) = timings(7) + tfinish - tstart
      tstart = tfinish ! TIME: chi0 
 
      if (nonlocal) then
@@ -656,7 +655,7 @@ end if
          call calc_chi_qw(chi_qw_magn(:,:,iqw),gammawm,chi0nl)
       end if
       call cpu_time(tfinish) ! TIME: chi
-      timings(7) = timings(7) + tfinish - tstart
+      timings(8) = timings(8) + tfinish - tstart
       tstart = tfinish ! TIME: gamma
 
       ! Now we construct eta^q (in the small box..)
@@ -710,7 +709,7 @@ end if
       ! TIME: gamma
       call cpu_time(tfinish)
       timings(3) = timings(3) + tfinish - tstart
-      tstart = tfinish ! TIME: inv
+      tstart = tfinish ! TIME: inv // eigenvalue
 
       if (calc_eigen) then
         allocate(bigwork_evproblem(maxdim,maxdim), bigwork_vectors(maxdim,maxdim), bigwork_values(maxdim))
@@ -722,7 +721,7 @@ end if
         if (er .ne. 0) call mpi_stop(erstr,er)
 
         eigenvalue_mask = .true. ! to filter the max value one after the other
-        do i=1,number_eigenvalues
+        do i=1,number_eigenvalues ! filter out the largest real values
           evpos = maxloc(real(bigwork_values), eigenvalue_mask) ! this is a 1dim-array ..
           eigenvalue_mask(evpos(1)) = .false. ! update mask
           eigenvalues(i,2,iqw) = bigwork_values(evpos(1)) ! save it in the global array 2::magn
@@ -747,9 +746,13 @@ end if
         enddo
 
         deallocate(bigwork_evproblem, bigwork_vectors, bigwork_values)
+
+        call cpu_time(tfinish)
+        timings(5) = timings(5) + tfinish-tstart
+        tstart = tfinish
       endif
 
-      ! We need to add the identity before the inversion: 
+      ! We need to add the identity before the inversion:
       ! bigwork_dens = [1 - chi0^{nl,q}.F^w_d - 2*beta^{-2}*chi0^q.v^q.(1 + gamma^w)]
       ! bigwork_magn = [1 - chi0^{nl,q}.F^w_m ]
       do i=1,maxdim
@@ -786,7 +789,7 @@ end if
       deallocate(bigwork_dens, bigwork_magn)
       ! TIME: eta
       call cpu_time(tfinish)
-      timings(5) = timings(5) + tfinish - tstart
+      timings(6) = timings(6) + tfinish - tstart
       tstart = tfinish ! TIME: chi or EOM
 
       if (do_chi) then
@@ -794,7 +797,7 @@ end if
          call calc_chi_qw(chi_qw_dens(:,:,iqw),etaqd,chi0q)
          call calc_chi_qw(chi_qw_magn(:,:,iqw),etaqm,chi0q)
          call cpu_time(tfinish)  ! TIME: chi
-         timings(7) = timings(7) + tfinish - tstart
+         timings(8) = timings(8) + tfinish - tstart
          tstart = tfinish ! restart the timer
       end if
       if (do_eom) then
@@ -802,7 +805,7 @@ end if
          call calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind_eom,iwb,iq,v,sigma_nl) 
          ! TIME: eom
          call cpu_time(tfinish)
-         timings(6) = timings(6) + tfinish - tstart
+         timings(7) = timings(7) + tfinish - tstart
          tstart = tfinish ! restart the timer
       end if
      endif ! non-local
@@ -811,7 +814,7 @@ end if
      !Output the calculation progress
      if (ounit .gt. 0 .and. .not. (verbose .and. (index(verbstr,"Noprogress") .ne. 0))) then
        if (verbose .and. (index(verbstr,"Allprogress")) .ne. 0) then
-         write(ounit,'(1x,"Core:",I5,"  Completed qw-point: ",I7," (from ",I7," to ",I7,")  Time per point: ",F8.4)') &
+         write(ounit,'(1x,"Core:",I5,"  Completed qw-point: ",I7," (from ",I7," to ",I7,")  Time for point: ",F8.4)') &
                mpi_wrank, iqw, qwstart, qwstop, finish-start
          call flush(ounit)
        else
@@ -835,15 +838,15 @@ end if
 #ifdef MPI
      if (ounit .ge. 1) then
        write(ounit,'(1x,"TIME: Wall time per qw-point: (Rank ",i6,")")') mpi_wrank
-       write(ounit,'(1x,"       Local,       Chi0,     Gammas,  Inversion,   Eta rest,        EOM,        Chi")') 
-       write(ounit,'(1x,7f12.5)') timings/(qwstop-qwstart+1)
+       write(ounit,'(1x,"      Local,       Chi0,     Gammas,    Inversion,  Eigenvalue,  Eta rest,     EOM,        Chi")')
+       write(ounit,'(1x,8f12.5)') timings/(qwstop-qwstart+1)
      endif
      call MPI_allreduce(MPI_IN_PLACE,timings,size(timings), MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
      if (ounit .ge. 1) then
        write(ounit,'(1x,"TIME: Wall time per qw-point:")')
-       write(ounit,'(1x,"       Local,       Chi0,     Gammas,  Inversion,   Eta rest,        EOM,        Chi")') 
-       write(ounit,'(1x,7f12.5)') timings/(nqp*(2*iwbmax_small+1))
+       write(ounit,'(1x,"      Local,       Chi0,     Gammas,    Inversion,  Eigenvalue,  Eta rest,     EOM,        Chi")')
+       write(ounit,'(1x,8f12.5)') timings/(nqp*(2*iwbmax_small+1))
        write(ounit,'(1x)')
        call flush(ounit)
      endif
@@ -863,6 +866,8 @@ end if
   deallocate(chi0wFd_slice,chi0wFm_slice)
   deallocate(chi0)
 
+  !output timings
+  call cpu_time(start)
 
   if (calc_eigen) then
     if (mpi_wrank .eq. master) then
@@ -890,10 +895,19 @@ end if
     endif
 #endif
 
-    ! write(ounit,*) eigenvalues_gather
-    ! hdf5 output here
-    if (q_vol) then
-      call output_eigenvalue_qw_h5(output_filename,eigenvalues_gather)
+    if (mpi_wrank .eq. master) then
+      if (q_vol) then
+        call output_eigenvalue_qw_h5(output_filename,eigenvalues_gather)
+      else
+        call output_eigenvalue_qpath_h5(output_filename,eigenvalues_gather)
+      endif
+      if (save_eigenvectors) then
+        if (q_vol) then
+          call output_eigenvector_qw_h5(output_filename,eigenvectors_gather)
+        else
+          call output_eigenvector_qpath_h5(output_filename,eigenvectors_gather)
+        endif
+      endif
     endif
 
     deallocate(eigenvalues_gather)
@@ -1234,6 +1248,11 @@ end if
     deallocate(bubble_nl)
   end if
 
+  call cpu_time(finish)
+  if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Time") .ne. 0))) then
+    write(ounit,'(1x,"TIME: Gathering data and output: ",f12.5)') finish-start
+  endif
+
 
 ! deallocation
   deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,qw)
@@ -1248,5 +1267,7 @@ end if
       write(ounit,'(1x,"End of Program")')
   endif
   close(ounit)
-  call mpi_close()
+
+  call finalize_h5() ! close the hdf5-fortran interface
+  call mpi_close()   ! close the mpi interface
 end program main
