@@ -125,6 +125,9 @@ subroutine read_config(er,erstr)
   calc_eigen=.false.
   number_eigenvalues = 1
   save_eigenvectors = .true.
+
+  bse_inversion = .true.
+  sc_mode = .false.
   !================================================================================
 
   ! search for General stuff + Allocation of values

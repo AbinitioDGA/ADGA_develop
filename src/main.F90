@@ -766,20 +766,10 @@ end if
         tstart = tfinish
       endif
 
-      ! We need to add the identity before the inversion:
-      ! bigwork_dens = [1 - chi0^{nl,q}.F^w_d - 2*beta^{-2}*chi0^q.v^q.(1 + gamma^w)]
-      ! bigwork_magn = [1 - chi0^{nl,q}.F^w_m ]
-      do i=1,maxdim
-         bigwork_dens(i,i) = bigwork_dens(i,i) + 1d0
-         bigwork_magn(i,i) = bigwork_magn(i,i) + 1d0
-      enddo
-
-! relation between inversion and geometric summation:
-! (matrix A, unit matrix I)
-! (A+I)^{-1} - I = \sum_{n=1}^\infty (-A)^n
-
+      ! relation between inversion and geometric summation:
+      ! (matrix A, unit matrix I)
+      ! (A+I)^{-1} - I = \sum_{n=1}^\infty (-A)^n
       if (bse_inversion) then ! do the complete inversion
-
         ! We need to add the identity before the inversion:
         ! bigwork_dens = [1 - chi0^{nl,q}.F^w_d - 2*beta^{-2}*chi0^q.v^q.(1 + gamma^w)]
         ! bigwork_magn = [1 - chi0^{nl,q}.F^w_m ]
@@ -788,12 +778,10 @@ end if
            bigwork_magn(i,i) = bigwork_magn(i,i) + 1d0
         enddo
 
-
         call inverse_matrix(bigwork_dens,erstr,er)
         if (er .ne. 0) call mpi_stop(erstr,er)
         call inverse_matrix(bigwork_magn,erstr,er)
         if (er .ne. 0) call mpi_stop(erstr,er)
-
 
         ! We need to subtract the identity before the multiplication from the left with (1 + gamma^w):
         do i=1,maxdim

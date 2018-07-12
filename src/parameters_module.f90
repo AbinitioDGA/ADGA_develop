@@ -48,8 +48,8 @@ module parameters_module
   integer :: vertex_type
   integer,parameter :: full_g4=0,connected_g4=1,chi_g4=2
   integer :: summation_order ! order of geometric summation
-  logical :: bse_inversion = .true. 
-  logical :: sc_mode = .false.
+  logical :: bse_inversion
+  logical :: sc_mode
 
   ! filenames
   character(len=150) :: filename_vertex, filename_vertex_sym
