@@ -124,7 +124,7 @@ subroutine read_config(er,erstr)
 
   calc_eigen=.false.
   number_eigenvalues = 1
-  save_eigenvectors = .true.
+  number_eigenvectors = 1
 
   bse_inversion = .true.
   sc_mode = .false.
@@ -445,7 +445,7 @@ subroutine read_config(er,erstr)
   if (search_start .gt. 0) then ! group was found -- this is an optional group
     calc_eigen = .true.
     call int_find('Nvalues', number_eigenvalues, search_start, search_end)
-    call bool_find('save-vectors', save_eigenvectors, search_start, search_end)
+    call int_find('Nvectors', number_eigenvectors, search_start, search_end)
   else
     calc_eigen = .false.
   endif
@@ -502,11 +502,16 @@ subroutine config_init(er,erstr)
     endif
   end if
 
-  !if ((.not. do_eom) .and. (.not. do_chi)) then
-  !  er = 4
-  !  erstr = 'all run options disabled'
-  !  return
-  !endif
+  if (calc_eigen) then
+    if (number_eigenvalues .lt. 0) then
+      number_eigenvalues = maxdim ! all of them
+    else if (number_eigenvalues .eq. 0) then
+      calc_eigen = .false. ! deactivate it again .. reasoning 0 EVs -> no diagonalization
+    endif
+    if (number_eigenvectors .lt. 0) then
+      number_eigenvectors = maxdim ! all of them
+    endif
+  endif
 
   ! create arrays with Matsubara frequencies
   allocate(iw_data(-iwmax:iwmax-1),iwb_data(-iwbmax_small:iwbmax_small),iwf_data(-iwfmax_small:iwfmax_small-1))

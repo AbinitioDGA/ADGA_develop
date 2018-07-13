@@ -85,8 +85,12 @@ text-output = (default = F)           # default output only produces the hdf5 da
 
 ________________________________________________________________________________
 [Eigenvalues]
-Nvalues = (default = 1)               # number of leading eigenvalues to be extracted
-save-vectors = (default = T)          # save the respective eigenvectors as well
+Nvalues  = (default = 1)              # number of leading eigenvalues to be extracted
+                                      # 0 -> deactivates diagonalization
+                                      # -1 -> all eigenvalues (n_orbitals**2 * 2*N4iwf)
+Nvectors = (default = 1)              # number of eigenvectors corresponding to the leading eigenvalues
+                                      # to be extracted ... mismatches are allowed
+                                      # -1 -> all eigenvectors
 
 ________________________________________________________________________________
 [Selfconsistency]

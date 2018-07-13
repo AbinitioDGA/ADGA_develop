@@ -22,10 +22,10 @@ program main
   complex(kind=8), allocatable :: gloc(:,:,:)
   complex(kind=8), allocatable :: chi0w(:,:,:), chi0w_inv(:,:,:), chi0(:,:), chi0q(:,:,:), chi0nl(:,:,:)
   complex(kind=8), allocatable :: chi0wFd_slice(:,:)
-  complex(kind=8), allocatable ::  chi0wFm_slice(:,:), chi0wFd(:,:), chi0wFm(:,:), chi_loc(:,:)
-  complex(kind=8), allocatable ::  oneplusgammawm(:,:), oneplusgammawd(:,:), gammawd(:,:), gammawm(:,:)
-  complex(kind=8), allocatable ::  gammawd_full(:,:,:), gammawm_full(:,:,:)
-  complex(kind=8), allocatable ::  gammawd_gather(:,:,:), gammawm_gather(:,:,:)
+  complex(kind=8), allocatable :: chi0wFm_slice(:,:), chi0wFd(:,:), chi0wFm(:,:), chi_loc(:,:)
+  complex(kind=8), allocatable :: oneplusgammawm(:,:), oneplusgammawd(:,:), gammawd(:,:), gammawm(:,:)
+  complex(kind=8), allocatable :: gammawd_full(:,:,:), gammawm_full(:,:,:)
+  complex(kind=8), allocatable :: gammawd_gather(:,:,:), gammawm_gather(:,:,:)
   complex(kind=8), allocatable :: chi_qw_dens(:,:,:),chi_qw_magn(:,:,:),bubble_nl(:,:,:),chi_qw_full(:,:,:)
   complex(kind=8), allocatable :: chi_loc_dens(:,:,:),chi_loc_magn(:,:,:),bubble_loc(:,:,:),bubble_loc_tmp(:,:)
   complex(kind=8), allocatable :: chi_loc_qmc(:,:,:)
@@ -67,7 +67,7 @@ program main
     call mpi_stop('The program has to be executed with exactly one argument. (Name of config file)')
   end if
 
-  ! read config settings 
+  ! read config settings
   call read_config(er,erstr)
   if (er .ne. 0) call mpi_stop(erstr,er)
 
@@ -77,7 +77,7 @@ program main
   call mpi_barrier(mpi_comm_world,ierr)
 #endif
 
-  ! Set up the output file
+  ! Set up ounit and the output file
   verbose_extra = (verbose .and. (index(verbstr,"Extra") .ne. 0))
   if (mpi_wrank .eq. master .or. verbose_extra) then
      ounit = 123
@@ -95,7 +95,7 @@ program main
   endif
 
   ! check config settings
-  call check_config(er,erstr) 
+  call check_config(er,erstr)
   if (er .ne. 0) call mpi_stop(erstr,er)
 
 
@@ -170,9 +170,6 @@ program main
 
   if (ounit .ge. 1) then
     write(ounit,*) 'orb_symmetry = ', orb_sym
-  end if
-
-  if (ounit .ge. 1) then
     write(ounit,*) 'beta=', beta
     write(ounit,*) 'mu=', mu
     write(ounit,*) 'dc=', dc
@@ -262,7 +259,7 @@ program main
       call qdata_from_file()
     endif
     if (do_eom) then
-      call mpi_stop('Error: it is currently not possible to use both do_eom and q_path_susc',er)
+      call mpi_stop('Error: It is not possible to use both do_eom and q_path_susc',er)
     endif
   elseif (q_vol) then ! the only other option we have
     nqp=nqpx*nqpy*nqpz
@@ -280,6 +277,10 @@ program main
     else
       write(ounit,*) 'Running the calculation with V(q)'
       write(ounit,*) 'V(q) data in ', filename_vq
+    endif
+    if (calc_eigen) then
+      write(ounit,'(1x)')
+      write(ounit,'(1x,"Calculating eigenvalues of the BSE.")')
     endif
     write(ounit,'(1x)')
     write(ounit,'(1x,"Frequency information:")')
@@ -310,12 +311,19 @@ program main
   if (.not. (do_eom .or. do_chi)) then
      if (ounit .ge. 1) then
          write(ounit,'(1x)')
-         write(ounit,'(1x,"End of Program (To continue set calc-eom or calc-chi to true)")')
+         write(ounit,'(1x,"End of Program (To continue set calc-eom or calc-susc to true)")')
      endif
      close(ounit)
      call mpi_close()
      stop
   endif
+
+  !_______________________________________________________________________________
+  ! finished checking config values; existence of files
+  ! finished checking run option incompatibilities
+  ! finished setting run areas (nqp, nkp_eom, nkp)
+  ! finished defining important global variables (ndim2, maxdim, iwfmax_small, iwbmax_small, iwmax)
+  !_______________________________________________________________________________
 
   ! small arrays
   allocate(v(ndim2,ndim2))
@@ -379,8 +387,8 @@ program main
 if (calc_eigen) then
   allocate(eigenvalues(number_eigenvalues,2,qwstart:qwstop)) ! 2 because dens/magn
   allocate(eigenvalue_mask(maxdim))
-  if (save_eigenvectors) then
-    allocate(eigenvectors(maxdim,number_eigenvalues,2,qwstart:qwstop))
+  if (number_eigenvectors .gt. 0) then
+    allocate(eigenvectors(maxdim,number_eigenvectors,2,qwstart:qwstop))
   endif
 endif
 
@@ -482,6 +490,11 @@ end if
     endif
     call flush(ounit)
   endif
+
+
+  !_______________________________________________________________________________
+  ! MAIN PROGRAM LOOP + TIMINGS
+  !_______________________________________________________________________________
 
   timings = 0 ! Initialize the timings array
   iwb = iwbmax_small+3
@@ -739,9 +752,13 @@ end if
           evpos = maxloc(real(bigwork_values), eigenvalue_mask) ! this is a 1dim-array ..
           eigenvalue_mask(evpos(1)) = .false. ! update mask
           eigenvalues(i,2,iqw) = bigwork_values(evpos(1)) ! save it in the global array 2::magn
-          if (save_eigenvectors) then
-            eigenvectors(:,i,2,iqw) = bigwork_vectors(:,evpos(1)) ! save the vector
-          endif
+        enddo
+        ! just do it twice instead of playing around with if elses whether nr evs <=> evectors
+        eigenvalue_mask = .true. ! to filter the max value one after the other
+        do i=1,number_eigenvectors ! filter out the largest real values
+          evpos = maxloc(real(bigwork_values), eigenvalue_mask) ! this is a 1dim-array ..
+          eigenvalue_mask(evpos(1)) = .false. ! update mask
+          eigenvectors(:,i,2,iqw) = bigwork_vectors(:,evpos(1)) ! save the vector
         enddo
 
         ! same thing for the density channel
@@ -754,9 +771,13 @@ end if
           evpos = maxloc(real(bigwork_values), eigenvalue_mask)
           eigenvalue_mask(evpos(1)) = .false. ! update mask
           eigenvalues(i,1,iqw) = bigwork_values(evpos(1)) ! save it in the global array 1::dens (alphabetically)
-          if (save_eigenvectors) then
-            eigenvectors(:,i,1,iqw) = bigwork_vectors(:,evpos(1)) ! save the vector
-          endif
+        enddo
+        ! same here
+        eigenvalue_mask = .true. ! to filter the max value one after the other
+        do i=1,number_eigenvectors
+          evpos = maxloc(real(bigwork_values), eigenvalue_mask)
+          eigenvalue_mask(evpos(1)) = .false. ! update mask
+          eigenvectors(:,i,1,iqw) = bigwork_vectors(:,evpos(1)) ! save the vector
         enddo
 
         deallocate(bigwork_evproblem, bigwork_vectors, bigwork_values)
@@ -852,6 +873,12 @@ end if
        endif
      endif
   enddo !iqw
+
+  !_______________________________________________________________________________
+  ! END PROGRAM LOOP (combined bosonic index iqw in the range qwstart:qwstop
+  ! which was distributed via mpi_distribute()
+  !_______________________________________________________________________________
+
   if (ounit .ge. 1) then
     if (.not. (verbose .and. (index(verbstr,"Noprogress") .ne. 0))) then
       write(ounit,'(1x,"-------------------------------------------------------------------------------------------")')
@@ -898,8 +925,8 @@ end if
   if (calc_eigen) then
     if (mpi_wrank .eq. master) then
       allocate(eigenvalues_gather(number_eigenvalues,2,nqp*(2*iwbmax_small+1)))
-      if (save_eigenvectors) then
-        allocate(eigenvectors_gather(maxdim,number_eigenvalues,2,nqp*(2*iwbmax_small+1)))
+      if (number_eigenvectors .gt. 0) then
+        allocate(eigenvectors_gather(maxdim,number_eigenvectors,2,nqp*(2*iwbmax_small+1)))
       endif
     else
       allocate(eigenvalues_gather(1,1,1))
@@ -909,14 +936,14 @@ end if
     call MPI_gatherv(eigenvalues,(qwstop-qwstart+1)*2*number_eigenvalues, &
          MPI_DOUBLE_COMPLEX, eigenvalues_gather, rct*2*number_eigenvalues/ndim2**2, &
          disp*2*number_eigenvalues/ndim2**2, MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
-    if (save_eigenvectors) then
-      call MPI_gatherv(eigenvectors,(qwstop-qwstart+1)*2*number_eigenvalues*maxdim, &
-           MPI_DOUBLE_COMPLEX, eigenvectors_gather, rct*2*number_eigenvalues*maxdim/ndim2**2, &
-           disp*2*number_eigenvalues*maxdim/ndim2**2, MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
+    if (number_eigenvectors .gt. 0) then
+      call MPI_gatherv(eigenvectors,(qwstop-qwstart+1)*2*number_eigenvectors*maxdim, &
+           MPI_DOUBLE_COMPLEX, eigenvectors_gather, rct*2*number_eigenvectors*maxdim/ndim2**2, &
+           disp*2*number_eigenvectors*maxdim/ndim2**2, MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
     endif
 #else
     eigenvalues_gather = eigenvalues
-    if (save_eigenvectors) then
+    if (number_eigenvectors .gt. 0) then
       eigenvectors_gather = eigenvectors
     endif
 #endif
@@ -927,7 +954,7 @@ end if
       else
         call output_eigenvalue_qpath_h5(output_filename,eigenvalues_gather)
       endif
-      if (save_eigenvectors) then
+      if (number_eigenvectors .gt. 0) then
         if (q_vol) then
           call output_eigenvector_qw_h5(output_filename,eigenvectors_gather)
         else

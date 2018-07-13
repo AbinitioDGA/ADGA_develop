@@ -2225,19 +2225,19 @@ subroutine output_eigenvector_qw_h5(filename_output,eigenvectors)
   integer(hid_t) :: file_id,grp_id_ev
   integer(hid_t) :: dspace_id_ev_qw
   integer(hid_t) :: dset_id_ev_qw
-  complex(kind=8),dimension(maxdim,number_eigenvalues,2,nqp*(2*iwbmax_small+1)) :: eigenvectors
-  complex(kind=8),dimension(2*iwbmax_small+1,nqpz,nqpy,nqpx,maxdim,number_eigenvalues) :: evd_outputarray
-  complex(kind=8),dimension(2*iwbmax_small+1,nqpz,nqpy,nqpx,maxdim,number_eigenvalues) :: evm_outputarray
+  complex(kind=8),dimension(maxdim,number_eigenvectors,2,nqp*(2*iwbmax_small+1)) :: eigenvectors
+  complex(kind=8),dimension(2*iwbmax_small+1,nqpz,nqpy,nqpx,maxdim,number_eigenvectors) :: evd_outputarray
+  complex(kind=8),dimension(2*iwbmax_small+1,nqpz,nqpy,nqpx,maxdim,number_eigenvectors) :: evm_outputarray
 
   rank_ev_qw=6
   allocate(dims_ev_qw(rank_ev_qw))
-  dims_ev_qw=(/ 2*iwbmax_small+1,nqpz,nqpy,nqpx,maxdim,number_eigenvalues/)
+  dims_ev_qw=(/ 2*iwbmax_small+1,nqpz,nqpy,nqpx,maxdim,number_eigenvectors/)
 
   do iwb=1,2*iwbmax_small+1
     do iqz=1,nqpz
       do iqy=1,nqpy
         do iqx=1,nqpx
-          do i1=1,number_eigenvalues
+          do i1=1,number_eigenvectors
             do i2=1,maxdim
               !density
               evd_outputarray(iwb,iqz,iqy,iqx,i2,i1) = &
@@ -2294,17 +2294,17 @@ subroutine output_eigenvector_qpath_h5(filename_output,eigenvectors)
   integer(hid_t) :: file_id,grp_id_ev
   integer(hid_t) :: dspace_id_ev_qpath
   integer(hid_t) :: dset_id_ev_qpath
-  complex(kind=8),dimension(maxdim,number_eigenvalues,2,nqp*(2*iwbmax_small+1)) :: eigenvectors
-  complex(kind=8),dimension(2*iwbmax_small+1,nqp,maxdim,number_eigenvalues) :: evd_outputarray
-  complex(kind=8),dimension(2*iwbmax_small+1,nqp,maxdim,number_eigenvalues) :: evm_outputarray
+  complex(kind=8),dimension(maxdim,number_eigenvectors,2,nqp*(2*iwbmax_small+1)) :: eigenvectors
+  complex(kind=8),dimension(2*iwbmax_small+1,nqp,maxdim,number_eigenvectors) :: evd_outputarray
+  complex(kind=8),dimension(2*iwbmax_small+1,nqp,maxdim,number_eigenvectors) :: evm_outputarray
 
   rank_ev_qpath=4
   allocate(dims_ev_qpath(rank_ev_qpath))
-  dims_ev_qpath=(/ 2*iwbmax_small+1,nqp,maxdim,number_eigenvalues/)
+  dims_ev_qpath=(/ 2*iwbmax_small+1,nqp,maxdim,number_eigenvectors/)
 
   do iwb=1,2*iwbmax_small+1
     do iq=1,nqp
-      do i1=1,number_eigenvalues
+      do i1=1,number_eigenvectors
         do i2=1,maxdim
           !density
           evd_outputarray(iwb,iq,i2,i1) = eigenvectors(i2,i1,1,(iwb-1)*nqp+iq)

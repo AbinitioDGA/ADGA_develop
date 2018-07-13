@@ -81,7 +81,7 @@ module parameters_module
   ! eigenvalues parameters and arrays
   logical :: calc_eigen
   integer :: number_eigenvalues
-  logical :: save_eigenvectors
+  integer :: number_eigenvectors
 
   contains
 
