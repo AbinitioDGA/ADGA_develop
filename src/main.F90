@@ -47,6 +47,7 @@ program main
   complex(kind=8), allocatable :: gammaqd(:,:), v(:,:)
   complex(kind=8), allocatable :: sigma_nl(:,:,:,:), sigma_hf(:,:,:), sigma_dmft(:,:,:)
   complex(kind=8), allocatable :: sigma_sum(:,:,:,:), sigma_sum_hf(:,:,:), sigma_sum_dmft(:,:,:), sigma_loc(:,:,:)
+  complex(kind=8), allocatable :: mpi_c1work(:), mpi_c2work(:,:), mpi_c3work(:,:,:)
 ! variables for date-time string
   character(20) :: date,time,zone,iwb_str
   character(200) :: output_filename,erstr ! Filename and error string
@@ -930,16 +931,25 @@ end if
       endif
     else
       allocate(eigenvalues_gather(1,1,1))
-      allocate(eigenvectors_gather(1,1,1,1))
+      if (number_eigenvectors .gt. 0) then
+        allocate(eigenvectors_gather(1,1,1,1))
+      endif
     endif
 #ifdef MPI
     call MPI_gatherv(eigenvalues,(qwstop-qwstart+1)*2*number_eigenvalues, &
          MPI_DOUBLE_COMPLEX, eigenvalues_gather, rct*2*number_eigenvalues/ndim2**2, &
          disp*2*number_eigenvalues/ndim2**2, MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
     if (number_eigenvectors .gt. 0) then
-      call MPI_gatherv(eigenvectors,(qwstop-qwstart+1)*2*number_eigenvectors*maxdim, &
-           MPI_DOUBLE_COMPLEX, eigenvectors_gather, rct*2*number_eigenvectors*maxdim/ndim2**2, &
-           disp*2*number_eigenvectors*maxdim/ndim2**2, MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
+      allocate(mpi_c3work(maxdim,2,nqp*(2*iwbmax_small+1)))
+      do i=1,number_eigenvectors
+        call MPI_gatherv(eigenvectors(:,i,:,:),(qwstop-qwstart+1)*2*maxdim, &
+             MPI_DOUBLE_COMPLEX, mpi_c3work, rct*2*maxdim/ndim2**2, &
+             disp*2*maxdim/ndim2**2, MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
+        if (mpi_wrank .eq. master) then
+          eigenvectors_gather(:,i,:,:) = mpi_c3work(:,:,:)
+        endif
+      enddo
+      deallocate(mpi_c3work)
     endif
 #else
     eigenvalues_gather = eigenvalues
@@ -963,7 +973,9 @@ end if
       endif
     endif
 
-    deallocate(eigenvalues_gather)
+    deallocate(eigenvalues_gather, eigenvalues)
+    if (allocated(eigenvectors_gather)) deallocate(eigenvectors_gather)
+    if (allocated(eigenvectors)) deallocate(eigenvectors)
   endif
 
   ! MPI reduction and output
