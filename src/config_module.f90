@@ -243,6 +243,12 @@ subroutine read_config(er,erstr)
      k_path_eom = .false.
   endif
 
+  if (debug .and. (index(dbgstr,"Onlyph") .ne. 0)) then
+    do_ph = .true.
+  else
+    do_ph = .false.
+  endif
+
   allocate(interaction(nineq))
   allocate(interaction_mode(nineq))
   allocate(ndims(nineq,2))

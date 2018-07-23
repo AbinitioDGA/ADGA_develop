@@ -226,6 +226,10 @@ program main
     deallocate(Umat)
   endif
 
+  if (do_ph) then
+    u_tilde = 0.d0
+  endif
+
   ! read in k-points or calculate eom on the full k-mesh
   if (do_eom) then
     if (k_path_eom) then
@@ -282,6 +286,10 @@ program main
     if (calc_eigen) then
       write(ounit,'(1x)')
       write(ounit,'(1x,"Calculating eigenvalues of the BSE.")')
+    endif
+    if (do_ph) then
+      write(ounit,'(1x)')
+      write(ounit,'(1x,"Calculating only particle-hole contribuations.")')
     endif
     write(ounit,'(1x)')
     write(ounit,'(1x,"Frequency information:")')
@@ -1044,7 +1052,7 @@ end if
        deallocate(gloc,sigma_loc)
      end if
      deallocate(sigma_nl, sigma_sum, sigma_sum_dmft, sigma_sum_hf)
-  end if
+  end if ! do_eom output
   deallocate(giw)
 
   if (do_chi) then
@@ -1307,11 +1315,11 @@ end if
       deallocate(chi_loc_magn)
 
       deallocate(chi_qw_full)
-    endif
+    endif !nonlocal output
     deallocate(chi_qw_magn)
     deallocate(chi_qw_dens)
     deallocate(bubble_nl)
-  end if
+  end if !do_chi output
 
   call cpu_time(finish)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Time") .ne. 0))) then
@@ -1329,7 +1337,7 @@ end if
 ! End of Program
   if (ounit .ge. 1) then
       write(ounit,'(1x)')
-      write(ounit,'(1x,"End of Program")')
+      write(ounit,'(1x,"End of Program.")')
   endif
   close(ounit)
 

@@ -75,6 +75,10 @@ chi-loc-file = (default = '')         # external local chi file - optional
 threeleg-file = (default = '')        # external gamma^w  - optional
 
 ________________________________________________________________________________
+ #
+ # optional groups below here
+ #
+________________________________________________________________________________
 [Output]
 susc-full-output = (default = F)      # default output depends on 2 of the 4 legs
                                       # where the two legs on the left and the right side are the same
@@ -98,11 +102,29 @@ summation-order = (default = 0)       # number of terms in the geometric series
 se-nonloc = (default = F)             # read in k-dependent self-energy
 
 ________________________________________________________________________________
-[Verbose]                             # Verbose flag (Add keywords to produce more output)
+[Verbose]                             # Verbose flag (Add keywords in form of a __single line string__
+                                                      to produce more output)
                                       # Current verbose keywords:
-                                      # Output, Extra, Hdf5, Umatrix, Time, Kpoints
-                                      # Allprogress, Noprogress, Test, Mpi, Dmft, Gamma
+                                      #
+                                      # Output      :: Mention successful hdf5-output of each group in 'out' file
+                                      # Extra       :: Every singly process gets its own 'out' file named 'out.xxxxx' according to its mpi rank
+                                      # Hdf5        :: Output the susceptibility groups dens-nl and magn-nl (i.e. susc without purely local contribution)
+                                      # Umatrix     :: Create Umatrix.dat with interaction values of all possible orbital combinations
+                                      # Time        :: More detailed timing information in 'out' file
+                                      # Kpoints     :: Create kdata_hk, qdata and kdata_eom text files (i.e. momentum information about the run paths)
+                                      # Allprogress :: Create an output line after each loop in 'out' file
+                                      # Noprogress  :: No Progress output in 'out' file
+                                      # Test        :: Additional output of specific values to the 'out' file
+                                      # Mpi         :: Output mpi displacement and receive count array to 'out' file
+                                      # Dmft        :: Create text files with DMFT arrays (filling, self-energy, Green's function)
+                                      # Gamma       :: Output gammad_w and gammam_w arrays to hdf5 (only in combination with Debug flag 'Onlydmft' usable)
 ________________________________________________________________________________
-[Debug]                               # Debug flag (Add keywords to change the way the calculation is performed, i.e. "Experts Only")
-                                      # Current debug keywords: Onlydmft, Bubble, Dmft_phbar, Makegiw
-
+[Debug]                               # Debug flag (Add keywords in form of a __single line string__
+                                                    to change the way the calculation is performed, i.e. "Experts Only")
+                                      # Current debug keywords:
+                                      #
+                                      # Onlydmft    :: Only calculate the purely local quantities (i.e. dmft self-energy and local susceptibilities if respective run-option enabled)
+                                      # Onlyph      :: Only build ladder in the ph-channel (i.e. neglect any ph_bar contributions)
+                                      # Bubble      :: Use the full dmft frequency range for the calculation of the local bubble, instead of only the vertex range
+                                      # Dmft_phbar  :: Calculate the local eom with doubly crossing-symmetric transformed equation (i.e. -U.gammawd -> -U_tilde.(-1/2 gammawd-3/2 gammawm))
+                                      # Makegiw     :: Force the re-calculation of the local DMFT Green's function with the DMFT Self-energy (default for d-only calculation: read from w2d file)

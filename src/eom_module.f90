@@ -166,10 +166,14 @@ end subroutine calc_eom_dmft
    delta = 1.d0  ! Add to m_tot
    call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u_tilde, ndim2, etaqm, ndim2, delta, m_tot, ndim2)
 
-   !local part: -1/beta*(-U).gamma^q_d
-   alpha = 1.d0/beta/dble(nqp)
-   delta = 1.d0  ! Add to m_tot
-   call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u, ndim2, gammaqd, ndim2, delta, m_tot, ndim2)
+   if (.not. do_ph) then
+   ! in the Onlyph calculation besides U_tilde being 0, we also have to ignore this term
+   ! see Matthias' master thesis derivation
+     !local part: -1/beta*(-U).gamma^q_d
+     alpha = 1.d0/beta/dble(nqp)
+     delta = 1.d0  ! Add to m_tot
+     call zgemm('n', 'n', ndim2, maxdim, ndim2, alpha, u, ndim2, gammaqd, ndim2, delta, m_tot, ndim2)
+   endif
 
    !v(q) part -1/beta*V.gamma^w_d
    if(do_vq) then

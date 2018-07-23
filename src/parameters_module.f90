@@ -37,7 +37,7 @@ module parameters_module
 
   ! run parameters and flags
   logical :: orb_sym
-  logical :: do_eom,do_chi,do_vq
+  logical :: do_eom,do_chi,do_vq,do_ph
   logical :: q_path_susc,q_vol,read_ext_hk,read_ext_u
   logical :: k_path_eom
   logical :: external_chi_loc,external_threelegs
