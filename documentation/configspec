@@ -37,6 +37,7 @@ q-grid = (default = 0 0 0)            # 3 integers seperated by a space (calcula
                                       # remainder of the division of k_i/q_i must be 0 (i = x,y,z)
 
 Output = (default = 'output')         # Output folder (gets created automatically)
+Outfile = (default = 'adga-datetime-output.hdf5') # Output filename, usage e.g. Outfile = adga-001.hdf5
 UFile  = (default = '')               # umatrx file with all possible leg combinations -- see umatrix_template - optional
                                       # if this file is provided, ignore the interaction parameters
                                       # in the [Atoms] section - optional
