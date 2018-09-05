@@ -58,7 +58,8 @@ module parameters_module
   character(len=150) :: filename_1p
   character(len=150) :: filename_hk, output_dir, filename_qdata
   character(len=150) :: filename_kdata
-  character(len=100) :: config_file
+  character(len=150) :: output_filename, config_file
+  
 
   ! hdf5 iters
   character(len=150)  :: dmft_iter

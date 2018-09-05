@@ -23,6 +23,9 @@ subroutine read_config(er,erstr)
   character(len=50), allocatable  :: oneparticle_dict(:)
   character(len=50), allocatable  :: twoparticle_dict(:)
   character(len=50), allocatable  :: output_dict(:)
+! variables for date-time string
+  character(20) :: date,time,zone
+  integer,dimension(8) :: time_date_values
 
   er = 0
   erstr = ''
@@ -111,6 +114,7 @@ subroutine read_config(er,erstr)
   filename_vq=''; filename_qdata=''; filename_umatrix=''
   filename_kdata=''
   filename_chi_loc=''; filename_threelegs=''
+  output_filename=''
 
   dmft_iter='dmft-last'
 
@@ -144,7 +148,7 @@ subroutine read_config(er,erstr)
     return
   endif
 
-  allocate(general_dict(13))
+  allocate(general_dict(14))
   ! defining dictionary (filling of general_dict)
   general_dict(1)  = 'calc-susc'
   general_dict(2)  = 'calc-eom'
@@ -158,7 +162,8 @@ subroutine read_config(er,erstr)
   general_dict(10) = 'k-grid'
   general_dict(11) = 'q-grid'
   general_dict(12) = 'Output'
-  general_dict(13) = 'UFile'
+  general_dict(13) = 'Outfile'
+  general_dict(14) = 'UFile'
   ! spell checking for General group
   call spell_check(search_start, search_end, 'General', general_dict, er, erstr)
   if (er .ne. 0) return
@@ -206,6 +211,19 @@ subroutine read_config(er,erstr)
    endif
   else
    output_dir='output/'
+  endif
+
+  ! If the field 'Outfile' is present in the config file, use the specified
+  ! filename. Otherwise restore the old behaviour (date and time string)
+  call string_find('Outfile', output_filename, search_start, search_end)
+  if (len_trim(adjustl(output_filename)) .ge. 1) then
+    write(*,*) 'using user-specified output name'
+   output_filename = trim(output_dir)//trim(adjustl(output_filename))
+  else
+   write(*,*) 'using default output name' 
+   call date_and_time(date,time,zone,time_date_values)
+   output_filename=trim(output_dir)//'adga-'//trim(date)//'-'//trim(time)//'-output.hdf5'
+   write(*,*) output_filename
   endif
   call string_find('UFile', filename_umatrix, search_start, search_end)
   if(trim(adjustl(filename_umatrix)) .eq. '') then

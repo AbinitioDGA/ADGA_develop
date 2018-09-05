@@ -50,7 +50,7 @@ program main
   complex(kind=8), allocatable :: mpi_c1work(:), mpi_c2work(:,:), mpi_c3work(:,:,:)
 ! variables for date-time string
   character(20) :: date,time,zone,iwb_str
-  character(200) :: output_filename,erstr ! Filename and error string
+  character(200) :: fname_log,erstr ! Filename and error string
   integer,dimension(8) :: time_date_values
   logical :: verbose_extra
   integer :: er ! error flag
@@ -87,12 +87,12 @@ program main
   endif
   if (ounit .gt. 0) then
      if (mpi_wrank .eq. master) then
-        output_filename = trim(adjustl(output_dir))//"out"
+        fname_log = trim(adjustl(output_dir))//"out"
      else
-        write(output_filename,'(I5.5)') mpi_wrank
-        output_filename = trim(adjustl(output_dir))//"out."//TRIM(ADJUSTL(output_filename))
+        write(fname_log,'(I5.5)') mpi_wrank
+        fname_log = trim(adjustl(output_dir))//"out."//TRIM(ADJUSTL(fname_log))
      endif
-     open(unit=ounit,file=TRIM(ADJUSTL(output_filename)),status='unknown')
+     open(unit=ounit,file=TRIM(ADJUSTL(fname_log)),status='unknown')
   endif
 
   ! check config settings
@@ -126,14 +126,6 @@ program main
   end if
 
 
-  ! creation of hdf5 output file
-  if (mpi_wrank .eq. master) then
-    ! generate a date-time string for output file name
-    output_filename=trim(output_dir)//'adga-'//trim(date)//'-'//trim(time)//'-output.hdf5'
-    ! while the name is generated here to get the correct starting time, 
-    ! the file is created later, just before the beginning of the parallel loop.
-    ! Thus, the parameters can be written immediately.
-  end if
 
 
 !##################  READ W2DYNAMICS HDF5 OUTPUT FILE ##################
@@ -157,7 +149,7 @@ program main
 ! after frequencies and dimensions are obtained, arrays can be allocated 
   allocate(siw(-iwmax:iwmax-1,ndim))
   if (sc_mode) then
-    allocate(skiw(-iwfmax_small-iwbmax_small:iwfmax-1+iwbmax_small,nkp,ndim,ndim))
+    allocate(skiw(-iwfmax_small-iwbmax_small:iwfmax_small-1+iwbmax_small,nkp,ndim,ndim))
     write(*,*) shape(skiw)
   endif
   allocate(giw(-iwmax:iwmax-1,ndim))
