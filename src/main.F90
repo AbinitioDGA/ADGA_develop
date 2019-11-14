@@ -873,7 +873,6 @@ end if
         call inverse_matrix(bigwork_magn,erstr,er)
         if (er .ne. 0) call mpi_stop(erstr,er)
 
-
         ! We need to subtract the identity before the multiplication from the left with (1 + gamma^w):
         do i=1,maxdim
            bigwork_dens(i,i) = bigwork_dens(i,i) - 1d0
@@ -886,10 +885,12 @@ end if
           alpha = -0.5d0
           delta = 0.d0
           call zgemm('n','n',maxdim,maxdim,maxdim,alpha,Fdw,maxdim,bigwork_dens,maxdim,delta,Fcondq,maxdim)
+
           alpha = -1.5d0
           delta = 1.d0 ! simply add the previous contribution
           call zgemm('n','n',maxdim,maxdim,maxdim,alpha,Fmw,maxdim,bigwork_magn,maxdim,delta,Fcondq,maxdim)
         endif
+
 
       else ! only compute the geometric series up to specified order
         bigwork_dens = bigwork_dens*(-1.d0)
@@ -953,7 +954,8 @@ end if
                           ! vertex contribution
                           ! m and l are in this order for the hdf5 transposition
                           do i=1,3
-                            cond_q0w(iwbc+iwbcond+1,m,l,i) = cond_q0w(iwbc+iwbcond+1,m,l,i) - \
+                            ! PLUS HERE
+                            cond_q0w(iwbc+iwbcond+1,m,l,i) = cond_q0w(iwbc+iwbcond+1,m,l,i) + \
                             hkder(i,l,ikq) * g1c * g2c * g3c * g4c * hkder(i,m,ik) * Fc / nkp / nqp
                           enddo
 
@@ -985,6 +987,7 @@ end if
                     g2c = gkiw(m,l)
 
                     do i=1,3
+                      ! MINUS HERE
                       cond_bubble(iwbc+iwbcond+1,m,l,i) = cond_bubble(iwbc+iwbcond+1,m,l,i) - \
                       hkder(i,l,ik) * g1c * g2c * hkder(i,m,ik) / nkp / beta
                     enddo
