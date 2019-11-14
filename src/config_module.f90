@@ -99,6 +99,9 @@ subroutine read_config(er,erstr)
   ! defining sensible default values
   do_chi=.true.                       ! chi-calculation on
   do_eom=.true.                       ! eom-calculation on
+  do_cond=.false.                     ! conductivity calculation off
+  cond_dmftlegs = .true.              ! calculate conductivity with legs from DMFT
+  extend_cond_bubble = .false.        ! extend frequency box of conductivity bubble
   q_vol=.true.                        ! homogeneous q-volume on
   q_path_susc=.false.                 ! q-path disabled
   k_path_eom=.false.                  ! k-path disabled
@@ -114,6 +117,7 @@ subroutine read_config(er,erstr)
   filename_vq=''; filename_qdata=''; filename_umatrix=''
   filename_kdata=''
   filename_chi_loc=''; filename_threelegs=''
+  filename_hkder=''
   output_filename=''
 
   dmft_iter='dmft-last'
@@ -123,6 +127,7 @@ subroutine read_config(er,erstr)
   vertex_type = -1
   iwfmax_small=-1 ! default -> calculate in the full vertex frequency box
   iwbmax_small=-1
+  iwbcond=0
   nkpx = 0; nkpy = 0; nkpz = 0
   nqpx = 0; nqpy = 0; nqpz = 0
 
@@ -133,6 +138,7 @@ subroutine read_config(er,erstr)
   bse_inversion = .true.
   sc_mode = .false.
   !================================================================================
+
 
   ! search for General stuff + Allocation of values
   !--------------------------------------------------------------------------------
@@ -148,7 +154,7 @@ subroutine read_config(er,erstr)
     return
   endif
 
-  allocate(general_dict(14))
+  allocate(general_dict(18))
   ! defining dictionary (filling of general_dict)
   general_dict(1)  = 'calc-susc'
   general_dict(2)  = 'calc-eom'
@@ -164,7 +170,13 @@ subroutine read_config(er,erstr)
   general_dict(12) = 'Output'
   general_dict(13) = 'Outfile'
   general_dict(14) = 'UFile'
+  general_dict(15) = 'calc-cond'
+  general_dict(16) = 'N1iwbc'
+  general_dict(17) = 'HkdkFile'
+  general_dict(18) = 'cond-legs'
+  general_dict(18) = 'extend-cond-bubble'
   ! spell checking for General group
+
   call spell_check(search_start, search_end, 'General', general_dict, er, erstr)
   if (er .ne. 0) return
   deallocate(general_dict)
@@ -172,15 +184,29 @@ subroutine read_config(er,erstr)
   ! read values
   call bool_find('calc-susc', do_chi, search_start, search_end)
   call bool_find('calc-eom', do_eom, search_start, search_end)
+  call bool_find('calc-cond', do_cond, search_start, search_end)
   call int_find('NAt', nineq, search_start, search_end)
   call int_find('N4iwf', iwfmax_small, search_start, search_end)
   call int_find('N4iwb', iwbmax_small, search_start, search_end)
+  call int_find('N1iwbc', iwbcond, search_start, search_end)
   call string_find('HkFile', filename_hk, search_start, search_end)
   if (trim(adjustl(filename_hk)) .eq. '') then
     read_ext_hk = .false.
   else
     read_ext_hk = .true.
   endif
+  call string_find('HkdkFile', filename_hkder, search_start, search_end)
+  if (do_cond .and. trim(adjustl(filename_hkder)) .eq. '') then
+    er = 15; erstr='do_cond requires HkdkFile with band derivatives'
+    return
+  endif
+  call string_find('cond-legs', filename_condlegs, search_start, search_end)
+  if (trim(adjustl(filename_condlegs)) .eq. '') then ! not found or empty
+    cond_dmftlegs = .true.
+  else
+    cond_dmftlegs = .false. ! use the provided Greens function for the outer legs
+  endif
+  call bool_find('extend-cond-bubble', extend_cond_bubble, search_start, search_end)
   call string_find('VqFile', filename_vq, search_start, search_end)
   if (trim(adjustl(filename_vq)) .eq. '') then
     do_vq = .false.
@@ -474,6 +500,37 @@ subroutine read_config(er,erstr)
     calc_eigen = .false.
   endif
 
+  ! call group_find('[Conductivity]', search_start, search_end)
+  ! if (search_start .gt. 0) then ! group was found -- this is an optional group
+  !   do_cond = .true.
+  !   call string_find('matrix-elements', filename_hkder, search_start, search_end)
+  !   if (trim(adjustl(filename_hkder)) .eq. '') then ! not found or empty
+  !     er = 15
+  !     erstr = 'matrix-elements have to be provided for a conductivity calculation'
+  !     return
+  !   endif
+
+  !   call int_find('Nf', iwbcond, search_start, search_end)
+  !   if (iwbcond < 0) then ! not found or empty
+  !     er = 16
+  !     erstr = 'number of bosonic frequencies for conductivity must be equal or greater to 0'
+  !     return
+  !   endif
+
+  !   call string_find('cond-legs', filename_condlegs, search_start, search_end)
+  !   if (trim(adjustl(filename_condlegs)) .eq. '') then ! not found or empty
+  !     cond_dmftlegs = .true.
+  !   else
+  !     cond_dmftlegs = .false. ! use the provided Greens function for the outer legs
+  !   endif
+
+  !   call bool_find('extend-bubble', extend_cond_bubble, search_start, search_end)
+
+  ! else
+  !   do_cond = .false.
+  ! endif
+
+
   deallocate(file_save)
   return
 end subroutine read_config
@@ -637,6 +694,35 @@ subroutine check_freq_range(er)
     return
   endif
 
+
+  if (do_cond) then
+    if (iwbcond < 0) then
+      er = 5
+      write(ounit,*) 'Error: Number of frequencies for conductivity must be >= 0'
+      return
+    endif
+
+    if (iwbcond > iwfmax_small) then
+      er = 6
+      if (ounit .gt. 0) then
+        write(ounit,*) 'Error: Number of frequencies for conductivity must be smaller than fermionic box'
+        write(ounit,*) 'N1bc=',iwbcond,'  N4iwf=',iwfmax_small
+      endif
+      return
+    else
+      iwfcond = iwfmax_small-iwbcond
+    endif
+
+    if (extend_cond_bubble) then
+      iwcstart = -iwmax+iwbcond
+      iwcstop  = iwmax-iwbcond-1
+    else
+      iwcstart = -iwfcond
+      iwcstop  = iwfcond-1
+    endif
+  endif
+
+
   if (ounit .gt. 0) write(ounit,'(1x)')
 
 end subroutine check_freq_range
@@ -711,6 +797,7 @@ subroutine check_config(er,erstr)
     erstr = "Error: Choose appropriate vertex type"
   endif
 
+
   if (k_path_eom) then
     inquire (file=trim(filename_kdata), exist=there)
     if (.not. there) then
@@ -719,6 +806,19 @@ subroutine check_config(er,erstr)
         return
     endif
   endif
+
+  if (do_vq .and. do_cond) then
+    er = 9
+    erstr = TRIM(ADJUSTL(erstr))//"Error: Conductivity calculation does not support V(q) at the moment"
+    return
+  endif
+
+  if (.not. bse_inversion .and. do_cond) then
+    er = 9
+    erstr = TRIM(ADJUSTL(erstr))//"Error: Conductivity calculation does not support the use of geometric series"
+    return
+  endif
+
   return
 end subroutine check_config
 

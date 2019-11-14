@@ -15,10 +15,23 @@ program main
   use interaction_module
   use aux
   use mpi_org
+  use cond_module
+
+  use hdf5_wrapper
+  use hdf5
 
   implicit none
   integer :: iw, ik, iq, ikq, iwf, iwb, iv, dum, dum1, iwf1, iwf2
   integer :: i, j, k, l, n, i1, i2, i3, i4
+
+  integer :: m
+  integer :: a, b, c, d
+  integer :: iwfp, iwbc
+  integer :: iv1, iv2
+  complex(kind=8), allocatable :: g1c, g2c, g3c, g4c, Fc
+
+  integer(hid_t) :: ioutfile
+
   complex(kind=8), allocatable :: gloc(:,:,:)
   complex(kind=8), allocatable :: chi0w(:,:,:), chi0w_inv(:,:,:), chi0(:,:), chi0q(:,:,:), chi0nl(:,:,:)
   complex(kind=8), allocatable :: chi0wFd_slice(:,:)
@@ -33,8 +46,14 @@ program main
   complex(kind=8), allocatable :: bigwork_magn(:,:), etaqd(:,:), etaqm(:,:), rectanglework(:,:)
   complex(kind=8), allocatable :: bigwork_evproblem(:,:), bigwork_vectors(:,:), bigwork_values(:)
   complex(kind=8), allocatable :: smallwork(:,:), bigwork_dens(:,:)
+
+  complex(kind=8), allocatable :: Fcondq(:,:)
+  complex(kind=8), allocatable :: Fdw(:,:), Fmw(:,:)
+  complex(kind=8), allocatable :: cond_bubble(:,:,:,:), cond_q0w(:,:,:,:)
+  complex(kind=8), allocatable :: gkiw(:,:)
+
   real(kind=8 ):: start, finish
-  real(kind=8 ):: tstart, tfinish, timings(8) ! timings: local, chi0, gammas, eta inversion, eta construct, eom, chi
+  real(kind=8 ):: tstart, tfinish, timings(9) ! timings: local, chi0, gammas, eta inversion, eta construct, eom, chi, cond
 
   complex(kind=8), allocatable :: eigenvalues(:,:,:), eigenvalues_gather(:,:,:)
   complex(kind=8), allocatable :: eigenvectors(:,:,:,:), eigenvectors_gather(:,:,:,:)
@@ -130,7 +149,9 @@ program main
 
 !##################  READ W2DYNAMICS HDF5 OUTPUT FILE ##################
 ! open the hdf5-fortran interface and create complex datatype
-  call init_h5()
+  ! FIXME
+  call hdf5_init() ! for the hdf5 wrapper
+  call init_h5()   ! for the old routines ....
 
 ! read bosonic and fermionic Matsubara axes of one- and two-particle data
   call get_freq_range(iwmax,iwfmax,iwbmax,n3iwf,n3iwb,n2iwb)
@@ -146,7 +167,19 @@ program main
     if (er .ne. 0) call mpi_stop(erstr,er)
   end if
 
-! after frequencies and dimensions are obtained, arrays can be allocated 
+  if (do_cond) then
+    call read_hkder(er, erstr) ! cond_module
+    if (er .ne. 0) call mpi_stop(erstr,er)
+
+    ! hkder = 1.0 ! debugging
+    ! we have to calculate the intra-orbital derivatives here
+    ! Given the Hamiltonian hk [ndim,ndim,nkp]
+    ! nkp = nkpx * nkpy * nkpz
+    ! typical w2w ordering ... 1 1 1 -> 1 1 2 .... nkpx nkpy nkpz
+    ! we calculate the derivative along the k-axes
+  endif
+
+! after frequencies and dimensions are obtained, arrays can be allocated
   allocate(siw(-iwmax:iwmax-1,ndim))
   if (sc_mode) then
     allocate(skiw(-iwfmax_small-iwbmax_small:iwfmax_small-1+iwbmax_small,nkp,ndim,ndim))
@@ -258,6 +291,9 @@ program main
     if (do_eom) then
       call mpi_stop('Error: It is not possible to use both do_eom and q_path_susc',er)
     endif
+    if (do_cond) then
+      call mpi_stop('Error: It is not possible to use both do_cond and q_path_susc',er)
+    endif
   elseif (q_vol) then ! the only other option we have
     nqp=nqpx*nqpy*nqpz
     if ((nqpx .le. 0) .or. (nqpy .le. 0) .or. (nqpz .le. 0)) then
@@ -274,6 +310,13 @@ program main
     else
       write(ounit,*) 'Running the calculation with V(q)'
       write(ounit,*) 'V(q) data in ', filename_vq
+    endif
+    if (do_cond) then
+      write(ounit,'(1x)')
+      write(ounit,'(1x,"Calculating optical conductivities.")')
+      write(ounit,*) 'iwbcond=', iwbcond
+      write(ounit,*) 'iwfcond=', iwfcond
+      write(ounit,*) 'extend conductivity bubble=', extend_cond_bubble
     endif
     if (calc_eigen) then
       write(ounit,'(1x)')
@@ -309,10 +352,10 @@ program main
   end if
 
 ! End here if calc-eom and calc-chi are both false.
-  if (.not. (do_eom .or. do_chi)) then
+  if (.not. (do_eom .or. do_chi .or. do_cond)) then
      if (ounit .ge. 1) then
          write(ounit,'(1x)')
-         write(ounit,'(1x,"End of Program (To continue set calc-eom or calc-susc to true)")')
+         write(ounit,'(1x,"End of Program (To continue set calc-eom or calc-susc or calc-cond to true)")')
      endif
      close(ounit)
      call mpi_close()
@@ -391,6 +434,17 @@ if (calc_eigen) then
   if (number_eigenvectors .gt. 0) then
     allocate(eigenvectors(maxdim,number_eigenvectors,2,qwstart:qwstop))
   endif
+endif
+
+if (do_cond) then
+  allocate(Fdw(maxdim,maxdim), Fmw(maxdim,maxdim))
+  allocate(Fcondq(maxdim,maxdim))
+  allocate(cond_bubble(2*iwbcond+1,ndim,ndim,3)) ! N1iwbc = 0 -> one frequency
+  allocate(cond_q0w(2*iwbcond+1,ndim,ndim,3))
+  allocate(gkiw(ndim,ndim))
+
+  cond_bubble = 0.d0
+  cond_q0w = 0.d0
 endif
 
 !distribute the qw compound index:
@@ -562,12 +616,26 @@ end if
               i = i2+dum*ndim2 ! compound index (i2,iwf)
               chi0wFm(:,i) = chi0wFm(:,i)*chi0w_inv(i2,i2,iwf)
               chi0wFd(:,i) = chi0wFd(:,i)*chi0w_inv(i2,i2,iwf)
-              ! Remove the 1 
+              ! Remove the 1
               chi0wFm(i,i) = chi0wFm(i,i) - 1d0
               chi0wFd(i,i) = chi0wFd(i,i) - 1d0
            enddo
         enddo
 
+        ! Calculate F if we want to calcluate the conductivities
+        ! the slices here are transposed compared to the previous multiplication !
+        ! FIXME: any beta factors necessary here?
+        if (do_cond) then
+          do dum = 0,2*iwfmax_small-1
+             iwf = dum - iwfmax_small
+             !F = chi_loc_inv * chi0^w.F
+             do i2=1,ndim2
+                i = i2+dum*ndim2 ! compound index (i2,iwf)
+                Fmw(i,:) = chi0w_inv(i2,i2,iwf)*chi0wFm(i,:)
+                Fdw(i,:) = chi0w_inv(i2,i2,iwf)*chi0wFd(i,:)
+             enddo
+          enddo
+        endif
 
 
         gammawm = 0.d0
@@ -805,11 +873,23 @@ end if
         call inverse_matrix(bigwork_magn,erstr,er)
         if (er .ne. 0) call mpi_stop(erstr,er)
 
+
         ! We need to subtract the identity before the multiplication from the left with (1 + gamma^w):
         do i=1,maxdim
            bigwork_dens(i,i) = bigwork_dens(i,i) - 1d0
            bigwork_magn(i,i) = bigwork_magn(i,i) - 1d0
         enddo
+
+        if (do_cond) then
+          ! Frq,nl = F^w_r * ([1 - chi0^{nl,q}.F^w_r]**(-1) - 1)
+          ! Fcondq = -0.5 Fdq - 1.5 Fmq
+          alpha = -0.5d0
+          delta = 0.d0
+          call zgemm('n','n',maxdim,maxdim,maxdim,alpha,Fdw,maxdim,bigwork_dens,maxdim,delta,Fcondq,maxdim)
+          alpha = -1.5d0
+          delta = 1.d0 ! simply add the previous contribution
+          call zgemm('n','n',maxdim,maxdim,maxdim,alpha,Fmw,maxdim,bigwork_magn,maxdim,delta,Fcondq,maxdim)
+        endif
 
       else ! only compute the geometric series up to specified order
         bigwork_dens = bigwork_dens*(-1.d0)
@@ -821,6 +901,107 @@ end if
       ! TIME: inv
       call cpu_time(tfinish)
       timings(4) = timings(4) + tfinish - tstart
+      tstart = tfinish ! TIME: conductivity
+
+
+      ! calculate contribution to the conducivitiy
+      if (do_cond) then
+
+        ! vertex contribution
+        ! do iwbc = 0, iwbcond ! w transfer
+        do iwbc = -iwbcond, iwbcond ! w transfer
+          do iwfp = -iwfcond,iwfcond-1 ! nu prime
+
+            iwf1 = iwfp-iwbc
+            iwf2 = iwfp
+
+            i2 = 0
+            do d=1,ndim
+              do a=1,ndim
+                i2 = i2+1
+                i1 = 0
+                do c=1,ndim
+                  do b=1,ndim
+                  i1 = i1 + 1
+
+                  iv1 = (iwf1+iwfmax_small)*ndim2 + i1
+                  iv2 = (iwf2+iwfmax_small)*ndim2 + i2
+
+                  Fc = Fcondq(iv1,iv2)
+
+                    do ik=1,nkp ! k prime
+                      ikq = kq_ind(ik,iq) ! k-q
+                      do m=1,ndim
+                        do l=1,ndim
+
+                          ! FIXME: make this efficient
+                          ! FIXME: betas and (-1)s
+
+                          ! iwb outer ladder loop
+                          ! iq outer ladder loop
+                          ! THESE ARE THE DMFT LEGS
+                          ! CHANGE THESE ROUTINES IF WE USE DGA LEGS
+                          call get_gkiw(ikq, iwfp, iwb, gkiw) ! iwf' - iwb
+                          g1c = gkiw(l,a)
+                          call get_gkiw(ikq, iwfp, iwb+iwbc, gkiw) ! iwf' - iwb - iwbc
+                          g2c = gkiw(b,l)
+                          call get_gkiw(ik, iwf, 0, gkiw) ! iwf'
+                          g3c = gkiw(d,m)
+                          call get_gkiw(ik, iwf, iwbc, gkiw) ! iwf'-iwbc
+                          g4c = gkiw(m,c)
+
+                          ! vertex contribution
+                          ! m and l are in this order for the hdf5 transposition
+                          do i=1,3
+                            cond_q0w(iwbc+iwbcond+1,m,l,i) = cond_q0w(iwbc+iwbcond+1,m,l,i) - \
+                            hkder(i,l,ikq) * g1c * g2c * g3c * g4c * hkder(i,m,ik) * Fc / nkp / nqp
+                          enddo
+
+                        enddo ! l
+                      enddo ! m
+                    enddo ! ik prime
+                  enddo ! b (vertex)
+                enddo ! c (vertex)
+              enddo ! a (vertex)
+            enddo ! d (vertex)
+          enddo ! nu prime
+        enddo ! w transfer
+
+
+        ! bubble contribution
+        ! only calculated by master once
+        if (mpi_wrank .eq. master .and. iqw == qwstart) then
+          do iwbc = -iwbcond, iwbcond
+          ! do iwbc = 0, iwbcond
+            !FIXME: if we read in DGA Greens function we have to adjust iwmax (which is read fromt he DMFT file)
+            do iwf = iwcstart, iwcstop ! depending on whether we extended the bubble or not (fermionic frequency)
+              do ik=1,nkp ! k
+                do m=1,ndim
+                  do l=1,ndim
+
+                    call get_gkiw(ik, iwf, 0, gkiw) ! nu, k
+                    g1c = gkiw(l,m)
+                    call get_gkiw(ik, iwf, iwbc, gkiw) ! nu-omega_transfer, k-q_transfer, q_transfer=0
+                    g2c = gkiw(m,l)
+
+                    do i=1,3
+                      cond_bubble(iwbc+iwbcond+1,m,l,i) = cond_bubble(iwbc+iwbcond+1,m,l,i) - \
+                      hkder(i,l,ik) * g1c * g2c * hkder(i,m,ik) / nkp / beta
+                    enddo
+
+                  enddo ! l
+                enddo ! m
+              enddo ! ik
+            enddo ! iwf
+          enddo ! iwbc
+
+        endif ! bubble endif
+
+
+      endif ! do_cond
+
+      call cpu_time(tfinish) ! TIME: chi
+      timings(9) = timings(9) + tfinish - tstart
       tstart = tfinish ! TIME: eta
 
       ! Multiply with (1 + gamma^w) from the left
@@ -892,14 +1073,14 @@ end if
 #ifdef MPI
      if (ounit .ge. 1) then
        write(ounit,'(1x,"TIME: Wall time per qw-point: (Rank ",i6,")")') mpi_wrank
-       write(ounit,'(1x,"      Local,       Chi0,     Gammas,    Inversion,  Eigenvalue,  Eta rest,     EOM,        Chi")')
+       write(ounit,'(1x,"      Local,       Chi0,     Gammas,    Inversion,  Eigenvalue,  Eta rest,     EOM,        Chi,     Cond")')
        write(ounit,'(1x,8f12.5)') timings/(qwstop-qwstart+1)
      endif
      call MPI_allreduce(MPI_IN_PLACE,timings,size(timings), MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
      if (ounit .ge. 1) then
        write(ounit,'(1x,"TIME: Wall time per qw-point:")')
-       write(ounit,'(1x,"      Local,       Chi0,     Gammas,    Inversion,  Eigenvalue,  Eta rest,     EOM,        Chi")')
+       write(ounit,'(1x,"      Local,       Chi0,     Gammas,    Inversion,  Eigenvalue,  Eta rest,     EOM,        Chi,     Cond")')
        write(ounit,'(1x,8f12.5)') timings/(nqp*(2*iwbmax_small+1))
        write(ounit,'(1x)')
        call flush(ounit)
@@ -1313,6 +1494,31 @@ end if
     deallocate(bubble_nl)
   end if !do_chi output
 
+  if (do_cond) then
+
+
+#ifdef MPI
+    if (mpi_wrank.eq.master) then
+       call MPI_reduce(MPI_IN_PLACE,cond_q0w,ndim*ndim*(2*iwbcond+1)*3,&
+                       MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+    else
+       call MPI_reduce(cond_q0w,cond_q0w,ndim*ndim*(2*iwbcond+1)*3,&
+                       MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+    endif
+#endif
+    ! non-mpi ... we already have everything in cond_bubble and cond_q0w
+
+    if (mpi_wrank .eq. master) then
+      cond_q0w = cond_q0w + cond_bubble ! add the bubble term to the vertex correction
+      call hdf5_open_file(output_filename, ioutfile)
+      call hdf5_write_data(ioutfile, 'conductivity/bubble', cond_bubble)
+      call hdf5_write_data(ioutfile, 'conductivity/full', cond_q0w)
+      call hdf5_close_file(ioutfile)
+    endif
+
+
+  endif
+
   call cpu_time(finish)
   if (ounit .ge. 1 .and. (verbose .and. (index(verbstr,"Time") .ne. 0))) then
     write(ounit,'(1x,"TIME: Gathering data and output: ",f12.5)') finish-start
@@ -1325,6 +1531,12 @@ end if
   if (allocated(n_dga)) deallocate(n_dga)
   if (allocated(n_dga_k)) deallocate(n_dga_k)
   if (allocated(kq_ind_eom)) deallocate(kq_ind_eom)
+  if (allocated(Fdw)) deallocate(Fdw)
+  if (allocated(Fmw)) deallocate(Fmw)
+  if (allocated(Fcondq)) deallocate(Fcondq)
+  if (allocated(cond_q0w)) deallocate(cond_q0w)
+  if (allocated(cond_bubble)) deallocate(cond_bubble)
+  if (allocated(gkiw)) deallocate(gkiw)
 
 ! End of Program
   if (ounit .ge. 1) then

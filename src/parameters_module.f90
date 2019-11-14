@@ -11,12 +11,17 @@ module parameters_module
   !complex(kind=8),parameter :: ci=(0.d0,1.d0)
   !double precision,parameter :: pi=3.1415926535897932385d0
 
+  integer :: iwcstart, iwcstop
+
   ! different loop variables and information about box sizes
   integer :: iwstart,iwstop
   integer :: nqp, nkp_eom
   integer :: nkp, ndim, ndim2, maxdim, nineq
   integer :: nkpx,nkpy,nkpz,nqpx,nqpy,nqpz
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,n2iwb,n3iwf,n3iwb
+
+  integer :: iwbcond ! number of bosonic frequencies for the conductivity
+  integer :: iwfcond ! number of fermionic frequencies (internal loop) for the conductivity
   integer,allocatable :: q_data(:), k_data_eom(:)
 
   ! input data created from dmft
@@ -29,6 +34,10 @@ module parameters_module
   complex(kind=8), allocatable :: siw(:,:),giw(:,:)
   complex(kind=8), allocatable :: n_dmft(:), n_fock(:,:,:)
 
+  ! for the optical conductivity
+  double precision, allocatable :: hkder(:,:,:)
+  logical :: cond_dmftlegs
+
   ! input data created from previous ADGA in SC cycle
   complex(kind=8), allocatable :: skiw(:,:,:,:)
 
@@ -37,7 +46,8 @@ module parameters_module
 
   ! run parameters and flags
   logical :: orb_sym
-  logical :: do_eom,do_chi,do_vq,do_ph
+  logical :: do_eom,do_chi,do_cond,do_vq,do_ph
+  logical :: extend_cond_bubble
   logical :: q_path_susc,q_vol,read_ext_hk,read_ext_u
   logical :: k_path_eom
   logical :: external_chi_loc,external_threelegs
@@ -59,7 +69,10 @@ module parameters_module
   character(len=150) :: filename_hk, output_dir, filename_qdata
   character(len=150) :: filename_kdata
   character(len=150) :: output_filename, config_file
-  
+
+  character(len=150) :: filename_hkder
+  character(len=150) :: filename_condlegs
+
 
   ! hdf5 iters
   character(len=150)  :: dmft_iter

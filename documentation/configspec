@@ -2,6 +2,7 @@ ________________________________________________________________________________
 [General]
 calc-susc = (default = T)             # calculate momentum-dependent susceptiblities
 calc-eom  = (default = T)             # calculate equation of motion -> self-energy
+calc-cond = (default = F)             # calculate frequency-dependent conductivities
 NAt       = (default = 1)             # number of atoms
 N4iwf     = (default = -1)            # number of fermionic frequencies of the vertex (v,v')
                                       # number <= 0 or >= max ---> maximum box size
@@ -11,6 +12,21 @@ N4iwb     = (default = -1)            # number of bosonic frequencies of the ver
                                       # number < 0 or >= max  ---> maximum box size
                                       # 0 -> frequencies: [0]
                                       # 1 -> frequencies: [-2*pi/beta, 0, 2*pi/beta]
+
+N1iwbc    = (default = 0)             # number of bosonic frequencies for the conductivities
+                                      # number must be >= 0
+                                      # 0 -> frequencies: [0]
+                                      # 1 -> frequencies: [0, 2pi/beta]
+
+cond-legs = (default = '')            # file with new Greens functions for the outer legs - optional
+                                      # if no file is provided use the standard DMFT lattice Greens functions
+                                      # this is used for the second iteration in the conductivity calculation
+                                      # where we use the DGA Greens functions
+
+extend-cond-bubble = (default = F)    # extend the fermionic box for the bubble part of the conductivity
+                                      # from the maximal size derived from the vertex
+                                      # to the maximal possible size (dmft-size)
+
  _________________________________________________________________
  # the frequency box therefore is (2*N4iwf * 2*N4iwf * 2*N4iwb+1) |
  #                                                                |
@@ -26,6 +42,8 @@ N4iwb     = (default = -1)            # number of bosonic frequencies of the ver
 
 HkFile = (default = '')               # Wannier hamiltonian - optional
                                       # if not provided we extract it from the w2dynamics 1PFile
+HkdkFile = (default = '')             # Derivative of the Wannier hamiltonian in k-space
+                                      # REQUIRED for the conductivity option
 VqFile = (default = '')               # V(q) file for fully non-local interactions - optional
                                       # currently only implemented for 1 impurity
 QDataFile = (default = '')            # Q-points text file for susc-path calculations -- see qpath_template - optional
