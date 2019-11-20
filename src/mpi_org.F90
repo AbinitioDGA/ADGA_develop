@@ -1,6 +1,6 @@
 module mpi_org
 
-  use parameters_module, only: iwbmax_small,nqp,ndim2
+  use parameters_module, only: iwbmax_small,nqp,ndim2,nkp
 #ifdef MPI
     use mpi
 #endif
@@ -11,8 +11,10 @@ module mpi_org
   integer :: mpi_wsize
   integer :: master
   integer, allocatable :: rct(:),disp(:)
+  integer, allocatable :: rct_ik(:),disp_ik(:)
   integer :: ierr
-  integer :: qwstart,qwstop
+  integer :: qwstart,qwstop ! parallelized qw compound index
+  integer :: ikstart,ikstop ! parallelized ik (momenta)
 
   contains
 
@@ -24,8 +26,11 @@ module mpi_org
       call MPI_comm_size(MPI_COMM_WORLD,mpi_wsize,ierr)
       master = 0
       allocate(rct(mpi_wsize),disp(mpi_wsize))
+      allocate(rct_ik(mpi_wsize),disp_ik(mpi_wsize))
       rct = 0
       disp = 0
+      rct_ik = 0
+      disp_ik = 0
 #else
       mpi_wrank=0
       mpi_wsize=1
@@ -34,7 +39,7 @@ module mpi_org
   end subroutine mpi_initialize
 
 
-  subroutine mpi_distribute()
+  subroutine mpi_distribute_qw()
     use parameters_module, ONLY: ounit, verbose, verbstr
     implicit none
     integer :: i,j
@@ -67,13 +72,37 @@ module mpi_org
       qwstart = 1
       qwstop = nqp*(2*iwbmax_small+1)
 #endif
-  end subroutine mpi_distribute
+  end subroutine mpi_distribute_qw
+
+  subroutine mpi_distribute_ik()
+    use parameters_module, ONLY: ounit, verbose, verbstr
+    implicit none
+    integer :: i,j
+#ifdef MPI
+      rct_ik=0  ! Elements per rank
+      disp_ik=0 ! Offset, i.e. disp(1) = 0
+      ikstart = 0
+      do i=1,mpi_wsize -1
+        rct_ik(i) = (nkp - disp_ik(i))/(mpi_wsize+1-i)
+        disp_ik(i+1) = disp_ik(i) + rct_ik(i)
+      enddo
+      rct_ik(mpi_wsize) = (nkp - disp_ik(mpi_wsize))
+      ! Set qwstart and qsstop
+      ikstart = disp_ik(mpi_wrank+1)+1
+      ikstop = disp_ik(mpi_wrank+1)+rct_ik(mpi_wrank+1)
+
+#else
+      ikstart = 1
+      ikstop  = nkp
+#endif
+  end subroutine mpi_distribute_ik
 
 
   subroutine mpi_close()
     implicit none
 #ifdef MPI
       deallocate(rct,disp)
+      deallocate(rct_ik,disp_ik)
       call MPI_finalize(ierr)
 #endif
   end subroutine mpi_close

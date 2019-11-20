@@ -415,7 +415,8 @@ program main
 !##################### parallel code ##################################################
 
 ! define qw compound index for mpi:
-  call mpi_distribute()
+  call mpi_distribute_qw() ! distributes qw compound
+  call mpi_distribute_ik() ! distributes nkp
 
   allocate(qw(2,nqp*(2*iwbmax_small+1)))
   i1=0
@@ -624,7 +625,6 @@ end if
 
         ! Calculate F if we want to calcluate the conductivities
         ! the slices here are transposed compared to the previous multiplication !
-        ! FIXME: any beta factors necessary here?
         if (do_cond) then
           do dum = 0,2*iwfmax_small-1
              iwf = dum - iwfmax_small
@@ -913,8 +913,8 @@ end if
         do iwbc = -iwbcond, iwbcond ! w transfer
           do iwfp = -iwfcond,iwfcond-1 ! nu prime
 
-            iwf1 = iwfp-iwbc
-            iwf2 = iwfp
+            iwf1 = iwfp-iwbc ! vertex nu1
+            iwf2 = iwfp      ! vertex nu2
 
             i2 = 0
             do d=1,ndim
@@ -924,19 +924,22 @@ end if
                 do c=1,ndim
                   do b=1,ndim
                   i1 = i1 + 1
+                  ! we need cbad
 
+                  ! vertex total compound index
                   iv1 = (iwf1+iwfmax_small)*ndim2 + i1
                   iv2 = (iwf2+iwfmax_small)*ndim2 + i2
 
+                  ! vertex evaluated at iq,iwb,nu1,nu2, c,b,a,d
                   Fc = Fcondq(iv1,iv2)
 
                     do ik=1,nkp ! k prime
-                      ikq = kq_ind(ik,iq) ! k-q
-                      do m=1,ndim
-                        do l=1,ndim
+                      ikq = kq_ind(ik,iq) ! k prime - q (outer ladder loop momentum)
+
+                      do m=1,ndim ! conductivity orbital dependence
+                        do l=1,ndim ! conductivity orbital dependence
 
                           ! FIXME: make this efficient
-                          ! FIXME: betas and (-1)s
 
                           ! iwb outer ladder loop
                           ! iq outer ladder loop
@@ -946,9 +949,9 @@ end if
                           g1c = gkiw(l,a)
                           call get_gkiw(ikq, iwfp, iwb+iwbc, gkiw) ! iwf' - iwb - iwbc
                           g2c = gkiw(b,l)
-                          call get_gkiw(ik, iwf, 0, gkiw) ! iwf'
+                          call get_gkiw(ik, iwfp, 0, gkiw) ! iwf'
                           g3c = gkiw(d,m)
-                          call get_gkiw(ik, iwf, iwbc, gkiw) ! iwf'-iwbc
+                          call get_gkiw(ik, iwfp, iwbc, gkiw) ! iwf'-iwbc
                           g4c = gkiw(m,c)
 
                           ! vertex contribution
@@ -957,6 +960,9 @@ end if
                             ! PLUS HERE
                             cond_q0w(iwbc+iwbcond+1,m,l,i) = cond_q0w(iwbc+iwbcond+1,m,l,i) + \
                             hkder(i,l,ikq) * g1c * g2c * g3c * g4c * hkder(i,m,ik) * Fc / nkp / nqp
+                            ! left and right hand side of derivative are the same direction
+                            ! k prime sum and q (outer ladder loop) sum have to be normalized
+                            ! no additional beta factors here
                           enddo
 
                         enddo ! l
@@ -990,6 +996,8 @@ end if
                       ! MINUS HERE
                       cond_bubble(iwbc+iwbcond+1,m,l,i) = cond_bubble(iwbc+iwbcond+1,m,l,i) - \
                       hkder(i,l,ik) * g1c * g2c * hkder(i,m,ik) / nkp / beta
+                      ! - beta G G / beta**2    (beta**2 from frequency sum)
+                      ! leads to - GG / beta
                     enddo
 
                   enddo ! l
@@ -1512,10 +1520,10 @@ end if
     ! non-mpi ... we already have everything in cond_bubble and cond_q0w
 
     if (mpi_wrank .eq. master) then
-      cond_q0w = cond_q0w + cond_bubble ! add the bubble term to the vertex correction
+      ! cond_q0w = cond_q0w + cond_bubble ! add the bubble term to the vertex correction
       call hdf5_open_file(output_filename, ioutfile)
       call hdf5_write_data(ioutfile, 'conductivity/bubble', cond_bubble)
-      call hdf5_write_data(ioutfile, 'conductivity/full', cond_q0w)
+      call hdf5_write_data(ioutfile, 'conductivity/connected', cond_q0w)
       call hdf5_close_file(ioutfile)
     endif
 

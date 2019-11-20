@@ -86,7 +86,7 @@ if __name__ == '__main__':
   if hub2d:
     # mostly copied from the LINRETRACE project
     nkz = 1
-    nkx = nky = 48 # ek = -2t cos(kx * a) - 2t * cos(ky * a)
+    nkx = nky = 72 # ek = -2t cos(kx * a) - 2t * cos(ky * a)
                  # vk = 2at sin(kx * a) + 2at * sin(ky * a)
     hopping = 1
     ndim = 2
@@ -116,6 +116,6 @@ if __name__ == '__main__':
     vk.resize(nkx*nky*nkz,1,3)
     ek.resize(nkx*nky*nkz)
 
-    with h5py.File('HkdkFile.hdf5','w') as h5:
+    with h5py.File('HkdkFile_{}_{}_{}.hdf5'.format(nkx,nky,nkz),'w') as h5:
       h5['hk']    = ek
       h5['hkder'] = vk
