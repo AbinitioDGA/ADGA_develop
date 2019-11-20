@@ -444,6 +444,20 @@ if (do_cond) then
   allocate(cond_q0w(2*iwbcond+1,ndim,ndim,3))
   allocate(gkiw(ndim,ndim))
 
+  if (ounit .ge. 1)  write(ounit,*)
+  if (cond_dmftlegs) then
+    allocate(gkiwfull(ndim,ndim,nkp,-iwfcond-iwbmax_small-iwbcond:iwfcond+iwbmax_small+iwbcond-1))
+    if (mpi_wrank.eq.master) then
+      allocate(gkiwfullbubble(ndim,ndim,nkp,iwcstart-iwbcond:iwcstop+iwbcond))
+    endif
+    if (ounit .ge. 1)  write(ounit,*) "Creating gkiw array for conductivity."
+    call create_gkiw_cond()
+  else
+    if (ounit .ge. 1)  write(ounit,*) "Reading gkiw array (from hdf5 file) for conductivity."
+    call read_gkiw_cond(er,erstr)
+    if (er .ne. 0) call mpi_stop(erstr,er)
+  endif
+  if (ounit .ge. 1) write(ounit,*) "Bubble range: ", iwcstart, iwcstop
   cond_bubble = 0.d0
   cond_q0w = 0.d0
 endif
@@ -939,20 +953,24 @@ end if
                       do m=1,ndim ! conductivity orbital dependence
                         do l=1,ndim ! conductivity orbital dependence
 
-                          ! FIXME: make this efficient
-
                           ! iwb outer ladder loop
                           ! iq outer ladder loop
-                          ! THESE ARE THE DMFT LEGS
-                          ! CHANGE THESE ROUTINES IF WE USE DGA LEGS
-                          call get_gkiw(ikq, iwfp, iwb, gkiw) ! iwf' - iwb
-                          g1c = gkiw(l,a)
-                          call get_gkiw(ikq, iwfp, iwb+iwbc, gkiw) ! iwf' - iwb - iwbc
-                          g2c = gkiw(b,l)
-                          call get_gkiw(ik, iwfp, 0, gkiw) ! iwf'
-                          g3c = gkiw(d,m)
-                          call get_gkiw(ik, iwfp, iwbc, gkiw) ! iwf'-iwbc
-                          g4c = gkiw(m,c)
+
+                          ! new factor 20 faster
+                          g1c = gkiwfull(l,a,ikq,iwfp-iwb)
+                          g2c = gkiwfull(b,l,ikq,iwfp-iwb-iwbc)
+                          g3c = gkiwfull(d,m,ik,iwfp)
+                          g4c = gkiwfull(m,c,ik,iwfp-iwbc)
+
+                          ! old
+                          ! call get_gkiw(ikq, iwfp, iwb, gkiw) ! iwf' - iwb
+                          ! g1c = gkiw(l,a)
+                          ! call get_gkiw(ikq, iwfp, iwb+iwbc, gkiw) ! iwf' - iwb - iwbc
+                          ! g2c = gkiw(b,l)
+                          ! call get_gkiw(ik, iwfp, 0, gkiw) ! iwf'
+                          ! g3c = gkiw(d,m)
+                          ! call get_gkiw(ik, iwfp, iwbc, gkiw) ! iwf'-iwbc
+                          ! g4c = gkiw(m,c)
 
                           ! vertex contribution
                           ! m and l are in this order for the hdf5 transposition
@@ -981,16 +999,20 @@ end if
         if (mpi_wrank .eq. master .and. iqw == qwstart) then
           do iwbc = -iwbcond, iwbcond
           ! do iwbc = 0, iwbcond
-            !FIXME: if we read in DGA Greens function we have to adjust iwmax (which is read fromt he DMFT file)
             do iwf = iwcstart, iwcstop ! depending on whether we extended the bubble or not (fermionic frequency)
               do ik=1,nkp ! k
                 do m=1,ndim
                   do l=1,ndim
 
-                    call get_gkiw(ik, iwf, 0, gkiw) ! nu, k
-                    g1c = gkiw(l,m)
-                    call get_gkiw(ik, iwf, iwbc, gkiw) ! nu-omega_transfer, k-q_transfer, q_transfer=0
-                    g2c = gkiw(m,l)
+                    ! new ... factor 20 faster
+                    g1c = gkiwfullbubble(l,m,ik,iwf)
+                    g2c = gkiwfullbubble(m,l,ik,iwf-iwbc)
+
+                    ! old
+                    ! call get_gkiw(ik, iwf, 0, gkiw) ! nu, k
+                    ! g1c = gkiw(l,m)
+                    ! call get_gkiw(ik, iwf, iwbc, gkiw) ! nu-omega_transfer, k-q_transfer, q_transfer=0
+                    ! g2c = gkiw(m,l)
 
                     do i=1,3
                       ! MINUS HERE
@@ -1005,7 +1027,7 @@ end if
               enddo ! ik
             enddo ! iwf
           enddo ! iwbc
-
+          if (allocated(gkiwfullbubble)) deallocate(gkiwfullbubble) ! we dont need this array anymore
         endif ! bubble endif
 
 
@@ -1538,6 +1560,8 @@ end if
 
 ! deallocation
   deallocate(iw_data,iwb_data,siw,k_data,q_data,kq_ind,qw)
+  if (allocated(hkder)) deallocate(hkder)
+  if (allocated(gkiwfull)) deallocate(gkiwfull)
   if (allocated(k_data_eom)) deallocate(k_data_eom)
   if (allocated(n_dga)) deallocate(n_dga)
   if (allocated(n_dga_k)) deallocate(n_dga_k)

@@ -7,10 +7,12 @@ import h5py
 import scipy.optimize
 import sys
 
-# with h5py.File('../../2dhubconv/U4_b4/output-full/adga-20191116-034405.173-output.hdf5','r') as f:
-with h5py.File('../../sr2ruo4/output-full/adga-20190923-121108.189-output.hdf5','r') as f:
-  siwk = f['selfenergy/nonloc/dga'][()]
+with h5py.File('../../2dhubconv/U4_b4/output-full/adga-20191116-034405.173-output.hdf5','r') as f:
+# with h5py.File('../../sr2ruo4/output-full/adga-20190923-121108.189-output.hdf5','r') as f:
+  siwk    = f['selfenergy/nonloc/dga'][()]
+  siw     = f['input/siw'][()]
   hk      = f['input/hk'][()]
+  ndim, _, kx, ky, kz = hk.shape[:]
   dc      = f['input/dc'][()]
   dc      = np.mean(dc,axis=1) # spins
   mudmft  = f['input/mu'][()]
@@ -364,8 +366,24 @@ def ndeviation(mu, nrequired, beta, hk, dc, siwk, fext, fitasymp):
 # print(ndeviation(mu, 1.3, beta, hk, dc, siwk, 4000, 15))
 
 
-ffit = 10 # number of frequencies where the fit is performed
 
+debug = True
+if debug:
+  siwk = np.zeros((ndim,ndim,kx,ky,kz,2*iwfdmft), dtype=np.complex128)
+  siwk[np.arange(ndim),np.arange(ndim),...] = siw[:,None,None,None,:]
+  giwk = construct_g(beta, mudmft, hk, dc, siwk)
+  giwk.resize(ndim,ndim,kx*ky*kz,2*iwfdmft) # this combines the k-points into the order we want
+  giwk = giwk.transpose(3,2,1,0) # so we have fast access to the orbitals first
+  smalliwf = 150
+  largeiwf = 1000
+  with h5py.File('test_dmft_trunc.hdf5', 'w') as h5:
+    h5['giwkext'] = giwk[iwfdmft-largeiwf:iwfdmft+largeiwf,...] # master - bubble # test
+    h5['giwk']    = giwk[iwfdmft-smalliwf:iwfdmft+smalliwf,...] # everyone
+  print('Done.')
+  sys.exit()
+
+
+ffit = 10 # number of frequencies where the fit is performed
 try:
   mudga = scipy.optimize.newton(ndeviation, x0=mudmft, args=tuple((ndmft,beta,hk,dc,siwk,2*iwfdmft,ffit)), tol=1e-5)
 except BaseException as e:
@@ -379,11 +397,17 @@ else:
 
 # giwkext =  fitgreensfunction(giwk, beta, 15, 10, 1000)
 
-print('Extending self-energy')
-siwkext = fitselfenergy(siwk, beta, fithartree=20, fitasymp=10, fext=500)
-print('Inverting extended self-energy')
+largeiwf  = 1000
+smalliwf = 150
+print('Extending self-energy.')
+siwkext = fitselfenergy(siwk, beta, fithartree=20, fitasymp=10, fext=largeiwf)
+print('Constructing Greensfunction with extended self-energy.')
 giwkext = construct_g(beta, mudga, hk, dc, siwkext)
+giwkext.resize(ndim,ndim,kx*ky*kz,2*largeiwf) # this combines the k-points into the order we want
+giwkext = giwkext.transpose(3,2,1,0) # so we have fast access to the orbitals first
 
+print('Creating HDF5 output.')
 with h5py.File('test.hdf5', 'w') as h5:
-  h5['siwk'] = siwkext
-  h5['giwk'] = giwkext
+  h5['giwkext'] = giwkext # master - bubble
+  h5['giwk']    = giwkext[largeiwf-smalliwf:largeiwf+smalliwf,...] # everyone
+print('Done.')

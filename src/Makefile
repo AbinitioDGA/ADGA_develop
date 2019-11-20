@@ -46,7 +46,7 @@ hdf5_module.o: parameters_module.o kq_tools.o aux.o
 mpi_org.o: parameters_module.o
 lookup_module.o: parameters_module.o
 config_module.o: parameters_module.o lookup_module.o
-cond_module.o: parameters_module.o hdf5_wrapper.o
+cond_module.o: parameters_module.o hdf5_wrapper.o one_particle_quant_module.o
 
 .PHONY: clean pristine
 clean:

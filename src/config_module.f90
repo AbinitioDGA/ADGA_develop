@@ -118,6 +118,7 @@ subroutine read_config(er,erstr)
   filename_kdata=''
   filename_chi_loc=''; filename_threelegs=''
   filename_hkder=''
+  filename_condlegs = ''
   output_filename=''
 
   dmft_iter='dmft-last'
@@ -154,7 +155,7 @@ subroutine read_config(er,erstr)
     return
   endif
 
-  allocate(general_dict(18))
+  allocate(general_dict(19))
   ! defining dictionary (filling of general_dict)
   general_dict(1)  = 'calc-susc'
   general_dict(2)  = 'calc-eom'
@@ -174,7 +175,7 @@ subroutine read_config(er,erstr)
   general_dict(16) = 'N1iwbc'
   general_dict(17) = 'HkdkFile'
   general_dict(18) = 'cond-legs'
-  general_dict(18) = 'extend-cond-bubble'
+  general_dict(19) = 'extend-cond-bubble'
   ! spell checking for General group
 
   call spell_check(search_start, search_end, 'General', general_dict, er, erstr)

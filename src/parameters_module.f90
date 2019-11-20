@@ -37,6 +37,9 @@ module parameters_module
   ! for the optical conductivity
   double precision, allocatable :: hkder(:,:,:)
   logical :: cond_dmftlegs
+  ! conductivity legs
+  complex(kind=8), allocatable :: gkiwfull(:,:,:,:)
+  complex(kind=8), allocatable :: gkiwfullbubble(:,:,:,:)
 
   ! input data created from previous ADGA in SC cycle
   complex(kind=8), allocatable :: skiw(:,:,:,:)
