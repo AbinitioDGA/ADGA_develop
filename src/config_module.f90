@@ -121,7 +121,9 @@ subroutine read_config(er,erstr)
   filename_condlegs = ''
   output_filename=''
 
+
   dmft_iter='dmft-last'
+  summation_order = -1
 
   nineq=1
   orb_sym = .false.

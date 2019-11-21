@@ -7,27 +7,6 @@ import h5py
 import scipy.optimize
 import sys
 
-with h5py.File('../../2dhubconv/U4_b4/output-full/adga-20191116-034405.173-output.hdf5','r') as f:
-# with h5py.File('../../sr2ruo4/output-full/adga-20190923-121108.189-output.hdf5','r') as f:
-  siwk    = f['selfenergy/nonloc/dga'][()]
-  siw     = f['input/siw'][()]
-  hk      = f['input/hk'][()]
-  ndim, _, kx, ky, kz = hk.shape[:]
-  dc      = f['input/dc'][()]
-  dc      = np.mean(dc,axis=1) # spins
-  mudmft  = f['input/mu'][()]
-  beta    = f['input/beta'][()]
-  occdmft = f['input/n_dmft'][()] # required numer of electrons
-  ndmft   = np.sum(occdmft) * 2
-  iwfdmft = f['input/iwmax'][()] # positive number of dmft frequencies
-
-# procedure for this whole thing
-# 1) construct diagonal elements of G
-# 2) extrapolate Gdiagonal towards infinite frequencies so that we can calculate n(mu)
-# -> mu
-# 3) extrapolate selfenergy to n4iwf + n4iwb + x frequencies (x=0)
-# -> selfenergy and mu input for ADGA
-
 
 def fitselfenergy(siwk, beta, fithartree, fitasymp, fext):
   '''
@@ -150,135 +129,6 @@ def fitselfenergy(siwk, beta, fithartree, fitasymp, fext):
   return siwkext
 
 
-
-# fitselfenergy(siwk, beta=60, fithartree=30, fitasymp=15, iwfplus=140)
-# sys.exit()
-
-# def fitgreensfunction(giwk, beta, fitdiag, fitoffdiag, fext):
-#   '''
-#   Asymptotically fit the provided greens function
-#   Input format is ADGA output format i.e.
-#   giwk.shape = ndim, ndim, kx, ky, kz, 2*iwf
-
-#   (which is constructed via the ADGA self energy)
-
-#   fitdiag and fitoffdiag are the number of frequencies used
-#   for the asymptotic fit
-
-#   fitdiag for diagonal parts (imag and real)
-#   fitoffidag for off-diagonal parts (imag and real)
-
-#   fext is the new number of positive freqencies
-
-#   returns siwkextended
-#   with siwkextended.shape = ndim, ndim, kx, ky, kz, 2*(fext)
-#   '''
-
-#   if fitdiag < 0:
-#     raise ValueError('fitdiag must be positive')
-#   if fitoffdiag < 0:
-#     raise ValueError('fitoffidag must be positive')
-
-#   def fasymp(x,a,b,c):
-#     ''' fit function for asymptotic behavior '''
-#     return a/abs(x) + b/abs(x)**2 + c/abs(x)**3
-
-#   shape         = list(giwk.shape) # shape returns a tuple
-#   iwf           = shape[-1]//2
-#   ndim          = shape[0]
-#   kx            = shape[2]
-#   ky            = shape[3]
-#   kz            = shape[4]
-#   newshape      = shape[:] # assign value not reference
-#   newshape[-1]  = 2*fext
-
-#   if fext < iwf:
-#     raise ValueError('fext must be greater than iwf')
-
-#   iwfplus = fext - iwf
-
-#   # define matsubara axes
-#   fmats    = np.linspace(-(iwf*2-1)*np.pi/beta,(iwf*2-1)*np.pi/beta,2*iwf) # original matsubara axis
-#   fmatsext = np.linspace(-((iwf+iwfplus)*2-1)*np.pi/beta,((iwf+iwfplus)*2-1)*np.pi/beta,2*(iwf+iwfplus)) # extended axis
-
-#   giwkext = np.zeros(newshape, dtype=np.complex128)
-#   giwkext[...,iwfplus:iwfplus+2*iwf] = siwk # center frequencies
-
-#   # if we provide a larger box than we have
-#   # use the maximum size
-#   if fitdiag > iwf:
-#     fitdiag = iwf
-#   if fitoffdiag > iwf:
-#     fitoffdiag = iwf
-
-#   class BreakIt(Exception): pass
-
-#   # first we fit the diagonal elements
-#   # we have to find initial guesses so the problem is better defined
-#   # pinit = []
-#   # for iorb in range(ndim):
-#   #   try:
-#   #     for ikx in range(kx):
-#   #       for iky in range(ky):
-#   #         for ikz in range(kz):
-#   #           try:
-#   #             popt, _ = scipy.optimize.curve_fit(feven,fmats[-fitdiag:],giwk[iorb,iorb,ikx,iky,ikz,-fitdiag:].imag)
-#   #           except RuntimeError:
-#   #             print('failed for {} {}'.format(ikx,iky))
-#   #           else:
-#   #             pinit.append(popt)
-#   #             raise BreakIt
-#   #   except BreakIt:
-#   #     continue
-#   #     print('found initial guess for hartree term for orbital {}'.format(iorb))
-#   #     print(pinit[iorb])
-#   #   else:
-#   #     raise Exception('could not find initial guess for orbital {}'.format(iorb))
-
-
-#   # here we only  need a couple of data points at the end to perform the fit properly
-#   for iorb1 in range(ndim):
-#     for iorb2 in range(ndim):
-#       print(iorb1, iorb2)
-#       for ikx in range(kx):
-#         for iky in range(ky):
-#           for ikz in range(kz):
-
-#             if iorb1==iorb2: # diagonal
-#               poptimag, _ = scipy.optimize.curve_fit(fasymp,fmats[-fitdiag:],giwk[iorb1,iorb2,ikx,iky,ikz,-fitdiag:].imag)
-#               poptreal, _ = scipy.optimize.curve_fit(fasymp,fmats[-fitdiag:],giwk[iorb1,iorb2,ikx,iky,ikz,-fitdiag:].real) # , p0=pinit[iorb1])
-
-#               # extend with the fitfunction and make it continous at the contact point
-#               giwkext[iorb1,iorb2,ikx,iky,ikz,iwfplus+2*iwf:] = fasymp(fmatsext[-iwfplus:], *poptreal) \
-#                                                               + 1j * fasymp(fmatsext[-iwfplus:], *poptimag) \
-#                                                               - fasymp(fmats[-1], *poptreal) - 1j * fasymp(fmats[-1], *poptimag) \
-#                                                               + giwkext[iorb1,iorb2,ikx,iky,ikz,iwfplus+2*iwf-1]
-#                                                               # last two terms to get a coninuous function
-#                                                               # i.e. remove any offset between the fit evaluated at the last data point of the original function
-#                                                               # and the original function itself
-
-#               # negative frequency extension via symmetry
-#               giwkext[iorb1,iorb2,ikx,iky,ikz,:iwfplus]       = np.conj(giwkext[iorb1,iorb2,ikx,iky,ikz,iwfplus+2*iwf:][::-1])
-
-#             else: # offdiagonal
-#               poptimagpos, _ = scipy.optimize.curve_fit(fasymp,fmats[-fitoffdiag:],giwk[iorb1,iorb2,ikx,iky,ikz,-fitoffdiag:].imag)
-#               poptrealpos, _ = scipy.optimize.curve_fit(fasymp,fmats[-fitoffdiag:],giwk[iorb1,iorb2,ikx,iky,ikz,-fitoffdiag:].real)
-#               poptimagneg, _ = scipy.optimize.curve_fit(fasymp,fmats[:fitoffdiag],giwk[iorb1,iorb2,ikx,iky,ikz,:fitoffdiag].imag)
-#               poptrealneg, _ = scipy.optimize.curve_fit(fasymp,fmats[:fitoffdiag],giwk[iorb1,iorb2,ikx,iky,ikz,:fitoffdiag].real)
-
-#               giwkext[iorb1,iorb2,ikx,iky,ikz,iwfplus+2*iwf:] = fasymp(fmatsext[-iwfplus:], *poptrealpos) \
-#                                                               + 1j * fasymp(fmatsext[-iwfplus:], *poptimagpos) \
-#                                                               - fasymp(fmats[-1], *poptrealpos) - 1j * fasymp(fmats[-1], *poptimagpos) \
-#                                                               + giwkext[iorb1,iorb2,ikx,iky,ikz,iwfplus+2*iwf-1]
-
-#               giwkext[iorb1,iorb2,ikx,iky,ikz,:iwfplus] = fasymp(fmatsext[:iwfplus], *poptrealneg) \
-#                                                         + 1j * fasymp(fmatsext[:iwfplus], *poptimagneg) \
-#                                                         - fasymp(fmats[0], *poptrealneg) - 1j * fasymp(fmats[0], *poptimagneg) \
-#                                                         + giwkext[iorb1,iorb2,ikx,iky,ikz,iwfplus]
-
-#   return giwkext
-
-
 def construct_g(beta, mu, hk, dc, siwk):
   '''
   Construct the Greens function from its components
@@ -366,48 +216,76 @@ def ndeviation(mu, nrequired, beta, hk, dc, siwk, fext, fitasymp):
 # print(ndeviation(mu, 1.3, beta, hk, dc, siwk, 4000, 15))
 
 
+if __name__ == '__main__':
 
-debug = True
-if debug:
-  siwk = np.zeros((ndim,ndim,kx,ky,kz,2*iwfdmft), dtype=np.complex128)
-  siwk[np.arange(ndim),np.arange(ndim),...] = siw[:,None,None,None,:]
-  giwk = construct_g(beta, mudmft, hk, dc, siwk)
-  giwk.resize(ndim,ndim,kx*ky*kz,2*iwfdmft) # this combines the k-points into the order we want
-  giwk = giwk.transpose(3,2,1,0) # so we have fast access to the orbitals first
-  smalliwf = 150
-  largeiwf = 1000
-  with h5py.File('test_dmft_trunc.hdf5', 'w') as h5:
-    h5['giwkext'] = giwk[iwfdmft-largeiwf:iwfdmft+largeiwf,...] # master - bubble # test
-    h5['giwk']    = giwk[iwfdmft-smalliwf:iwfdmft+smalliwf,...] # everyone
+  # testing purposes: siwk from siw
+  debug = False
+  if debug:
+    siwk = np.zeros((ndim,ndim,kx,ky,kz,2*iwfdmft), dtype=np.complex128)
+    siwk[np.arange(ndim),np.arange(ndim),...] = siw[:,None,None,None,:]
+    giwk = construct_g(beta, mudmft, hk, dc, siwk)
+    giwk.resize(ndim,ndim,kx*ky*kz,2*iwfdmft) # this combines the k-points into the order we want
+    giwk = giwk.transpose(3,2,1,0) # so we have fast access to the orbitals first
+    smalliwf = 150
+    largeiwf = 1000
+    with h5py.File('test_dmft_trunc.hdf5', 'w') as h5:
+      h5['giwkext'] = giwk[iwfdmft-largeiwf:iwfdmft+largeiwf,...] # master - bubble # test
+      h5['giwk']    = giwk[iwfdmft-smalliwf:iwfdmft+smalliwf,...] # everyone
+    print('Done.')
+    sys.exit()
+
+  inputmethod = input if sys.version_info >=(3,0) else raw_input
+  filen=inputmethod("ADGA output file for extrapolation: ")
+
+  try:
+    with h5py.File(filen,'r') as f:
+      siwk    = f['selfenergy/nonloc/dga'][()]
+      iwfdga  = siwk.shape[-1] // 2
+      siw     = f['input/siw'][()]
+      hk      = f['input/hk'][()]
+      ndim, _, kx, ky, kz = hk.shape[:]
+      dc      = f['input/dc'][()]
+      dc      = np.mean(dc,axis=1) # spins
+      mudmft  = f['input/mu'][()]
+      beta    = f['input/beta'][()]
+      occdmft = f['input/n_dmft'][()] # required numer of electrons
+      ndmft   = np.sum(occdmft) * 2
+      iwfdmft = f['input/iwmax'][()] # positive number of dmft frequencies
+  except:
+    sys.exit('File is not valid.\nExiting...')
+
+  # procedure for this whole thing
+  # 1) construct diagonal elements of G
+  # 2) extrapolate Gdiagonal towards infinite frequencies so that we can calculate n(mu)
+  # -> mu
+  # 3) extrapolate selfenergy to n4iwf + n4iwb + x frequencies (x=0)
+  # -> selfenergy and mu input for ADGA
+
+  ffit =  iwfdga // 3 # number of frequencies where the fit is performed
+  try:
+    mudga = scipy.optimize.newton(ndeviation, x0=mudmft, args=tuple((ndmft,beta,hk,dc,siwk,2*iwfdmft,ffit)), tol=1e-5)
+  except BaseException as e:
+    print('Root finding failed')
+  else:
+    print('Root finding succesful.\n  old mu (DMFT) = {}\n  new mu (DGA)  = {}'.format(mudmft, mudga))
+    giwk = construct_g(beta, mudga, hk, dc, siwk)
+    occdga  = calculate_occ(giwk, beta, 2*iwfdmft, ffit)
+    print('\n  old occupation (DMFT) = {}\n  new occupation (DGA)  = {}'.format(occdmft, occdga))
+
+  mudga = mudmft
+
+
+  largeiwf  = iwfdmft
+  smalliwf = 200 # NOTE: THIS NUMBER MUST BE LARGER THAN N4IWF + N4IWB
+  print('Extending self-energy.')
+  siwkext = fitselfenergy(siwk, beta, fithartree=iwfdga//2, fitasymp=iwfdga//4, fext=largeiwf)
+  print('Constructing Greensfunction with extended self-energy.')
+  giwkext = construct_g(beta, mudga, hk, dc, siwkext)
+  giwkext.resize(ndim,ndim,kx*ky*kz,2*largeiwf) # this combines the k-points into the order we want
+  giwkext = giwkext.transpose(3,2,1,0) # so we have fast access to the orbitals first
+
+  print('Creating HDF5 output.')
+  with h5py.File('gdga.hdf5', 'w') as h5:
+    h5['giwkext'] = giwkext # master - bubble
+    h5['giwk']    = giwkext[largeiwf-smalliwf:largeiwf+smalliwf,...] # everyone
   print('Done.')
-  sys.exit()
-
-
-ffit = 10 # number of frequencies where the fit is performed
-try:
-  mudga = scipy.optimize.newton(ndeviation, x0=mudmft, args=tuple((ndmft,beta,hk,dc,siwk,2*iwfdmft,ffit)), tol=1e-5)
-except BaseException as e:
-  print('Root finding failed')
-else:
-  print('Root finding succesful.\n  old mu (DMFT) = {}\n  new mu (DGA)  = {}'.format(mudmft, mudga))
-  giwk = construct_g(beta, mudga, hk, dc, siwk)
-  occdga  = calculate_occ(giwk, beta, 2*iwfdmft, ffit)
-  print('\n  old occupation (DMFT) = {}\n  new occupation (DGA)  = {}'.format(occdmft, occdga))
-
-
-# giwkext =  fitgreensfunction(giwk, beta, 15, 10, 1000)
-
-largeiwf  = 1000
-smalliwf = 150
-print('Extending self-energy.')
-siwkext = fitselfenergy(siwk, beta, fithartree=20, fitasymp=10, fext=largeiwf)
-print('Constructing Greensfunction with extended self-energy.')
-giwkext = construct_g(beta, mudga, hk, dc, siwkext)
-giwkext.resize(ndim,ndim,kx*ky*kz,2*largeiwf) # this combines the k-points into the order we want
-giwkext = giwkext.transpose(3,2,1,0) # so we have fast access to the orbitals first
-
-print('Creating HDF5 output.')
-with h5py.File('test.hdf5', 'w') as h5:
-  h5['giwkext'] = giwkext # master - bubble
-  h5['giwk']    = giwkext[largeiwf-smalliwf:largeiwf+smalliwf,...] # everyone
-print('Done.')
