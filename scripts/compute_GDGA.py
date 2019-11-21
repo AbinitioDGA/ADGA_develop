@@ -1,11 +1,12 @@
 #! /usr/bin/env python
 
 from __future__ import print_function, division, absolute_import
+import argparse
+import sys
+
 import numpy as np
-import matplotlib.pyplot as plt
 import h5py
 import scipy.optimize
-import sys
 
 
 def fitselfenergy(siwk, beta, fithartree, fitasymp, fext):
@@ -89,7 +90,7 @@ def fitselfenergy(siwk, beta, fithartree, fitasymp, fext):
   # here we only  need a couple of data points at the end to perform the fit properly
   for iorb1 in range(ndim):
     for iorb2 in range(ndim):
-      print(iorb1, iorb2)
+      print('Orbital1, Orbital2: ', iorb1+1, iorb2+1)
       for ikx in range(kx):
         for iky in range(ky):
           for ikz in range(kz):
@@ -189,6 +190,7 @@ def calculate_occ(giwk, beta, fext, fitasymp):
     we only need to extrapolate the real part of the Greens function
     which is even
     '''
+    # return a/x**4 + b/x**6
     return a/x**2 + b/x**4
 
   occ = []
@@ -214,31 +216,26 @@ def ndeviation(mu, nrequired, beta, hk, dc, siwk, fext, fitasymp):
   return nrequired - np.sum(occ)*2 # since it is spin resolved
 
 # print(ndeviation(mu, 1.3, beta, hk, dc, siwk, 4000, 15))
+def parse_args(args=None):
+  parser = argparse.ArgumentParser(
+    description='''Argument parser computation of DGA Greens function''',
+    formatter_class=argparse.RawTextHelpFormatter,
+    epilog="That's the end of the help")
+  parser.add_argument('file',    help='ADGA output file')
+  parser.add_argument('-o', '--output', help='Outputname of the HDF5 file (default="gdga.hdf5")', default='gdga.hdf5')
+  parser.add_argument('--mudmft', help='Use DMFT mu instead of searching for DGA mu', default=False, action='store_true')
+  parser.add_argument('--debug', help=argparse.SUPPRESS, default=False, action='store_true')
+
+  return parser.parse_args(args)
 
 
 if __name__ == '__main__':
 
-  # testing purposes: siwk from siw
-  debug = False
-  if debug:
-    siwk = np.zeros((ndim,ndim,kx,ky,kz,2*iwfdmft), dtype=np.complex128)
-    siwk[np.arange(ndim),np.arange(ndim),...] = siw[:,None,None,None,:]
-    giwk = construct_g(beta, mudmft, hk, dc, siwk)
-    giwk.resize(ndim,ndim,kx*ky*kz,2*iwfdmft) # this combines the k-points into the order we want
-    giwk = giwk.transpose(3,2,1,0) # so we have fast access to the orbitals first
-    smalliwf = 150
-    largeiwf = 1000
-    with h5py.File('test_dmft_trunc.hdf5', 'w') as h5:
-      h5['giwkext'] = giwk[iwfdmft-largeiwf:iwfdmft+largeiwf,...] # master - bubble # test
-      h5['giwk']    = giwk[iwfdmft-smalliwf:iwfdmft+smalliwf,...] # everyone
-    print('Done.')
-    sys.exit()
+  args = parse_args()
 
-  inputmethod = input if sys.version_info >=(3,0) else raw_input
-  filen=inputmethod("ADGA output file for extrapolation: ")
 
   try:
-    with h5py.File(filen,'r') as f:
+    with h5py.File(args.file,'r') as f:
       siwk    = f['selfenergy/nonloc/dga'][()]
       iwfdga  = siwk.shape[-1] // 2
       siw     = f['input/siw'][()]
@@ -251,8 +248,26 @@ if __name__ == '__main__':
       occdmft = f['input/n_dmft'][()] # required numer of electrons
       ndmft   = np.sum(occdmft) * 2
       iwfdmft = f['input/iwmax'][()] # positive number of dmft frequencies
+      iwbmax  = f['input/iwbmax'][()]
+      iwfmax  = f['input/iwfmax'][()]
+
+      smalliwf = iwbmax+iwfmax+20
+      largeiwf = iwfdmft
   except:
     sys.exit('File is not valid.\nExiting...')
+
+  # testing purposes: siwk from siw
+  if args.debug:
+    siwk = np.zeros((ndim,ndim,kx,ky,kz,2*iwfdmft), dtype=np.complex128)
+    siwk[np.arange(ndim),np.arange(ndim),...] = siw[:,None,None,None,:]
+    giwk = construct_g(beta, mudmft, hk, dc, siwk)
+    giwk.resize(ndim,ndim,kx*ky*kz,2*iwfdmft) # this combines the k-points into the order we want
+    giwk = giwk.transpose(3,2,1,0) # so we have fast access to the orbitals first
+    with h5py.File('test_dmft_trunc.hdf5', 'w') as h5:
+      h5['giwkext'] = giwk[iwfdmft-largeiwf:iwfdmft+largeiwf,...] # master - bubble # test
+      h5['giwk']    = giwk[iwfdmft-smalliwf:iwfdmft+smalliwf,...] # everyone
+    print('Done.')
+    sys.exit()
 
   # procedure for this whole thing
   # 1) construct diagonal elements of G
@@ -261,22 +276,26 @@ if __name__ == '__main__':
   # 3) extrapolate selfenergy to n4iwf + n4iwb + x frequencies (x=0)
   # -> selfenergy and mu input for ADGA
 
-  ffit =  iwfdga // 3 # number of frequencies where the fit is performed
-  try:
-    mudga = scipy.optimize.newton(ndeviation, x0=mudmft, args=tuple((ndmft,beta,hk,dc,siwk,2*iwfdmft,ffit)), tol=1e-5)
-  except BaseException as e:
-    print('Root finding failed')
-  else:
-    print('Root finding succesful.\n  old mu (DMFT) = {}\n  new mu (DGA)  = {}'.format(mudmft, mudga))
+  ffit =  iwfdga // 3 # number of frequencies where the fit (for the occupation) is performed)
+  if args.mudmft:
+    print('Enforcing mudga = mudmft')
+    mudga = mudmft
+    print('\n  old mu (DMFT) = {}\n  new mu (DGA)  = {}'.format(mudmft, mudga))
     giwk = construct_g(beta, mudga, hk, dc, siwk)
     occdga  = calculate_occ(giwk, beta, 2*iwfdmft, ffit)
     print('\n  old occupation (DMFT) = {}\n  new occupation (DGA)  = {}'.format(occdmft, occdga))
+  else:
+    print('Finding new chemical potential mudga')
+    try:
+      mudga = scipy.optimize.newton(ndeviation, x0=mudmft, args=tuple((ndmft,beta,hk,dc,siwk,2*iwfdmft,ffit)), tol=1e-5)
+    except BaseException as e:
+      print('Root finding failed')
+    else:
+      print('Root finding succesful.\n  old mu (DMFT) = {}\n  new mu (DGA)  = {}'.format(mudmft, mudga))
+      giwk = construct_g(beta, mudga, hk, dc, siwk)
+      occdga  = calculate_occ(giwk, beta, 2*iwfdmft, ffit)
+      print('\n  old occupation (DMFT) = {}\n  new occupation (DGA)  = {}'.format(occdmft, occdga))
 
-  mudga = mudmft
-
-
-  largeiwf  = iwfdmft
-  smalliwf = 200 # NOTE: THIS NUMBER MUST BE LARGER THAN N4IWF + N4IWB
   print('Extending self-energy.')
   siwkext = fitselfenergy(siwk, beta, fithartree=iwfdga//2, fitasymp=iwfdga//4, fext=largeiwf)
   print('Constructing Greensfunction with extended self-energy.')
@@ -284,8 +303,8 @@ if __name__ == '__main__':
   giwkext.resize(ndim,ndim,kx*ky*kz,2*largeiwf) # this combines the k-points into the order we want
   giwkext = giwkext.transpose(3,2,1,0) # so we have fast access to the orbitals first
 
-  print('Creating HDF5 output.')
-  with h5py.File('gdga.hdf5', 'w') as h5:
+  print('Creating HDF5 output: {}'.format(args.output))
+  with h5py.File(args.output, 'w') as h5:
     h5['giwkext'] = giwkext # master - bubble
     h5['giwk']    = giwkext[largeiwf-smalliwf:largeiwf+smalliwf,...] # everyone
   print('Done.')
