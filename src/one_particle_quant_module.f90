@@ -274,7 +274,6 @@ subroutine accumulate_chi0(ik, ikq, iwf, iwb, chi0)
 
 end subroutine accumulate_chi0
 
-
 ! calculation of occupations
 !=========================================================================== 
 subroutine get_ndmft()

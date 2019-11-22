@@ -37,6 +37,7 @@ module parameters_module
   ! for the optical conductivity
   double precision, allocatable :: hkder(:,:,:)
   logical :: cond_dmftlegs
+  logical :: do_cond_ph
   ! conductivity legs
   complex(kind=8), allocatable :: gkiwfull(:,:,:,:)
   complex(kind=8), allocatable :: gkiwfullbubble(:,:,:,:)

@@ -101,6 +101,7 @@ subroutine read_config(er,erstr)
   do_eom=.true.                       ! eom-calculation on
   do_cond=.false.                     ! conductivity calculation off
   cond_dmftlegs = .true.              ! calculate conductivity with legs from DMFT
+  do_cond_ph = .false.                   ! calculate particle-hole contribution of the conducitivity
   extend_cond_bubble = .false.        ! extend frequency box of conductivity bubble
   q_vol=.true.                        ! homogeneous q-volume on
   q_path_susc=.false.                 ! q-path disabled
@@ -157,7 +158,7 @@ subroutine read_config(er,erstr)
     return
   endif
 
-  allocate(general_dict(19))
+  allocate(general_dict(20))
   ! defining dictionary (filling of general_dict)
   general_dict(1)  = 'calc-susc'
   general_dict(2)  = 'calc-eom'
@@ -178,6 +179,7 @@ subroutine read_config(er,erstr)
   general_dict(17) = 'HkdkFile'
   general_dict(18) = 'cond-legs'
   general_dict(19) = 'extend-cond-bubble'
+  general_dict(20) = 'cond-ph'
   ! spell checking for General group
 
   call spell_check(search_start, search_end, 'General', general_dict, er, erstr)
@@ -209,6 +211,7 @@ subroutine read_config(er,erstr)
   else
     cond_dmftlegs = .false. ! use the provided Greens function for the outer legs
   endif
+  call bool_find('cond-ph', do_cond_ph, search_start, search_end)
   call bool_find('extend-cond-bubble', extend_cond_bubble, search_start, search_end)
   call string_find('VqFile', filename_vq, search_start, search_end)
   if (trim(adjustl(filename_vq)) .eq. '') then
