@@ -713,15 +713,24 @@ subroutine check_freq_range(er)
       return
     endif
 
-    if (iwbcond > iwfmax_small) then
+    if (do_cond_phbar .and. iwbcond > iwfmax_small) then
       er = 6
       if (ounit .gt. 0) then
-        write(ounit,*) 'Error: Number of frequencies for conductivity must be smaller than fermionic box'
+        write(ounit,*) 'Error: Number of frequencies for conductivity (phbar-channel) must be smaller than fermionic box'
         write(ounit,*) 'N1bc=',iwbcond,'  N4iwf=',iwfmax_small
       endif
       return
     else
       iwfcond = iwfmax_small-iwbcond
+    endif
+
+    if (do_cond_ph .and. iwbcond > iwbmax_small) then
+      er = 7
+      if (ounit .gt. 0) then
+        write(ounit,*) 'Error: Number of frequencies for conductivity (ph-channel) must be smaller than bosonic box'
+        write(ounit,*) 'N1bc=',iwbcond,'  N4iwb=',iwbmax_small
+      endif
+      return
     endif
 
     if (extend_cond_bubble) then
