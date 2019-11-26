@@ -68,13 +68,57 @@ def read_hamiltonian(hkfile):
   return hk, kpoints, nbands
 
 if __name__ == '__main__':
-  hub2d = True
+  hub2d = False
 
-  if False:
+  if True:
+    if len(sys.argv) != 8:
+      sys.exit('Sys Argv not long enough: hkfile nkx nky nkz a b c')
+
     w2wfile = sys.argv[1].strip()
+
+    nkx, nky, nkz = [int(i) for i in sys.argv[2:5]] # k-points
+    a, b, c       = [float(i) for i in sys.argv[5:8]] # lattice constants
+
+    dkx = 2*np.pi/a/nkx # distance of k-points in k-space
+    dky = 2*np.pi/b/nky
+    dkz = 2*np.pi/c/nky
+
     print('parsing: {}'.format(w2wfile))
     hk, kpoints, nbands = read_hamiltonian(w2wfile)
-    print(hk.shape)
+
+    if nkx*nky*nkz != hk.shape[0]:
+      sys.exit('Provided directional k-points do not agree with provided hk file')
+
+
+    hk.resize((nkx,nky,nkz,nbands,nbands))
+
+
+    # real because diagonal part of hermitian matrix
+    hkdiag = hk[...,np.arange(nbands),np.arange(nbands)].real # nkx nky nkz nbands 
+
+    vk = np.zeros((nkx,nky,nkz,nbands,3)) # derivative
+
+    for iband in range(nbands):
+      test = np.gradient(hkdiag[:,:,:,iband], dkx, dky, dkz)
+      for i in range(3):
+        vk[:,:,:,iband,i] = test[i].real
+
+    with h5py.File('HkdkFile_{}_{}_{}.hdf5'.format(nkx,nky,nkz),'w') as h5:
+      h5['hk_full']    = hk
+      h5['hkder_full'] = vk
+
+    vk.resize(nkx*nky*nkz,nbands,3)
+    hk.resize(nkx*nky*nkz,nbands,nbands)
+
+    with h5py.File('HkdkFile_{}_{}_{}.hdf5'.format(nkx,nky,nkz),'a') as h5:
+      h5['hk']    = hk
+      h5['hkder'] = vk
+
+    # with h5py.File('HkdkFile_{}_{}_{}.hdf5'.format(nkx,nky,nkz),'w') as h5:
+    #   h5['hk']    = ek
+    #   h5['hkder'] = vk
+
+  sys.exit()
 
     # construct the hamiltonian derivative here ...
     # given the unit cell symmetry
@@ -114,7 +158,7 @@ if __name__ == '__main__':
     vk[...,2] += 2. * hopping * spacing * np.sin(_kmeshz*2*np.pi)[None,None,:]
 
     vk.resize(nkx*nky*nkz,1,3)
-    ek.resize(nkx*nky*nkz)
+    ek.resize(nkx*nky*nkz,1)
 
     with h5py.File('HkdkFile_{}_{}_{}.hdf5'.format(nkx,nky,nkz),'w') as h5:
       h5['hk']    = ek

@@ -140,7 +140,7 @@ def construct_g(beta, mu, hk, dc, siwk):
   returns giwk
   '''
 
-  shape = list(siwk.shape) # shape returns a tuple
+  shape = list(siwk.shape) # shape returns a tuple (ndim ndim kx ky kz 2*iwf)
   iwf   = shape[-1]//2
   ndim  = shape[0]
   fmats = np.linspace(-(iwf*2-1)*np.pi/beta,(iwf*2-1)*np.pi/beta,2*iwf)
@@ -150,8 +150,8 @@ def construct_g(beta, mu, hk, dc, siwk):
   giwkinv += -hk[...,None] - siwk
   giwkinv[np.arange(ndim),np.arange(ndim),...] += 1j*fmats+mu - dc[np.arange(ndim),None,None,None,None]
 
-  giwk = np.linalg.inv(giwkinv.transpose(2,3,4,5,0,1))
-  return giwk.transpose(4,5,0,1,2,3)
+  giwk = np.linalg.inv(giwkinv.transpose(2,3,4,5,0,1)) # kx ky kz 2*iwf ndim ndim
+  return giwk.transpose(4,5,0,1,2,3) # ndim ndim kx ky kz 2*iwf
 
 def calculate_occ(giwk, beta, fext, fitasymp):
   '''
@@ -300,11 +300,13 @@ if __name__ == '__main__':
   siwkext = fitselfenergy(siwk, beta, fithartree=iwfdga//2, fitasymp=iwfdga//4, fext=largeiwf)
   print('Constructing Greensfunction with extended self-energy.')
   giwkext = construct_g(beta, mudga, hk, dc, siwkext)
-  giwkext.resize(ndim,ndim,kx*ky*kz,2*largeiwf) # this combines the k-points into the order we want
-  giwkext = giwkext.transpose(3,2,1,0) # so we have fast access to the orbitals first
+  giwkextreshape = np.resize(giwkext, (ndim,ndim,kx*ky*kz,2*largeiwf))
+  # giwkext.resize(ndim,ndim,kx*ky*kz,2*largeiwf) # this combines the k-points into the order we want
+  # giwkext = giwkext.transpose(3,2,1,0) # so we have fast access to the orbitals first
+  giwktranspose = np.transpose(giwkextreshape, (3,2,1,0))
 
   print('Creating HDF5 output: {}'.format(args.output))
   with h5py.File(args.output, 'w') as h5:
-    h5['giwkext'] = giwkext # master - bubble
-    h5['giwk']    = giwkext[largeiwf-smalliwf:largeiwf+smalliwf,...] # everyone
+    h5['giwkext'] = giwktranspose # master - bubble
+    h5['giwk']    = giwktranspose[largeiwf-smalliwf:largeiwf+smalliwf,...] # everyone
   print('Done.')

@@ -11,8 +11,6 @@ module parameters_module
   !complex(kind=8),parameter :: ci=(0.d0,1.d0)
   !double precision,parameter :: pi=3.1415926535897932385d0
 
-  integer :: iwcstart, iwcstop
-
   ! different loop variables and information about box sizes
   integer :: iwstart,iwstop
   integer :: nqp, nkp_eom
@@ -34,10 +32,14 @@ module parameters_module
   complex(kind=8), allocatable :: siw(:,:),giw(:,:)
   complex(kind=8), allocatable :: n_dmft(:), n_fock(:,:,:)
 
+
   ! for the optical conductivity
   double precision, allocatable :: hkder(:,:,:)
+  integer :: iwcstart, iwcstop
   logical :: cond_dmftlegs
+  logical :: do_cond_phbar
   logical :: do_cond_ph
+
   ! conductivity legs
   complex(kind=8), allocatable :: gkiwfull(:,:,:,:)
   complex(kind=8), allocatable :: gkiwfullbubble(:,:,:,:)

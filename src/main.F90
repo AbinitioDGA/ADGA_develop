@@ -318,6 +318,7 @@ program main
       write(ounit,*) 'iwbcond=', iwbcond
       write(ounit,*) 'iwfcond=', iwfcond
       write(ounit,*) 'extend conductivity bubble=', extend_cond_bubble
+      write(ounit,*) 'calculate phbar contribution=', do_cond_phbar
       write(ounit,*) 'calculate ph contribution=', do_cond_ph
     endif
     if (calc_eigen) then
@@ -440,14 +441,14 @@ if (calc_eigen) then
 endif
 
 if (do_cond) then
-  allocate(Fdw(maxdim,maxdim), Fmw(maxdim,maxdim))
-  allocate(Fcondq(maxdim,maxdim))
   allocate(cond_bubble(2*iwbcond+1,ndim,ndim,3,3)) ! N1iwbc = 0 -> one frequency
-  allocate(cond_phbar(2*iwbcond+1,ndim,ndim,3,3))
+  allocate(gkiw(ndim,ndim))
 
+  if (do_cond_phbar .or. do_cond_ph) allocate(Fdw(maxdim,maxdim), Fmw(maxdim,maxdim))
+  if (do_cond_phbar .or. do_cond_ph) allocate(Fcondq(maxdim,maxdim))
+  if (do_cond_phbar) allocate(cond_phbar(2*iwbcond+1,ndim,ndim,3,3))
   if (do_cond_ph) allocate(Fdq(maxdim,maxdim))
   if (do_cond_ph) allocate(cond_ph(2*iwbcond+1,ndim,ndim,3,3))
-  allocate(gkiw(ndim,ndim))
 
   if (ounit .ge. 1)  write(ounit,*)
   if (cond_dmftlegs) then
@@ -464,9 +465,9 @@ if (do_cond) then
   endif
   if (ounit .ge. 1) write(ounit,*) "Bubble range: ", iwcstart, iwcstop
   cond_bubble = 0.d0
-  cond_phbar = 0.d0
-  if (do_cond_ph)  cond_ph = 0.d0
-  if (do_cond_ph)  Fdq = 0.d0
+  if (do_cond_phbar) cond_phbar = 0.d0
+  if (do_cond_ph)    cond_ph = 0.d0
+  if (do_cond_ph)    Fdq = 0.d0
 endif
 
 !distribute the qw compound index:
@@ -646,7 +647,7 @@ end if
 
         ! Calculate F if we want to calcluate the conductivities
         ! the slices here are transposed compared to the previous multiplication !
-        if (do_cond) then
+        if (do_cond .and. (do_cond_ph .or. do_cond_phbar)) then
           do dum = 0,2*iwfmax_small-1
              iwf = dum - iwfmax_small
              !F = chi_loc_inv * chi0^w.F
@@ -901,7 +902,7 @@ end if
            bigwork_magn(i,i) = bigwork_magn(i,i) - 1d0
         enddo
 
-        if (do_cond) then
+        if (do_cond .and. (do_cond_ph .or. do_cond_phbar)) then
           ! Frq,nl = F^w_r * ([1 - chi0^{nl,q}.F^w_r]**(-1) - 1)
           ! Fcondq = -0.5 Fdq - 1.5 Fmq
           alpha = -0.5d0
@@ -934,81 +935,82 @@ end if
       ! calculate contribution to the conducivitiy
       if (do_cond) then
 
-        ! particle-hole bar vertex contribution
-        ! do iwbc = 0, iwbcond ! w transfer
-        do iwbc = -iwbcond, iwbcond ! w transfer
-          do iwfp = -iwfcond,iwfcond-1 ! nu prime
 
-            iwf1 = iwfp-iwbc ! vertex nu1
-            iwf2 = iwfp      ! vertex nu2
+        if (do_cond_phbar) then !  ! particle-hole bar vertex contribution
+          ! do iwbc = 0, iwbcond ! w transfer
+          do iwbc = -iwbcond, iwbcond ! w transfer
+            do iwfp = -iwfcond,iwfcond-1 ! nu prime
 
-            i2 = 0
-            do d=1,ndim
-              do a=1,ndim
-                i2 = i2+1
-                i1 = 0
-                do c=1,ndim
-                  do b=1,ndim
-                  i1 = i1 + 1
-                  ! we need cbad
+              iwf1 = iwfp-iwbc ! vertex nu1
+              iwf2 = iwfp      ! vertex nu2
 
-                  ! vertex total compound index
-                  iv1 = (iwf1+iwfmax_small)*ndim2 + i1
-                  iv2 = (iwf2+iwfmax_small)*ndim2 + i2
+              i2 = 0
+              do d=1,ndim
+                do a=1,ndim
+                  i2 = i2+1
+                  i1 = 0
+                  do c=1,ndim
+                    do b=1,ndim
+                    i1 = i1 + 1
+                    ! we need cbad
 
-                  ! vertex evaluated at iq,iwb,nu1,nu2, c,b,a,d
-                  Fc = Fcondq(iv1,iv2)
+                    ! vertex total compound index
+                    iv1 = (iwf1+iwfmax_small)*ndim2 + i1
+                    iv2 = (iwf2+iwfmax_small)*ndim2 + i2
 
-                    do ik=1,nkp ! k prime
-                      ikq = kq_ind(ik,iq) ! k prime - q (outer ladder loop momentum)
+                    ! vertex evaluated at iq,iwb,nu1,nu2, c,b,a,d
+                    Fc = Fcondq(iv1,iv2)
 
-                      do m=1,ndim ! conductivity orbital dependence
-                        do l=1,ndim ! conductivity orbital dependence
+                      do ik=1,nkp ! k prime
+                        ikq = kq_ind(ik,iq) ! k prime - q (outer ladder loop momentum)
 
-                          ! iwb outer ladder loop
-                          ! iq outer ladder loop
+                        do m=1,ndim ! conductivity orbital dependence
+                          do l=1,ndim ! conductivity orbital dependence
 
-                          ! new factor 20 faster
-                          g1c = gkiwfull(l,a,ikq,iwfp-iwb)
-                          g2c = gkiwfull(b,l,ikq,iwfp-iwb-iwbc)
-                          g3c = gkiwfull(d,m,ik,iwfp)
-                          g4c = gkiwfull(m,c,ik,iwfp-iwbc)
+                            ! iwb outer ladder loop
+                            ! iq outer ladder loop
 
-                          ! old
-                          ! call get_gkiw(ikq, iwfp, iwb, gkiw) ! iwf' - iwb
-                          ! g1c = gkiw(l,a)
-                          ! call get_gkiw(ikq, iwfp, iwb+iwbc, gkiw) ! iwf' - iwb - iwbc
-                          ! g2c = gkiw(b,l)
-                          ! call get_gkiw(ik, iwfp, 0, gkiw) ! iwf'
-                          ! g3c = gkiw(d,m)
-                          ! call get_gkiw(ik, iwfp, iwbc, gkiw) ! iwf'-iwbc
-                          ! g4c = gkiw(m,c)
+                            ! new factor 20 faster
+                            g1c = gkiwfull(l,a,ikq,iwfp-iwb)
+                            g2c = gkiwfull(b,l,ikq,iwfp-iwb-iwbc)
+                            g3c = gkiwfull(d,m,ik,iwfp)
+                            g4c = gkiwfull(m,c,ik,iwfp-iwbc)
 
-                          ! vertex contribution
-                          ! m and l are in this order for the hdf5 transposition
-                          do idir1=1,3
-                          do idir2=1,3
-                            ! PLUS HERE
-                            cond_phbar(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_phbar(iwbc+iwbcond+1,m,l,idir2,idir1) + \
-                            hkder(idir1,l,ikq) * g1c * g2c * g3c * g4c * hkder(idir2,m,ik) * Fc / nkp / nqp
-                            ! left and right hand side of derivative are the same direction
-                            ! k prime sum and q (outer ladder loop) sum have to be normalized
-                            ! no additional beta factors here
-                          enddo
-                          enddo
+                            ! old
+                            ! call get_gkiw(ikq, iwfp, iwb, gkiw) ! iwf' - iwb
+                            ! g1c = gkiw(l,a)
+                            ! call get_gkiw(ikq, iwfp, iwb+iwbc, gkiw) ! iwf' - iwb - iwbc
+                            ! g2c = gkiw(b,l)
+                            ! call get_gkiw(ik, iwfp, 0, gkiw) ! iwf'
+                            ! g3c = gkiw(d,m)
+                            ! call get_gkiw(ik, iwfp, iwbc, gkiw) ! iwf'-iwbc
+                            ! g4c = gkiw(m,c)
 
-                        enddo ! l
-                      enddo ! m
-                    enddo ! ik prime
-                  enddo ! b (vertex)
-                enddo ! c (vertex)
-              enddo ! a (vertex)
-            enddo ! d (vertex)
-          enddo ! nu prime
-        enddo ! w transfer
+                            ! vertex contribution
+                            ! m and l are in this order for the hdf5 transposition
+                            do idir1=1,3
+                            do idir2=1,3
+                              ! PLUS HERE
+                              cond_phbar(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_phbar(iwbc+iwbcond+1,m,l,idir2,idir1) + \
+                              hkder(idir1,l,ikq) * g1c * g2c * g3c * g4c * hkder(idir2,m,ik) * Fc / nkp / nqp
+                              ! left and right hand side of derivative are the same direction
+                              ! k prime sum and q (outer ladder loop) sum have to be normalized
+                              ! no additional beta factors here
+                            enddo
+                            enddo
 
-        ! particle-hole vertex contribution (one-band case this vanishes)
-        if (do_cond_ph) then
+                          enddo ! l
+                        enddo ! m
+                      enddo ! ik prime
+                    enddo ! b (vertex)
+                  enddo ! c (vertex)
+                enddo ! a (vertex)
+              enddo ! d (vertex)
+            enddo ! nu prime
+          enddo ! w transfer
+        endif ! do_cond_phbar
+
+        if (do_cond_ph) then ! particle-hole vertex contribution (one-band case this vanishes)
           do iwbc = -iwbcond, iwbcond ! w transfer
             if (iwbc /= iwb)  then ! only calculate the contribution if we are in the w transfer window we want to calculate = w ladder loop
               cycle
@@ -1073,7 +1075,7 @@ end if
         endif
 
 
-        ! bubble contribution
+        ! bubble contribution (always if do_cond is on)
         ! only calculated by master once
         if (mpi_wrank .eq. master .and. iqw == qwstart) then
           do iwbc = -iwbcond, iwbcond
@@ -1612,12 +1614,14 @@ end if
 
 
 #ifdef MPI
-    if (mpi_wrank.eq.master) then
-       call MPI_reduce(MPI_IN_PLACE,cond_phbar,ndim*ndim*(2*iwbcond+1)*9,&
-                       MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-    else
-       call MPI_reduce(cond_phbar,cond_phbar,ndim*ndim*(2*iwbcond+1)*9,&
-                       MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+    if (do_cond_phbar) then
+      if (mpi_wrank.eq.master) then
+         call MPI_reduce(MPI_IN_PLACE,cond_phbar,ndim*ndim*(2*iwbcond+1)*9,&
+                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+      else
+         call MPI_reduce(cond_phbar,cond_phbar,ndim*ndim*(2*iwbcond+1)*9,&
+                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+      endif
     endif
 
     if (do_cond_ph) then
@@ -1635,13 +1639,14 @@ end if
     if (mpi_wrank .eq. master) then
       call hdf5_open_file(output_filename, ioutfile)
       call hdf5_write_data(ioutfile, 'conductivity/bubble', cond_bubble)
-      call hdf5_write_data(ioutfile, 'conductivity/connected_phbar', cond_phbar)
+      if (do_cond_phbar) then
+        call hdf5_write_data(ioutfile, 'conductivity/connected_phbar', cond_phbar)
+      endif
       if (do_cond_ph) then
         call hdf5_write_data(ioutfile, 'conductivity/connected_ph', cond_ph)
       endif
       call hdf5_close_file(ioutfile)
     endif
-
 
   endif
 
