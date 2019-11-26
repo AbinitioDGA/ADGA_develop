@@ -442,16 +442,18 @@ endif
 
 if (do_cond) then
   ! allocate(cond_bubble(2*iwbcond+1,ndim,ndim,3,3)) ! N1iwbc = 0 -> one frequency
-  allocate(cond_bubble(iwbcond+1,ndim,ndim,3,3)) ! N1iwbc = 0 -> one frequency
+  allocate(cond_bubble(3,3,ndim,ndim,iwbcond+1))
   allocate(gkiw(ndim,ndim))
 
   if (do_cond_phbar .or. do_cond_ph) allocate(Fdw(maxdim,maxdim), Fmw(maxdim,maxdim))
   if (do_cond_phbar .or. do_cond_ph) allocate(Fcondq(maxdim,maxdim))
   ! if (do_cond_phbar) allocate(cond_phbar(2*iwbcond+1,ndim,ndim,3,3))
-  if (do_cond_phbar) allocate(cond_phbar(iwbcond+1,ndim,ndim,3,3))
+  ! if (do_cond_phbar) allocate(cond_phbar(iwbcond+1,ndim,ndim,3,3)) ! old
+  if (do_cond_phbar) allocate(cond_phbar(3,3,ndim,ndim,iwbcond+1))
   if (do_cond_ph) allocate(Fdq(maxdim,maxdim))
   ! if (do_cond_ph) allocate(cond_ph(2*iwbcond+1,ndim,ndim,3,3))
-  if (do_cond_ph) allocate(cond_ph(iwbcond+1,ndim,ndim,3,3))
+  ! if (do_cond_ph) allocate(cond_ph(iwbcond+1,ndim,ndim,3,3)) ! old
+  if (do_cond_ph) allocate(cond_ph(3,3,ndim,ndim,iwbcond+1))
 
   if (ounit .ge. 1)  write(ounit,*)
   if (cond_dmftlegs) then
@@ -945,7 +947,7 @@ end if
             do iwfp = -iwfcond,iwfcond-1 ! nu prime
 
               ! testing purposes
-              if (ounit .gt. 0) write(ounit,*) iq,iwb,'-----',iwbc,iwfp
+              ! if (ounit .gt. 0) write(ounit,*) iq,iwb,'-----',iwbc,iwfp
 
               iwf1 = iwfp-iwbc ! vertex nu1
               iwf2 = iwfp      ! vertex nu2
@@ -970,8 +972,8 @@ end if
                       do ik=1,nkp ! k prime
                         ikq = kq_ind(ik,iq) ! k prime - q (outer ladder loop momentum)
 
-                        do m=1,ndim ! conductivity orbital dependence
-                          do l=1,ndim ! conductivity orbital dependence
+                        do l=1,ndim ! conductivity orbital dependence
+                          do m=1,ndim ! conductivity orbital dependence
 
                             ! iwb outer ladder loop
                             ! iq outer ladder loop
@@ -998,7 +1000,7 @@ end if
                             do idir2=1,3
                               ! PLUS HERE
                               ! cond_phbar(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_phbar(iwbc+iwbcond+1,m,l,idir2,idir1) + \
-                              cond_phbar(iwbc+1,m,l,idir2,idir1) = cond_phbar(iwbc+1,m,l,idir2,idir1) + \
+                              cond_phbar(idir2,idir1,m,l,iwbc+1) = cond_phbar(idir2,idir1,m,l,iwbc+1) + \
                               hkder(idir1,l,ikq) * g1c * g2c * g3c * g4c * hkder(idir2,m,ik) * Fc / nkp / nqp
                               ! left and right hand side of derivative are the same direction
                               ! k prime sum and q (outer ladder loop) sum have to be normalized
@@ -1055,8 +1057,8 @@ end if
                         do ik=1,nqp
                           ikq = kq_ind(ik,iq)
 
-                            do m=1,ndim ! conductivity orbital dependence
-                              do l=1,ndim ! conductivity orbital dependence
+                            do l=1,ndim ! conductivity orbital dependence
+                              do m=1,ndim ! conductivity orbital dependence
 
                                 g1c = gkiwfull(l,a,ik,iwf1)
                                 g2c = gkiwfull(b,l,ik,iwf1-iwb)
@@ -1066,7 +1068,7 @@ end if
                                 do idir1=1,3
                                 do idir2=1,3
                                   ! cond_ph(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_ph(iwbc+iwbcond+1,m,l,idir2,idir1) + \
-                                  cond_ph(iwbc+1,m,l,idir2,idir1) = cond_ph(iwbc+1,m,l,idir2,idir1) + \
+                                  cond_ph(idir2,idir1,m,l,iwbc+1) = cond_ph(idir2,idir1,m,l,iwbc+1) + \
                                   hkder(idir1,l,ik) * g1c * g2c * g3c * g4c * hkder(idir2,m,ikp) * Fc / nqp / nqp
                                 enddo
                                 enddo
@@ -1081,7 +1083,7 @@ end if
               enddo ! d
             enddo ! iwf2
           enddo ! iwbc
-        endif
+        endif ! do_cond_ph
 
 
         ! bubble contribution (always if do_cond is on)
@@ -1089,10 +1091,11 @@ end if
         if (mpi_wrank .eq. master .and. iqw == qwstart) then
           ! do iwbc = -iwbcond, iwbcond
           do iwbc = 0, iwbcond
+            if (ounit.ge.1) write(ounit,*) iwbc
             do iwf = iwcstart, iwcstop ! depending on whether we extended the bubble or not (fermionic frequency)
               do ik=1,nkp ! k
-                do m=1,ndim
-                  do l=1,ndim
+                do l=1,ndim
+                  do m=1,ndim
 
                     ! new ... factor 20 faster
                     g1c = gkiwfullbubble(l,m,ik,iwf)
@@ -1108,7 +1111,7 @@ end if
                     do idir2=1,3
                       ! MINUS HERE
                       ! cond_bubble(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_bubble(iwbc+iwbcond+1,m,l,idir2,idir1) - \
-                      cond_bubble(iwbc+1,m,l,idir2,idir1) = cond_bubble(iwbc+1,m,l,idir2,idir1) - \
+                      cond_bubble(idir2,idir1,m,l,iwbc+1) = cond_bubble(idir2,idir1,m,l,iwbc+1) - \
                       hkder(idir1,l,ik) * g1c * g2c * hkder(idir2,m,ik) / nkp / beta
                       ! - beta G G / beta**2    (beta**2 from frequency sum)
                       ! leads to - GG / beta
