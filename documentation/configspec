@@ -18,6 +18,12 @@ N1iwbc    = (default = 0)             # number of bosonic frequencies for the co
                                       # 0 -> frequencies: [0]
                                       # 1 -> frequencies: [0, 2pi/beta]
 
+cond-ph   = (default = F)             # calculate the connected particle-hole contribution
+                                      # to the conductivity
+
+cond-phbar= (default = T)             # calculate the connected particle-hole transverse contribution
+                                      # to the conductivity
+
 cond-legs = (default = '')            # file with new Greens functions for the outer legs - optional
                                       # if no file is provided use the standard DMFT lattice Greens functions
                                       # this is used for the second iteration in the conductivity calculation
