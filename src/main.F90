@@ -1019,12 +1019,13 @@ end if
           enddo ! w transfer
         endif ! do_cond_phbar
 
-        if (do_cond_ph) then ! particle-hole vertex contribution (one-band case this vanishes)
+        if (do_cond_ph .and. iq==1) then ! particle-hole vertex contribution for q=0
           ! do iwbc = -iwbcond, iwbcond ! w transfer
           do iwbc =  0, iwbcond ! w transfer
             if (iwbc /= iwb)  then ! only calculate the contribution if we are in the w transfer window we want to calculate = w ladder loop
               cycle
             endif
+            write(ounit,*) iwb, iq
 
             i2 = 0
             do iwf2 = -iwfmax_small,iwfmax_small-1
@@ -1037,44 +1038,30 @@ end if
                       do b=1,ndim
                         i1 = i1 + 1
 
-                        if (iq==1) then ! contribution for qtransfer = 0 ( density, nl)
-                          Fc = Fdw(i1,i2) + Fdq(i1,i2)
-                        else
-                          Fc = Fdw(i1,i2)
-                        endif
+                        Fc = Fdw(i1,i2) + Fdq(i1,i2) ! here have have w=[0,iwbcond], q = 0
 
-
-                        ! this is a workaround to avoid 2 ksums here
-                        ! instead of focusing the work on specific points
-                        ! we distribute it via this 'trick'
-
-                        ! we sample the left hand side on nqp
-                        ! on the right hand side we 'exploit' the outer ladder sum
-                        ! to create all possible k k' combinations
-
-                        ! (instead of left hand side nkp, right hand side nkp)
-
-                        do ik=1,nqp
-                          ikq = kq_ind(ik,iq)
+                        do ik=1,nkp
+                          do ikp=1,nkp
 
                             do l=1,ndim ! conductivity orbital dependence
                               do m=1,ndim ! conductivity orbital dependence
 
-                                g1c = gkiwfull(l,a,ik,iwf1)
-                                g2c = gkiwfull(b,l,ik,iwf1-iwb)
-                                g3c = gkiwfull(d,m,ikq,iwf2)
-                                g4c = gkiwfull(m,c,ikq,iwf2-iwb)
+                                g1c = gkiwfull(l,a,ik,iwf1) ! left hand side : k
+                                g2c = gkiwfull(b,l,ik,iwf1-iwb) ! left hand side : k
+                                g3c = gkiwfull(d,m,ikp,iwf2) ! right hand side : k prime
+                                g4c = gkiwfull(m,c,ikp,iwf2-iwb) ! right hand side: k prime
 
                                 do idir1=1,3
                                 do idir2=1,3
                                   ! cond_ph(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_ph(iwbc+iwbcond+1,m,l,idir2,idir1) + \
                                   cond_ph(idir2,idir1,m,l,iwbc+1) = cond_ph(idir2,idir1,m,l,iwbc+1) + \
-                                  hkder(idir1,l,ik) * g1c * g2c * g3c * g4c * hkder(idir2,m,ikp) * Fc / nqp / nqp
+                                  hkder(idir1,l,ik) * g1c * g2c * g3c * g4c * hkder(idir2,m,ikp) * Fc / nkp / nkp
                                 enddo
                                 enddo
                               enddo ! l
-
                             enddo ! m
+
+                          enddo ! ikp
                         enddo ! ik
                       enddo ! b (vertex)
                     enddo ! a (vertex)
