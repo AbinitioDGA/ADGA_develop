@@ -31,7 +31,7 @@ end subroutine generate_q_vol
 subroutine index_kq(ind)
   implicit none
   integer, intent(out) :: ind(nkp,nqp)
-  
+
   integer ikp,jkp
   ind = 0
 
@@ -40,7 +40,7 @@ subroutine index_kq(ind)
       ind(ikp,jkp)=k_minus_q(ikp,q_data(jkp))
     end do
   end do
-end subroutine index_kq 
+end subroutine index_kq
 
 subroutine index_kq_eom(ind)
   implicit none
@@ -54,7 +54,24 @@ subroutine index_kq_eom(ind)
       ind(ikp,jkp)=k_minus_q(k_data_eom(ikp),q_data(jkp))
     end do
   end do
-end subroutine index_kq_eom 
+end subroutine index_kq_eom
+
+! q + q tilde for the vertical contributions to susceptibilities
+! in order for this to make sense we restrict outside to full q volumina only
+! i.e. no paths
+subroutine index_qq(ind)
+  implicit none
+  integer, intent(out) :: ind(nqp,nqp)
+
+  integer ikp,jkp
+  ind = 0
+
+  do ikp=1,nqp
+    do jkp=1,nqpphbar
+      ind(ikp,jkp)=k_plus_q(q_data(ikp),q_data_phbar(jkp))
+    end do
+  end do
+end subroutine index_qq
 
 ! The following function calculates the index of \vec{k} - \vec{q}.
 ! It uses only integers
@@ -63,7 +80,7 @@ end subroutine index_kq_eom
 ! k-space is assumed to have nkpx*nkpy*nkpz points
 ! q-space is assumed to have nqpx*nqpy*nqpz points,
 ! where each element of the q-space has to be an element of the k-space.
-! subtractions are done in integers, 
+! subtractions are done in integers,
 ! fold-back to BZ is achieved by modulo division.
 function k_minus_q(ik,iq)
   implicit none
@@ -78,6 +95,20 @@ function k_minus_q(ik,iq)
               mod(nkpx+ix-lx,nkpx)*nkpy*nkpz
 
 end function k_minus_q
+
+function k_plus_q(ik,iq)
+  implicit none
+  integer :: ik,iq,k_plus_q
+  integer :: ix,iy,iz,lx,ly,lz
+
+  call k_vector(ik,ix,iy,iz)
+  call k_vector(iq,lx,ly,lz)
+
+  k_plus_q=1+mod(nkpz+iz+lz,nkpz) + &
+              mod(nkpy+iy+ly,nkpy)*nkpz + &
+              mod(nkpx+ix+lx,nkpx)*nkpy*nkpz
+
+end function k_plus_q
 
 function k_index_1(k)
   implicit none
@@ -125,7 +156,7 @@ subroutine qdata_from_file()
 
   iostatus=0
   open(unit=101,file=filename_qdata)
-  
+
   nqp=-1
   do while (iostatus.eq.0)
     read(101,*,iostat=iostatus) str_tmp
@@ -143,7 +174,7 @@ subroutine qdata_from_file()
     ! and assumed to be given in integer basis [0,nkpi-1]
     ! If neither of above is true, the coordinates are assumed to lie in the interval [0,1).
     read(101,*) qx,qy,qz
-    if (qx .eq. 0 .and. qy .eq. 0 .and. qz .eq. 0) then 
+    if (qx .eq. 0 .and. qy .eq. 0 .and. qz .eq. 0) then
       q_data(iq) = k_index(0,0,0) ! gamma point
     else if (qx .ge. 1 .or. qy .ge. 1 .or. qz .ge. 1) then
       q_data(iq) = k_index(int(qx),int(qy),int(qz)) ! cast to integers
@@ -156,6 +187,47 @@ subroutine qdata_from_file()
 
 end subroutine qdata_from_file
 
+subroutine qdata_susc_from_file()
+  use parameters_module
+
+  implicit none
+  integer :: iostatus,iq
+  character(100) :: str_tmp
+  real(kind=8) :: qx,qy,qz
+
+  iostatus=0
+  open(unit=101,file=filename_qdata_susc)
+
+  nqpphbar=-1
+  do while (iostatus.eq.0)
+    read(101,*,iostat=iostatus) str_tmp
+    nqpphbar=nqpphbar+1
+  end do
+  close(101)
+  !write(*,*) nqpphbar,' q points'
+
+  allocate(q_data_phbar(nqpphbar))
+  open(unit=101,file=filename_qdata_susc)
+  do iq=1,nqpphbar
+    ! We read three real numbers.
+    ! If all of them are zero, it is the gamma point.
+    ! If one of them is larger or equal to 1, the coordinates are cast to integers
+    ! and assumed to be given in integer basis [0,nkpi-1]
+    ! If neither of above is true, the coordinates are assumed to lie in the interval [0,1).
+    read(101,*) qx,qy,qz
+    if (qx .eq. 0 .and. qy .eq. 0 .and. qz .eq. 0) then
+      q_data_phbar(iq) = k_index(0,0,0) ! gamma point
+    else if (qx .ge. 1 .or. qy .ge. 1 .or. qz .ge. 1) then
+      q_data_phbar(iq) = k_index(int(qx),int(qy),int(qz)) ! cast to integers
+    else
+      q_data_phbar(iq) = k_index(nint(qx*nkpx),nint(qy*nkpy),nint(qz*nkpz)) ! round to nearest integers
+    end if
+  end do
+  close(101)
+  !write(*,*) 'q data',q_data
+
+end subroutine qdata_susc_from_file
+
 subroutine kdata_from_file()
   ! defining k_data_eom by mapping to the contigous k_data array analogous to q_data
   use parameters_module
@@ -167,7 +239,7 @@ subroutine kdata_from_file()
 
   iostatus=0
   open(unit=101,file=filename_kdata)
-  
+
   nkp_eom = -1
   do while (iostatus.eq.0)
     read(101,*,iostat=iostatus) str_tmp
@@ -179,7 +251,7 @@ subroutine kdata_from_file()
   open(unit=101,file=filename_kdata)
   do ik=1,nkp_eom
     read(101,*) kx,ky,kz
-    if (kx .eq. 0 .and. ky .eq. 0 .and. kz .eq. 0) then 
+    if (kx .eq. 0 .and. ky .eq. 0 .and. kz .eq. 0) then
       k_data_eom(ik) = k_index(0,0,0) ! gamma point
     else if (kx .ge. 1 .or. ky .ge. 1 .or. kz .ge. 1) then
       k_data_eom(ik) = k_index(int(kx),int(ky),int(kz)) ! cast to integers

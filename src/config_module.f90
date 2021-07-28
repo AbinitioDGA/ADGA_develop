@@ -117,7 +117,7 @@ subroutine read_config(er,erstr)
 
   filename_hk=''; filename_1p=''; filename_vertex_sym=''
   filename_vq=''; filename_qdata=''; filename_umatrix=''
-  filename_kdata=''
+  filename_kdata=''; filename_qdata_susc=''
   filename_chi_loc=''; filename_threelegs=''
   filename_hkder=''
   filename_condlegs = ''
@@ -159,7 +159,7 @@ subroutine read_config(er,erstr)
     return
   endif
 
-  allocate(general_dict(21))
+  allocate(general_dict(22))
   ! defining dictionary (filling of general_dict)
   general_dict(1)  = 'calc-susc'
   general_dict(2)  = 'calc-eom'
@@ -180,8 +180,10 @@ subroutine read_config(er,erstr)
   general_dict(17) = 'HkdkFile'
   general_dict(18) = 'cond-legs'
   general_dict(19) = 'extend-cond-bubble'
-  general_dict(20) = 'cond-ph'
-  general_dict(21) = 'cond-phbar'
+  general_dict(20) = 'cond-phhor'
+  general_dict(21) = 'cond-phver'
+  general_dict(22) = 'susc-phver'
+
   ! spell checking for General group
 
   call spell_check(search_start, search_end, 'General', general_dict, er, erstr)
@@ -192,11 +194,15 @@ subroutine read_config(er,erstr)
   call bool_find('calc-susc', do_chi, search_start, search_end)
   call bool_find('calc-eom', do_eom, search_start, search_end)
   call bool_find('calc-cond', do_cond, search_start, search_end)
+
   call int_find('NAt', nineq, search_start, search_end)
   call int_find('N4iwf', iwfmax_small, search_start, search_end)
   call int_find('N4iwb', iwbmax_small, search_start, search_end)
   call int_find('N1iwbc', iwbcond, search_start, search_end)
   call string_find('HkFile', filename_hk, search_start, search_end)
+
+  call bool_find('susc-phver', do_chi_phbar, search_start, search_end)
+
   if (trim(adjustl(filename_hk)) .eq. '') then
     read_ext_hk = .false.
   else
@@ -214,8 +220,8 @@ subroutine read_config(er,erstr)
     cond_dmftlegs = .false. ! use the provided Greens function for the outer legs
   endif
 
-  call bool_find('cond-ph', do_cond_ph, search_start, search_end)
-  call bool_find('cond-phbar', do_cond_phbar, search_start, search_end)
+  call bool_find('cond-phhor', do_cond_ph, search_start, search_end)
+  call bool_find('cond-phver', do_cond_phbar, search_start, search_end)
 
   call bool_find('extend-cond-bubble', extend_cond_bubble, search_start, search_end)
   call string_find('VqFile', filename_vq, search_start, search_end)
@@ -224,6 +230,7 @@ subroutine read_config(er,erstr)
   else
     do_vq = .true.
   endif
+
   call string_find('QDataFile', filename_qdata, search_start, search_end)
   if (trim(adjustl(filename_qdata)) .eq. '') then
     q_path_susc = .false.
@@ -232,6 +239,14 @@ subroutine read_config(er,erstr)
     q_path_susc = .true.
     q_vol = .false.
   end if
+
+  call string_find('QDataFileSusc', filename_qdata_susc, search_start, search_end)
+  if (trim(adjustl(filename_qdata)) .eq. '') then
+    q_path_suscphbar = .false.
+  else
+    q_path_suscphbar = .true.
+  end if
+
   call string_find('KDataFile', filename_kdata, search_start, search_end)
   if (trim(adjustl(filename_kdata)) .eq. '') then
     k_path_eom = .false.

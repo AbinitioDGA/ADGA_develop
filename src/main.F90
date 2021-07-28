@@ -21,14 +21,14 @@ program main
   use hdf5
 
   implicit none
-  integer :: iw, ik, iq, ikq, ikp, iwf, iwb, iv, dum, dum1, iwf1, iwf2
+  integer :: iw, ik, iq, iqq, ikq, ikp, iwf, iwb, iv, dum, dum1, iwf1, iwf2
   integer :: i, j, k, l, n, i1, i2, i3, i4, idir1, idir2
 
   integer :: m
   integer :: a, b, c, d
   integer :: iwfp, iwbc
   integer :: iv1, iv2
-  complex(kind=8), allocatable :: g1c, g2c, g3c, g4c, Fc
+  complex(kind=8), allocatable :: g1c, g2c, g3c, g4c, Fd, Fm
 
   integer(hid_t) :: ioutfile
 
@@ -43,14 +43,17 @@ program main
   complex(kind=8), allocatable :: chi_loc_dens(:,:,:),chi_loc_magn(:,:,:),bubble_loc(:,:,:),bubble_loc_tmp(:,:)
   complex(kind=8), allocatable :: chi_loc_qmc(:,:,:)
   integer, allocatable :: kq_ind(:,:), qw(:,:), kq_ind_eom(:,:)
+  integer, allocatable :: qq_ind(:,:)
   complex(kind=8), allocatable :: bigwork_magn(:,:), etaqd(:,:), etaqm(:,:), rectanglework(:,:)
   complex(kind=8), allocatable :: bigwork_evproblem(:,:), bigwork_vectors(:,:), bigwork_values(:)
   complex(kind=8), allocatable :: smallwork(:,:), bigwork_dens(:,:)
 
-  complex(kind=8), allocatable :: Fcondq(:,:)
-  complex(kind=8), allocatable :: Fdq(:,:)
+  complex(kind=8), allocatable :: Fdqphbar(:,:)
+  complex(kind=8), allocatable :: Fmqphbar(:,:)
+  complex(kind=8), allocatable :: Fdqnl(:,:), Fmqnl(:,:)
   complex(kind=8), allocatable :: Fdw(:,:), Fmw(:,:)
-  complex(kind=8), allocatable :: cond_bubble(:,:,:,:,:), cond_phbar(:,:,:,:,:), cond_ph(:,:,:,:,:)
+  complex(kind=8), allocatable :: cond_bubble(:,:,:,:,:,:), cond_phbar(:,:,:,:,:,:), cond_ph(:,:,:,:,:,:)
+  complex(kind=8), allocatable :: chi_magn_phbar(:,:,:,:), chi_dens_phbar(:,:,:,:)
   complex(kind=8), allocatable :: gkiw(:,:)
 
   real(kind=8 ):: start, finish
@@ -295,6 +298,9 @@ program main
     if (do_cond) then
       call mpi_stop('Error: It is not possible to use both do_cond and q_path_susc',er)
     endif
+    if (do_chi_phbar) then
+      call mpi_stop('Error: It is not possible to use both do_chi_phbar and q_path_susc',er)
+    endif
   elseif (q_vol) then ! the only other option we have
     nqp=nqpx*nqpy*nqpz
     if ((nqpx .le. 0) .or. (nqpy .le. 0) .or. (nqpz .le. 0)) then
@@ -302,6 +308,12 @@ program main
     endif
     allocate(q_data(nqp))
     call generate_q_vol(nqpx,nqpy,nqpz,q_data)
+  endif
+
+  if (q_path_suscphbar) then
+    call qdata_susc_from_file()
+  else
+    call generate_q_vol(nqpx,nqpy,nqpz,q_data_phbar)
   endif
 
   if (ounit .ge. 1) then
@@ -397,6 +409,7 @@ program main
   allocate(chi0wFd(maxdim,maxdim))
 
   allocate(kq_ind(nkp,nqp)) ! full k-grid -- for chi k summation
+  allocate(qq_ind(nqp,nqp))
   if (do_eom) then
     allocate(kq_ind_eom(nkp_eom,nqp)) ! eom k-grid
   endif
@@ -404,6 +417,8 @@ program main
   ! calculate the index of all \vec{k} - \vec{q}
   call cpu_time(start)
   call index_kq(kq_ind) ! new method
+  call index_qq(qq_ind) ! new method
+
   if (do_eom) then
     if (k_path_eom) then
       call index_kq_eom(kq_ind_eom)
@@ -442,18 +457,19 @@ endif
 
 if (do_cond) then
   ! allocate(cond_bubble(2*iwbcond+1,ndim,ndim,3,3)) ! N1iwbc = 0 -> one frequency
-  allocate(cond_bubble(3,3,ndim,ndim,iwbcond+1))
+  allocate(cond_bubble(3,3,ndim,ndim,iwbcond+1,nqpphbar))
   allocate(gkiw(ndim,ndim))
 
   if (do_cond_phbar .or. do_cond_ph) allocate(Fdw(maxdim,maxdim), Fmw(maxdim,maxdim))
-  if (do_cond_phbar .or. do_cond_ph) allocate(Fcondq(maxdim,maxdim))
+  if (do_cond_phbar .or. do_cond_ph) allocate(Fdqphbar(maxdim,maxdim))
   ! if (do_cond_phbar) allocate(cond_phbar(2*iwbcond+1,ndim,ndim,3,3))
   ! if (do_cond_phbar) allocate(cond_phbar(iwbcond+1,ndim,ndim,3,3)) ! old
-  if (do_cond_phbar) allocate(cond_phbar(3,3,ndim,ndim,iwbcond+1))
-  if (do_cond_ph) allocate(Fdq(maxdim,maxdim))
+  if (do_cond_phbar) allocate(cond_phbar(3,3,ndim,ndim,iwbcond+1,nqpphbar))
+  if (do_cond_ph) allocate(Fdqnl(maxdim,maxdim))
+  if (do_cond_ph) allocate(Fmqnl(maxdim,maxdim))
   ! if (do_cond_ph) allocate(cond_ph(2*iwbcond+1,ndim,ndim,3,3))
   ! if (do_cond_ph) allocate(cond_ph(iwbcond+1,ndim,ndim,3,3)) ! old
-  if (do_cond_ph) allocate(cond_ph(3,3,ndim,ndim,iwbcond+1))
+  if (do_cond_ph) allocate(cond_ph(3,3,ndim,ndim,iwbcond+1,nqpphbar))
 
   if (ounit .ge. 1)  write(ounit,*)
   if (cond_dmftlegs) then
@@ -472,7 +488,7 @@ if (do_cond) then
   cond_bubble = 0.d0
   if (do_cond_phbar) cond_phbar = 0.d0
   if (do_cond_ph)    cond_ph = 0.d0
-  if (do_cond_ph)    Fdq = 0.d0
+  if (do_cond_ph)    Fdqnl = 0.d0
 endif
 
 !distribute the qw compound index:
@@ -484,6 +500,17 @@ if (do_chi) then
   allocate(bubble_loc(ndim2,ndim2,-iwbmax_small:iwbmax_small))
   allocate(bubble_loc_tmp(ndim2,ndim2))
   allocate(chi_loc_dens(ndim2,ndim2,-iwbmax_small:iwbmax_small),chi_loc_magn(ndim2,ndim2,-iwbmax_small:iwbmax_small))
+  if (do_chi_phbar) then
+    allocate(chi_magn_phbar(ndim,ndim,iwbcond+1,nqpphbar),chi_dens_phbar(ndim,ndim,iwbcond+1,nqpphbar))
+    if (.not. allocated(Fdqnl)) allocate(Fdqnl(maxdim,maxdim))
+    Fdqnl = 0.d0
+    if (.not. allocated(Fmqnl)) allocate(Fmqnl(maxdim,maxdim))
+    Fmqnl = 0.d0
+    if (.not. allocated(Fdqphbar)) allocate(Fdqphbar(maxdim,maxdim))
+    Fdqphbar = 0.d0
+    if (.not. allocated(Fmqphbar)) allocate(Fmqphbar(maxdim,maxdim))
+    Fmqphbar = 0.d0
+  endif
   chi_qw_dens=0.d0
   chi_qw_magn=0.d0
   bubble_nl=0.d0
@@ -583,7 +610,7 @@ end if
   iwb = iwbmax_small+3
   do iqw=qwstart,qwstop
      call cpu_time(start)
-     ! TIME: local 
+     ! TIME: local
      tstart = start
 
      update_chi_loc_flag = qw(1,iqw) .ne. iwb
@@ -615,7 +642,7 @@ end if
               bubble_loc_tmp = bubble_loc_tmp + chi0 ! Accumulate chi0 over iwf
               if (-iwfmax_small .le. iwf .and. iwf .le. iwfmax_small-1) chi0w(:,:,iwf) = chi0 ! only in the small box
            enddo
-           bubble_loc_tmp = bubble_loc_tmp/(beta**2) ! Nb: bubble_loc_tmp is also used to obtain bubble_nl = bubble^q - bubble^w 
+           bubble_loc_tmp = bubble_loc_tmp/(beta**2) ! Nb: bubble_loc_tmp is also used to obtain bubble_nl = bubble^q - bubble^w
            if (iq .eq. 1) bubble_loc(:,:,iwb) = bubble_loc(:,:,iwb) + bubble_loc_tmp ! Accumulate bubble_loc only when iq = 1.
         end if
 
@@ -652,7 +679,7 @@ end if
 
         ! Calculate F if we want to calcluate the conductivities
         ! the slices here are transposed compared to the previous multiplication !
-        if (do_cond .and. (do_cond_ph .or. do_cond_phbar)) then
+        if ((do_chi .and. do_chi_phbar) .or. (do_cond .and. (do_cond_ph .or. do_cond_phbar))) then
           do dum = 0,2*iwfmax_small-1
              iwf = dum - iwfmax_small
              !F = chi_loc_inv * chi0^w.F
@@ -737,11 +764,11 @@ end if
 
      endif !update local quantities
 
-     
+
      call cpu_time(tfinish) ! TIME: local
      timings(1) = timings(1) + tfinish - tstart
      tstart = tfinish ! TIME: eom
-   
+
      ! Calculate static quantities
      if (do_eom .and. iwb .eq. 0 .and. (iq .eq. 1 .or. do_vq)) then
        call calc_eom_static(kq_ind_eom,iq,v,sigma_dmft,sigma_hf,nonlocal)
@@ -750,7 +777,7 @@ end if
      if (do_eom .and. iq .eq. 1) call calc_eom_dmft(gammawd,gammawm,iwb,sigma_dmft)
      call cpu_time(tfinish) ! TIME: eom
      timings(7) = timings(7) + tfinish - tstart
-     tstart = tfinish ! TIME: chi0 
+     tstart = tfinish ! TIME: chi0
 
      if (nonlocal) then
       ! Calculate chi0q in the big box (which has the same size as the small box when do_chi = .false.)
@@ -907,20 +934,28 @@ end if
            bigwork_magn(i,i) = bigwork_magn(i,i) - 1d0
         enddo
 
-        if (do_cond .and. (do_cond_ph .or. do_cond_phbar)) then
+        ! calculatie F density q nl (Fdqnl) and F magnetic q nl (Fmqnl)
+        ! we need them separately for the vertical susceptibility contributions
+        ! and combined for the conductivity contributions
+        if ((do_chi .and. do_chi_phbar) .or. (do_cond .and. (do_cond_ph .or. do_cond_phbar))) then
           ! Frq,nl = F^w_r * ([1 - chi0^{nl,q}.F^w_r]**(-1) - 1)
-          ! Fcondq = -0.5 Fdq - 1.5 Fmq
-          alpha = -0.5d0
-          delta = 0.d0
-          call zgemm('n','n',maxdim,maxdim,maxdim,alpha,Fdw,maxdim,bigwork_dens,maxdim,delta,Fcondq,maxdim)
+          ! Fdqphbar = -0.5 Fdq - 1.5 Fmq
+          ! Fmqphbar = -0.5 Fdq + 0.5 Fmq
 
-          if (do_cond_ph) then
-            Fdq = (-0.5d0) * Fcondq
+          alpha = 1.d0
+          delta = 0.d0
+          call zgemm('n','n',maxdim,maxdim,maxdim,alpha,Fdw,maxdim,bigwork_dens,maxdim,delta,Fdqnl,maxdim)
+
+          alpha = 1.d0
+          delta = 0.d0
+          call zgemm('n','n',maxdim,maxdim,maxdim,alpha,Fmw,maxdim,bigwork_magn,maxdim,delta,Fmqnl,maxdim)
+
+          Fdqphbar = -0.5 * Fdqnl - 1.5 * Fmqnl
+
+          if (do_chi_phbar) then
+            Fmqphbar = -0.5 * Fdqnl + 0.5 * Fmqnl
           endif
 
-          alpha = -1.5d0
-          delta = 1.d0 ! simply add the previous contribution
-          call zgemm('n','n',maxdim,maxdim,maxdim,alpha,Fmw,maxdim,bigwork_magn,maxdim,delta,Fcondq,maxdim)
         endif
 
 
@@ -938,10 +973,10 @@ end if
 
 
       ! calculate contribution to the conducivitiy
-      if (do_cond) then
+      if ((do_chi .and. do_chi_phbar) .or. do_cond) then
 
 
-        if (do_cond_phbar) then !  ! particle-hole bar vertex contribution
+        if (do_chi_phbar .or. do_cond_phbar) then !  ! particle-hole bar vertex contribution
           do iwbc = 0, iwbcond ! w transfer
           ! do iwbc = -iwbcond, iwbcond ! w transfer
             do iwfp = -iwfcond,iwfcond-1 ! nu prime
@@ -967,50 +1002,63 @@ end if
                     iv2 = (iwf2+iwfmax_small)*ndim2 + i2
 
                     ! vertex evaluated at iq,iwb,nu1,nu2, c,b,a,d
-                    Fc = Fcondq(iv1,iv2)
+                    Fd = Fdqphbar(iv1,iv2)
+                    Fm = Fmqphbar(iv1,iv2)
 
-                      do ik=1,nkp ! k prime
-                        ikq = kq_ind(ik,iq) ! k prime - q (outer ladder loop momentum)
+                      do iqq=1,nqpphbar ! only affects greens funtions
+                        do ik=1,nkp ! k prime
+                          ikq = kq_ind(ik,qq_ind(iq,iqq)) ! k prime - qtilde (outer ladder loop momentum) - q (external momentum)
 
-                        do l=1,ndim ! conductivity orbital dependence
-                          do m=1,ndim ! conductivity orbital dependence
+                          do l=1,ndim ! conductivity orbital dependence
+                            do m=1,ndim ! conductivity orbital dependence
 
-                            ! iwb outer ladder loop
-                            ! iq outer ladder loop
+                              ! iwb outer ladder loop
+                              ! iq outer ladder loop
 
-                            ! new factor 20 faster
-                            g1c = gkiwfull(l,a,ikq,iwfp-iwb)
-                            g2c = gkiwfull(b,l,ikq,iwfp-iwb-iwbc)
-                            g3c = gkiwfull(d,m,ik,iwfp)
-                            g4c = gkiwfull(m,c,ik,iwfp-iwbc)
+                              ! new factor 20 faster
+                              g1c = gkiwfull(l,a,ikq,iwfp-iwb)
+                              g2c = gkiwfull(b,l,ikq,iwfp-iwb-iwbc)
+                              g3c = gkiwfull(d,m,ik,iwfp)
+                              g4c = gkiwfull(m,c,ik,iwfp-iwbc)
 
-                            ! old
-                            ! call get_gkiw(ikq, iwfp, iwb, gkiw) ! iwf' - iwb
-                            ! g1c = gkiw(l,a)
-                            ! call get_gkiw(ikq, iwfp, iwb+iwbc, gkiw) ! iwf' - iwb - iwbc
-                            ! g2c = gkiw(b,l)
-                            ! call get_gkiw(ik, iwfp, 0, gkiw) ! iwf'
-                            ! g3c = gkiw(d,m)
-                            ! call get_gkiw(ik, iwfp, iwbc, gkiw) ! iwf'-iwbc
-                            ! g4c = gkiw(m,c)
+                              ! old
+                              ! call get_gkiw(ikq, iwfp, iwb, gkiw) ! iwf' - iwb
+                              ! g1c = gkiw(l,a)
+                              ! call get_gkiw(ikq, iwfp, iwb+iwbc, gkiw) ! iwf' - iwb - iwbc
+                              ! g2c = gkiw(b,l)
+                              ! call get_gkiw(ik, iwfp, 0, gkiw) ! iwf'
+                              ! g3c = gkiw(d,m)
+                              ! call get_gkiw(ik, iwfp, iwbc, gkiw) ! iwf'-iwbc
+                              ! g4c = gkiw(m,c)
 
-                            ! vertex contribution
-                            ! m and l are in this order for the hdf5 transposition
-                            do idir1=1,3
-                            do idir2=1,3
-                              ! PLUS HERE
-                              ! cond_phbar(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_phbar(iwbc+iwbcond+1,m,l,idir2,idir1) + \
-                              cond_phbar(idir2,idir1,m,l,iwbc+1) = cond_phbar(idir2,idir1,m,l,iwbc+1) + \
-                              hkder(idir1,l,ikq) * g1c * g2c * g3c * g4c * hkder(idir2,m,ik) * Fc / nkp / nqp
-                              ! left and right hand side of derivative are the same direction
-                              ! k prime sum and q (outer ladder loop) sum have to be normalized
-                              ! no additional beta factors here
-                            enddo
-                            enddo
+                              ! vertex contribution
+                              ! m and l are in this order for the hdf5 transposition
+                              if (do_cond) then
+                                do idir1=1,3
+                                do idir2=1,3
+                                  ! PLUS HERE
+                                  ! cond_phbar(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_phbar(iwbc+iwbcond+1,m,l,idir2,idir1) + \
 
+                                  ! this equation only holds for q=0, q!=0 shifts the derivative necessrary
+                                  !FIXME
+                                  cond_phbar(idir2,idir1,m,l,iwbc+1,iqq) = cond_phbar(idir2,idir1,m,l,iwbc+1,iqq) + \
+                                  hkder(idir1,l,ikq) * g1c * g2c * g3c * g4c * hkder(idir2,m,ik) * Fd / nkp / nqp
+
+                                  ! left and right hand side of derivative are the same direction
+                                  ! k prime sum and q (outer ladder loop) sum have to be normalized
+                                  ! no additional beta factors here
+                                enddo
+                                enddo
+                              else if (do_chi) then
+                                chi_magn_phbar(m,l,iwbc+1,iqq) = chi_magn_phbar(m,l,iwbc+1,iqq) + \
+                                g1c * g2c * g3c * g4c * Fm / nkp / nqp
+                                chi_dens_phbar(m,l,iwbc+1,iqq) = chi_dens_phbar(m,l,iwbc+1,iqq) + \
+                                g1c * g2c * g3c * g4c * Fd / nkp / nqp
+                              endif
+                            enddo ! m
                           enddo ! l
-                        enddo ! m
-                      enddo ! ik prime
+                        enddo ! ik prime
+                      enddo ! iqq (external momentum)
                     enddo ! b (vertex)
                   enddo ! c (vertex)
                 enddo ! a (vertex)
@@ -1038,7 +1086,8 @@ end if
                       do b=1,ndim
                         i1 = i1 + 1
 
-                        Fc = Fdw(i1,i2) + Fdq(i1,i2) ! here have have w=[0,iwbcond], q = 0
+                        ! local part and horizontal part of the density vertex
+                        Fd = Fdw(i1,i2) + Fdqnl(i1,i2) ! here have have w=[0,iwbcond], q = 0
 
                         do ik=1,nkp
                           do ikp=1,nkp
@@ -1054,8 +1103,8 @@ end if
                                 do idir1=1,3
                                 do idir2=1,3
                                   ! cond_ph(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_ph(iwbc+iwbcond+1,m,l,idir2,idir1) + \
-                                  cond_ph(idir2,idir1,m,l,iwbc+1) = cond_ph(idir2,idir1,m,l,iwbc+1) + \
-                                  hkder(idir1,l,ik) * g1c * g2c * g3c * g4c * hkder(idir2,m,ikp) * Fc / nkp / nkp
+                                  cond_ph(idir2,idir1,m,l,iwbc+1,1) = cond_ph(idir2,idir1,m,l,iwbc+1,1) + \
+                                  hkder(idir1,l,ik) * g1c * g2c * g3c * g4c * hkder(idir2,m,ikp) * Fd / nkp / nkp
                                 enddo
                                 enddo
                               enddo ! l
@@ -1098,7 +1147,7 @@ end if
                     do idir2=1,3
                       ! MINUS HERE
                       ! cond_bubble(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_bubble(iwbc+iwbcond+1,m,l,idir2,idir1) - \
-                      cond_bubble(idir2,idir1,m,l,iwbc+1) = cond_bubble(idir2,idir1,m,l,iwbc+1) - \
+                      cond_bubble(idir2,idir1,m,l,iwbc+1,1) = cond_bubble(idir2,idir1,m,l,iwbc+1,1) - \
                       hkder(idir1,l,ik) * g1c * g2c * hkder(idir2,m,ik) / nkp / beta
                       ! - beta G G / beta**2    (beta**2 from frequency sum)
                       ! leads to - GG / beta
@@ -1115,6 +1164,10 @@ end if
 
 
       endif ! do_cond
+
+      if (do_chi .and. do_chi_phbar) then
+
+      endif
 
       call cpu_time(tfinish) ! TIME: chi
       timings(9) = timings(9) + tfinish - tstart
@@ -1147,7 +1200,7 @@ end if
       end if
       if (do_eom) then
          !equation of motion
-         call calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind_eom,iwb,iq,v,sigma_nl) 
+         call calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind_eom,iwb,iq,v,sigma_nl)
          ! TIME: eom
          call cpu_time(tfinish)
          timings(7) = timings(7) + tfinish - tstart
@@ -1297,12 +1350,12 @@ end if
        gloc = 0
        sigma_loc = 0
        if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
-         write(ounit,'(1x,"Orbital trace of the self-energy at the first negative and positive matsubara: (Re,Im),(Re,Im)")') 
+         write(ounit,'(1x,"Orbital trace of the self-energy at the first negative and positive matsubara: (Re,Im),(Re,Im)")')
          write(ounit,'(1x,"Tr[QMC Self-energy]:         ",4f24.11)') sum((/(siw(-1,i),i=1,ndim)/)),sum((/(siw(0,i),i=1,ndim)/))
          write(ounit,'(1x,"Tr[Local Self-energy]:       ",4f24.11)') sum( (/ (sigma_sum_dmft(i,i,-1),i=1,ndim) /) ), &
                                                                     sum( (/ (sigma_sum_dmft(i,i,0),i=1,ndim) /) )
          write(ounit,'(1x,"Tr[Non-local Self-energy]:   ",4f24.11)') sum( (/ (sigma_sum(i,i,-1,1),i=1,ndim) /) ), &
-                                                                    sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) ) 
+                                                                    sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) )
        endif
        call add_siw_dmft(sigma_sum)  !add the dmft-selfenergy
        if (nonlocal .and. .not. k_path_eom) then
@@ -1313,7 +1366,7 @@ end if
                                                                     sum( (/ (sigma_sum(i,i,0,1),i=1,ndim) /) )
          write(ounit,'(1x,"Tr[Total local Self-energy]: ",4f24.11)') sum( (/ (sigma_loc(i,i,-1),i=1,ndim) /) ), &
                                                                      sum( (/ (sigma_loc(i,i,0),i=1,ndim) /) )
-         write(ounit,'(1x,"Tr[QMC Greens function]:     ",4f24.11)') sum((/(giw(-1,i),i=1,ndim)/)),sum((/(giw(0,i),i=1,ndim)/)) 
+         write(ounit,'(1x,"Tr[QMC Greens function]:     ",4f24.11)') sum((/(giw(-1,i),i=1,ndim)/)),sum((/(giw(0,i),i=1,ndim)/))
          write(ounit,'(1x,"Tr[Local Greens function]:   ",4f24.11)') sum((/(gloc(-1,i,i),i=1,ndim)/)),&
                                                                     sum((/(gloc(0,i,i),i=1,ndim)/))
          write(ounit,'(1x)')
@@ -1374,12 +1427,12 @@ end if
          chi_loc_magn = chi_loc_magn + bubble_loc
       endif
       if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
-         write(ounit,'(1x,"Orbital sum of the local susceptibilities at w = 0:")') 
-         write(ounit,'(1x,"Sum Chi_0^w:            ",2f12.7)') & 
+         write(ounit,'(1x,"Orbital sum of the local susceptibilities at w = 0:")')
+         write(ounit,'(1x,"Sum Chi_0^w:            ",2f12.7)') &
                sum((/((bubble_loc(i+(i-1)*ndim,j+(j-1)*ndim,0),i=1,ndim),j=1,ndim)/))
-         write(ounit,'(1x,"Sum Chi_d^w:            ",2f12.7)') & 
+         write(ounit,'(1x,"Sum Chi_d^w:            ",2f12.7)') &
                sum((/((chi_loc_dens(i+(i-1)*ndim,j+(j-1)*ndim,0),i=1,ndim),j=1,ndim)/))
-         write(ounit,'(1x,"Sum Chi_m^w:            ",2f12.7)') & 
+         write(ounit,'(1x,"Sum Chi_m^w:            ",2f12.7)') &
                sum((/((chi_loc_magn(i+(i-1)*ndim,j+(j-1)*ndim,0),i=1,ndim),j=1,ndim)/))
          write(ounit,'(1x)')
          call flush(ounit)
@@ -1422,7 +1475,7 @@ end if
       if (mpi_wrank .eq. master) then
         ! call output_chi_qw(chi_qw_full,qw,'bubble_nl.dat')
         if (verbose .and. (index(verbstr,"Test") .ne. 0)) then
-           write(ounit,'(1x,"Orbital sum of non-local Chi0 at w = 0 and first q-point (nl = purely non-local):")') 
+           write(ounit,'(1x,"Orbital sum of non-local Chi0 at w = 0 and first q-point (nl = purely non-local):")')
            write(ounit,'(1x,"Sum Chi_0^q  - Chi_0^w: ",2f12.7)') &
                  sum((/((chi_qw_full(i+(i-1)*ndim,j+(j-1)*ndim,iwbmax_small*nqp+1),i=1,ndim),j=1,ndim)/))
            call flush(ounit)
@@ -1467,7 +1520,7 @@ end if
               call flush(ounit)
            endif
            ! Print to file
-           if (index(verbstr,"Hdf5") .ne. 0) then 
+           if (index(verbstr,"Hdf5") .ne. 0) then
              if (susc_full_output) then
                if (q_vol) then
                  call output_chi_qw_full_h5(output_filename,'dens-nl',chi_qw_full)
@@ -1544,7 +1597,7 @@ end if
               call flush(ounit)
            endif
            ! Print to file
-           if (index(verbstr,"Hdf5") .ne. 0) then 
+           if (index(verbstr,"Hdf5") .ne. 0) then
              if (susc_full_output) then
                if (q_vol) then
                  call output_chi_qw_full_h5(output_filename,'magn-nl',chi_qw_full)
@@ -1668,10 +1721,13 @@ end if
   if (allocated(n_dga)) deallocate(n_dga)
   if (allocated(n_dga_k)) deallocate(n_dga_k)
   if (allocated(kq_ind_eom)) deallocate(kq_ind_eom)
+  if (allocated(qq_ind)) deallocate(qq_ind)
   if (allocated(Fdw)) deallocate(Fdw)
   if (allocated(Fmw)) deallocate(Fmw)
-  if (allocated(Fcondq)) deallocate(Fcondq)
-  if (allocated(Fdq)) deallocate(Fdq)
+  if (allocated(Fdqphbar)) deallocate(Fdqphbar)
+  if (allocated(Fmqphbar)) deallocate(Fmqphbar)
+  if (allocated(Fdqnl)) deallocate(Fdqnl)
+  if (allocated(Fmqnl)) deallocate(Fmqnl)
   if (allocated(cond_phbar)) deallocate(cond_phbar)
   if (allocated(cond_ph)) deallocate(cond_ph)
   if (allocated(cond_bubble)) deallocate(cond_bubble)

@@ -14,6 +14,7 @@ module parameters_module
   ! different loop variables and information about box sizes
   integer :: iwstart,iwstop
   integer :: nqp, nkp_eom
+  integer :: nqpphbar
   integer :: nkp, ndim, ndim2, maxdim, nineq
   integer :: nkpx,nkpy,nkpz,nqpx,nqpy,nqpz
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,n2iwb,n3iwf,n3iwb
@@ -21,6 +22,8 @@ module parameters_module
   integer :: iwbcond ! number of bosonic frequencies for the conductivity
   integer :: iwfcond ! number of fermionic frequencies (internal loop) for the conductivity
   integer,allocatable :: q_data(:), k_data_eom(:)
+  integer,allocatable :: q_data_phbar(:)
+
 
   ! input data created from dmft
   integer, allocatable :: ndims(:,:)
@@ -53,8 +56,10 @@ module parameters_module
   ! run parameters and flags
   logical :: orb_sym
   logical :: do_eom,do_chi,do_cond,do_vq,do_ph
+  logical :: do_chi_phbar
   logical :: extend_cond_bubble
   logical :: q_path_susc,q_vol,read_ext_hk,read_ext_u
+  logical :: q_path_suscphbar
   logical :: k_path_eom
   logical :: external_chi_loc,external_threelegs
   logical :: exist_p
@@ -73,7 +78,7 @@ module parameters_module
   character(len=150) :: filename_umatrix, filename_vq
   character(len=150) :: filename_1p
   character(len=150) :: filename_hk, output_dir, filename_qdata
-  character(len=150) :: filename_kdata
+  character(len=150) :: filename_kdata, filename_qdata_susc
   character(len=150) :: output_filename, config_file
 
   character(len=150) :: filename_hkder
