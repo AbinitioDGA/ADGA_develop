@@ -507,6 +507,8 @@ if (do_chi) then
   allocate(chi_loc_dens(ndim2,ndim2,-iwbmax_small:iwbmax_small),chi_loc_magn(ndim2,ndim2,-iwbmax_small:iwbmax_small))
   if (do_chi_phbar) then
     allocate(chi_magn_phbar(ndim,ndim,iwbcond+1,nqpphbar),chi_dens_phbar(ndim,ndim,iwbcond+1,nqpphbar))
+    if (.not. allocated(Fdw)) allocate(Fdw(maxdim,maxdim))
+    if (.not. allocated(Fmw)) allocate(Fmw(maxdim,maxdim))
     if (.not. allocated(Fdqnl)) allocate(Fdqnl(maxdim,maxdim))
     Fdqnl = 0.d0
     if (.not. allocated(Fmqnl)) allocate(Fmqnl(maxdim,maxdim))
@@ -977,7 +979,8 @@ end if
       tstart = tfinish ! TIME: conductivity
 
 
-      ! calculate contribution to the conducivitiy
+      ! calculate ph-bar contribution
+      ! same routines for conductivity and magn/dens susc corrections
       if ((do_chi .and. do_chi_phbar) .or. do_cond) then
 
 
@@ -1084,7 +1087,7 @@ end if
           enddo ! w transfer
         endif ! do_cond_phbar
 
-        if (do_cond_ph .and. iq==1) then ! particle-hole vertex contribution for q=0
+        if (do_cond .and. do_cond_ph .and. iq==1) then ! particle-hole vertex contribution for q=0
           ! do iwbc = -iwbcond, iwbcond ! w transfer
           do iwbc =  0, iwbcond ! w transfer
             if (iwbc /= iwb)  then ! only calculate the contribution if we are in the w transfer window we want to calculate = w ladder loop
@@ -1141,7 +1144,7 @@ end if
 
         ! bubble contribution (always if do_cond is on)
         ! only calculated by master once
-        if (mpi_wrank .eq. master .and. iqw == qwstart) then
+        if (do_cond .and. (mpi_wrank .eq. master) .and. (iqw == qwstart)) then
           ! do iwbc = -iwbcond, iwbcond
           do iwbc = 0, iwbcond
             if (ounit.ge.1) write(ounit,*) iwbc
@@ -1180,11 +1183,7 @@ end if
         endif ! bubble endif
 
 
-      endif ! do_cond
-
-      if (do_chi .and. do_chi_phbar) then
-
-      endif
+      endif ! phbar contributions
 
       call cpu_time(tfinish) ! TIME: chi
       timings(9) = timings(9) + tfinish - tstart

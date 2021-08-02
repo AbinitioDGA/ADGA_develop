@@ -159,7 +159,7 @@ subroutine read_config(er,erstr)
     return
   endif
 
-  allocate(general_dict(22))
+  allocate(general_dict(23))
   ! defining dictionary (filling of general_dict)
   general_dict(1)  = 'calc-susc'
   general_dict(2)  = 'calc-eom'
@@ -183,6 +183,7 @@ subroutine read_config(er,erstr)
   general_dict(20) = 'cond-phhor'
   general_dict(21) = 'cond-phver'
   general_dict(22) = 'susc-phver'
+  general_dict(23) = 'QDataPHBAR'
 
   ! spell checking for General group
 
@@ -240,7 +241,7 @@ subroutine read_config(er,erstr)
     q_vol = .false.
   end if
 
-  call string_find('QDataFileSusc', filename_qdata_susc, search_start, search_end)
+  call string_find('QDataPHBAR', filename_qdata_susc, search_start, search_end)
   if (trim(adjustl(filename_qdata)) .eq. '') then
     q_path_suscphbar = .false.
   else
