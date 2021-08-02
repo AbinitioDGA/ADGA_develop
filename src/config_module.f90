@@ -103,6 +103,8 @@ subroutine read_config(er,erstr)
   cond_dmftlegs = .true.              ! calculate conductivity with legs from DMFT
   do_cond_ph = .false.                ! calculate particle-hole vertex contribution of the conductivity
   do_cond_phbar = .true.              ! calculate particle hole bar vertex contribution of the conductivity
+  do_chi_ph = .true.
+  do_chi_phbar = .false.
   extend_cond_bubble = .false.        ! extend frequency box of conductivity bubble
   q_vol=.true.                        ! homogeneous q-volume on
   q_path_susc=.false.                 ! q-path disabled
@@ -159,7 +161,7 @@ subroutine read_config(er,erstr)
     return
   endif
 
-  allocate(general_dict(23))
+  allocate(general_dict(24))
   ! defining dictionary (filling of general_dict)
   general_dict(1)  = 'calc-susc'
   general_dict(2)  = 'calc-eom'
@@ -183,7 +185,8 @@ subroutine read_config(er,erstr)
   general_dict(20) = 'cond-phhor'
   general_dict(21) = 'cond-phver'
   general_dict(22) = 'susc-phver'
-  general_dict(23) = 'QDataPHBAR'
+  general_dict(23) = 'susc-phhor'
+  general_dict(24) = 'QDataPHBAR'
 
   ! spell checking for General group
 
@@ -203,6 +206,7 @@ subroutine read_config(er,erstr)
   call string_find('HkFile', filename_hk, search_start, search_end)
 
   call bool_find('susc-phver', do_chi_phbar, search_start, search_end)
+  call bool_find('susc-phhor', do_chi_ph, search_start, search_end)
 
   if (trim(adjustl(filename_hk)) .eq. '') then
     read_ext_hk = .false.
@@ -242,7 +246,7 @@ subroutine read_config(er,erstr)
   end if
 
   call string_find('QDataPHBAR', filename_qdata_susc, search_start, search_end)
-  if (trim(adjustl(filename_qdata)) .eq. '') then
+  if (trim(adjustl(filename_qdata_susc)) .eq. '') then
     q_path_suscphbar = .false.
   else
     q_path_suscphbar = .true.
@@ -722,7 +726,7 @@ subroutine check_freq_range(er)
   endif
 
 
-  if (do_cond) then
+  if ((do_chi .and. do_chi_phbar) .or. do_cond) then
     if (iwbcond < 0) then
       er = 5
       write(ounit,*) 'Error: Number of frequencies for conductivity must be >= 0'
@@ -805,10 +809,19 @@ subroutine check_config(er,erstr)
     endif
   endif
 
+  if (q_path_suscphbar .eqv. .true.) then
+    inquire (file=trim(filename_qdata_susc), exist=there)
+    if (.not. there) then
+      er = 4
+      erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the Q-Path SUSC file: "//trim(filename_qdata_susc)
+      return
+    endif
+  endif
+
   if (do_vq .eqv. .true.) then
     inquire (file=trim(filename_vq), exist=there)
     if (.not. there) then
-      er = 4
+      er = 5
       erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the V(q) file: "//trim(filename_vq)
       return
     endif
@@ -816,20 +829,20 @@ subroutine check_config(er,erstr)
 
   inquire (file=trim(filename_1p), exist=there)
   if (.not. there) then
-      er = 5
+      er = 6
       erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the 1P data file: "//trim(filename_1p)
       return
   endif
 
   inquire (file=trim(filename_vertex_sym), exist=there)
   if (.not. there) then
-      er = 6
+      er = 7
       erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the 2P data file: "//trim(filename_vertex_sym)
       return
   endif
 
   if (vertex_type .lt. 0 .or. vertex_type .gt. 2) then
-    er = 7
+    er = 8
     erstr = "Error: Choose appropriate vertex type"
   endif
 
@@ -837,20 +850,20 @@ subroutine check_config(er,erstr)
   if (k_path_eom) then
     inquire (file=trim(filename_kdata), exist=there)
     if (.not. there) then
-        er = 8
+        er = 9
         erstr = TRIM(ADJUSTL(erstr))//"Error: Can not find the K-Path file: "//trim(filename_kdata)
         return
     endif
   endif
 
   if (do_vq .and. do_cond) then
-    er = 9
+    er = 10
     erstr = TRIM(ADJUSTL(erstr))//"Error: Conductivity calculation does not support V(q) at the moment"
     return
   endif
 
   if (.not. bse_inversion .and. do_cond) then
-    er = 9
+    er = 11
     erstr = TRIM(ADJUSTL(erstr))//"Error: Conductivity calculation does not support the use of geometric series"
     return
   endif

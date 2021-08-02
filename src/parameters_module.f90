@@ -56,8 +56,8 @@ module parameters_module
 
   ! run parameters and flags
   logical :: orb_sym
-  logical :: do_eom,do_chi,do_cond,do_vq,do_ph
-  logical :: do_chi_phbar
+  logical :: do_eom,do_chi,do_cond,do_vq, do_ph
+  logical :: do_chi_phbar, do_chi_ph
   logical :: extend_cond_bubble
   logical :: q_path_susc,q_vol,read_ext_hk,read_ext_u
   logical :: q_path_suscphbar

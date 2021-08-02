@@ -329,6 +329,10 @@ program main
       write(ounit,*) 'Running the calculation with V(q)'
       write(ounit,*) 'V(q) data in ', filename_vq
     endif
+    if (do_chi .and. do_chi_phbar) then
+      write(ounit,'(1x)')
+      write(ounit,'(1x,"Calculating phbar corrections to the susceptibilities.")')
+    endif
     if (do_cond) then
       write(ounit,'(1x)')
       write(ounit,'(1x,"Calculating optical conductivities.")')
@@ -507,6 +511,8 @@ if (do_chi) then
   allocate(chi_loc_dens(ndim2,ndim2,-iwbmax_small:iwbmax_small),chi_loc_magn(ndim2,ndim2,-iwbmax_small:iwbmax_small))
   if (do_chi_phbar) then
     allocate(chi_magn_phbar(ndim,ndim,iwbcond+1,nqpphbar),chi_dens_phbar(ndim,ndim,iwbcond+1,nqpphbar))
+    chi_magn_phbar = 0.d0
+    chi_dens_phbar = 0.d0
     if (.not. allocated(Fdw)) allocate(Fdw(maxdim,maxdim))
     if (.not. allocated(Fmw)) allocate(Fmw(maxdim,maxdim))
     if (.not. allocated(Fdqnl)) allocate(Fdqnl(maxdim,maxdim))
@@ -517,6 +523,21 @@ if (do_chi) then
     Fdqphbar = 0.d0
     if (.not. allocated(Fmqphbar)) allocate(Fmqphbar(maxdim,maxdim))
     Fmqphbar = 0.d0
+
+    if (.not. do_cond) then
+      if (cond_dmftlegs) then
+        allocate(gkiwfull(ndim,ndim,nkp,-iwfcond-iwbmax_small-iwbcond:iwfcond+iwbmax_small+iwbcond-1))
+        if (mpi_wrank.eq.master) then
+          allocate(gkiwfullbubble(ndim,ndim,nkp,iwcstart-iwbcond:iwcstop+iwbcond))
+        endif
+        if (ounit .ge. 1)  write(ounit,*) "Creating gkiw array for conductivity/susceptibilitiy."
+        call create_gkiw_cond()
+      else
+        if (ounit .ge. 1)  write(ounit,*) "Reading gkiw array (from hdf5 file) for conductivity/susceptibility."
+        call read_gkiw_cond(er,erstr)
+        if (er .ne. 0) call mpi_stop(erstr,er)
+      endif
+    endif
   endif
   chi_qw_dens=0.d0
   chi_qw_magn=0.d0
@@ -1067,7 +1088,8 @@ end if
 
                                 enddo
                                 enddo
-                              else if (do_chi) then
+                              endif
+                              if (do_chi) then
 
                                 chi_magn_phbar(m,l,iwbc+1,iqq) = chi_magn_phbar(m,l,iwbc+1,iqq) + \
                                 g1c * g2c * g3c * g4c * Fm / nkp / nqp
@@ -1413,7 +1435,7 @@ end if
   end if ! do_eom output
   deallocate(giw)
 
-  if (do_chi) then
+  if (do_chi .and. do_chi_ph) then
 #ifdef MPI
     if (mpi_wrank.eq.master) then
        call MPI_reduce(MPI_IN_PLACE,bubble_loc,ndim2*ndim2*(2*iwbmax_small+1),&
@@ -1689,9 +1711,9 @@ end if
          call MPI_reduce(MPI_IN_PLACE,chi_dens_phbar,ndim*ndim*(iwbcond+1)*nqpphbar,&
                          MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
       else
-         call MPI_reduce(chi_magn_phbar,chi_magn_phbar,ndim*ndim*(iwbcond+1)*9*nqpphbar,&
+         call MPI_reduce(chi_magn_phbar,chi_magn_phbar,ndim*ndim*(iwbcond+1)*nqpphbar,&
                          MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-         call MPI_reduce(chi_dens_phbar,chi_dens_phbar,ndim*ndim*(iwbcond+1)*9*nqpphbar,&
+         call MPI_reduce(chi_dens_phbar,chi_dens_phbar,ndim*ndim*(iwbcond+1)*nqpphbar,&
                          MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
       endif
     endif
