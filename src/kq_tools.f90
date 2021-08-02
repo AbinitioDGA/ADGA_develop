@@ -195,6 +195,9 @@ subroutine qdata_susc_from_file()
   character(100) :: str_tmp
   real(kind=8) :: qx,qy,qz
 
+  logical :: warning
+  warning = .false.
+
   iostatus=0
   open(unit=101,file=filename_qdata_susc)
 
@@ -207,6 +210,7 @@ subroutine qdata_susc_from_file()
   !write(*,*) nqpphbar,' q points'
 
   allocate(q_data_phbar(nqpphbar))
+  allocate(q_half_data_phbar(nqpphbar))
   open(unit=101,file=filename_qdata_susc)
   do iq=1,nqpphbar
     ! We read three real numbers.
@@ -217,13 +221,22 @@ subroutine qdata_susc_from_file()
     read(101,*) qx,qy,qz
     if (qx .eq. 0 .and. qy .eq. 0 .and. qz .eq. 0) then
       q_data_phbar(iq) = k_index(0,0,0) ! gamma point
+      q_half_data_phbar(iq) = q_data_phbar(iq) ! the same point
     else if (qx .ge. 1 .or. qy .ge. 1 .or. qz .ge. 1) then
       q_data_phbar(iq) = k_index(int(qx),int(qy),int(qz)) ! cast to integers
+      if (mod(int(qx),2) /= 0 .or. mod(int(qy),2) /= 0 .or. mod(int(qz),2) /= 0) then
+        warning = .true.
+      endif
+      q_half_data_phbar(iq) = k_index(floor(qx/2),floor(qy/2),floor(qz/2)) ! cast to integers
     else
       q_data_phbar(iq) = k_index(nint(qx*nkpx),nint(qy*nkpy),nint(qz*nkpz)) ! round to nearest integers
     end if
   end do
   close(101)
+
+  if (warning) then
+    write(*,*) 'WARNING: only use q-vectors that are divisible by 2 for jj-correlators'
+  endif
   !write(*,*) 'q data',q_data
 
 end subroutine qdata_susc_from_file

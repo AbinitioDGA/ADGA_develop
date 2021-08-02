@@ -23,6 +23,7 @@ module parameters_module
   integer :: iwfcond ! number of fermionic frequencies (internal loop) for the conductivity
   integer,allocatable :: q_data(:), k_data_eom(:)
   integer,allocatable :: q_data_phbar(:)
+  integer,allocatable :: q_half_data_phbar(:)
 
 
   ! input data created from dmft

@@ -22,6 +22,8 @@ program main
 
   implicit none
   integer :: iw, ik, iq, iqq, ikq, ikp, iwf, iwb, iv, dum, dum1, iwf1, iwf2
+  integer :: ik_minus_q, ik_minus_qtilde, ik_minus_q_minus_qtilde
+  integer :: ik_minus_q2, ik_minus_q2_minus_qtilde
   integer :: i, j, k, l, n, i1, i2, i3, i4, idir1, idir2
 
   integer :: m
@@ -79,6 +81,7 @@ program main
   integer :: er ! error flag
   logical :: nonlocal ! Do the nonlocal quantities
   integer :: evpos(1) ! array ...
+
 #ifdef MPI
   character(len=MPI_MAX_PROCESSOR_NAME) :: hostname
 #endif
@@ -313,6 +316,8 @@ program main
   if (q_path_suscphbar) then
     call qdata_susc_from_file()
   else
+    nqpphbar = nqpx*nqpy*nqpz
+    allocate(q_data_phbar(nqpphbar))
     call generate_q_vol(nqpx,nqpy,nqpz,q_data_phbar)
   endif
 
@@ -1007,7 +1012,20 @@ end if
 
                       do iqq=1,nqpphbar ! only affects greens funtions
                         do ik=1,nkp ! k prime
-                          ikq = kq_ind(ik,qq_ind(iq,iqq)) ! k prime - qtilde (outer ladder loop momentum) - q (external momentum)
+
+                          ! qtilde ... bosonic loop of ladder dag
+                          ! q ... external momentum attached
+
+                          ! index k = ik ! always one to one since we sum over the full BZ
+                          ! index qtilde = q_data(iq)
+                          ! index q (external) = q_data_susc_phbar
+                          ! these are k-indices now
+
+                          ik_minus_qtilde = k_minus_q(ik,q_data(iq))
+                          ik_minus_q      = k_minus_q(ik,q_data_phbar(iqq))
+                          ik_minus_q2     = k_minus_q(ik,q_half_data_phbar(iqq))
+                          ik_minus_q_minus_qtilde = k_minus_q(ik,k_plus_q(q_data(iq),q_data_phbar(iqq)))
+                          ik_minus_q2_minus_qtilde = k_minus_q(ik,k_plus_q(q_data(iq),q_half_data_phbar(iqq)))
 
                           do l=1,ndim ! conductivity orbital dependence
                             do m=1,ndim ! conductivity orbital dependence
@@ -1016,10 +1034,10 @@ end if
                               ! iq outer ladder loop
 
                               ! new factor 20 faster
-                              g1c = gkiwfull(l,a,ikq,iwfp-iwb)
-                              g2c = gkiwfull(b,l,ikq,iwfp-iwb-iwbc)
+                              g1c = gkiwfull(l,a,ik_minus_qtilde,iwfp-iwb)
+                              g2c = gkiwfull(b,l,ik_minus_q_minus_qtilde,iwfp-iwb-iwbc)
                               g3c = gkiwfull(d,m,ik,iwfp)
-                              g4c = gkiwfull(m,c,ik,iwfp-iwbc)
+                              g4c = gkiwfull(m,c,ik_minus_q,iwfp-iwbc)
 
                               ! old
                               ! call get_gkiw(ikq, iwfp, iwb, gkiw) ! iwf' - iwb
@@ -1036,24 +1054,23 @@ end if
                               if (do_cond) then
                                 do idir1=1,3
                                 do idir2=1,3
-                                  ! PLUS HERE
-                                  ! cond_phbar(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_phbar(iwbc+iwbcond+1,m,l,idir2,idir1) + \
 
-                                  ! this equation only holds for q=0, q!=0 shifts the derivative necessrary
-                                  !FIXME
                                   cond_phbar(idir2,idir1,m,l,iwbc+1,iqq) = cond_phbar(idir2,idir1,m,l,iwbc+1,iqq) + \
-                                  hkder(idir1,l,ikq) * g1c * g2c * g3c * g4c * hkder(idir2,m,ik) * Fd / nkp / nqp
+                                  hkder(idir1,l,ik_minus_q2_minus_qtilde) * g1c * g2c * g3c * g4c * hkder(idir2,m,ik_minus_q2) * Fd / nkp / nqp
 
                                   ! left and right hand side of derivative are the same direction
                                   ! k prime sum and q (outer ladder loop) sum have to be normalized
                                   ! no additional beta factors here
+
                                 enddo
                                 enddo
                               else if (do_chi) then
+
                                 chi_magn_phbar(m,l,iwbc+1,iqq) = chi_magn_phbar(m,l,iwbc+1,iqq) + \
                                 g1c * g2c * g3c * g4c * Fm / nkp / nqp
                                 chi_dens_phbar(m,l,iwbc+1,iqq) = chi_dens_phbar(m,l,iwbc+1,iqq) + \
                                 g1c * g2c * g3c * g4c * Fd / nkp / nqp
+
                               endif
                             enddo ! m
                           enddo ! l
@@ -1663,18 +1680,44 @@ end if
     deallocate(bubble_nl)
   end if !do_chi output
 
-  if (do_cond) then
+  if (do_chi .and. do_chi_phbar) then
 
+#ifdef MPI
+    if (do_cond_phbar) then
+      if (mpi_wrank.eq.master) then
+         call MPI_reduce(MPI_IN_PLACE,chi_magn_phbar,ndim*ndim*(iwbcond+1)*nqpphbar,&
+                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+         call MPI_reduce(MPI_IN_PLACE,chi_dens_phbar,ndim*ndim*(iwbcond+1)*nqpphbar,&
+                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+      else
+         call MPI_reduce(chi_magn_phbar,chi_magn_phbar,ndim*ndim*(iwbcond+1)*9*nqpphbar,&
+                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+         call MPI_reduce(chi_dens_phbar,chi_dens_phbar,ndim*ndim*(iwbcond+1)*9*nqpphbar,&
+                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+      endif
+    endif
+#endif
+    ! non-mpi ... we already have everything in cond_bubble and cond_phbar
+
+    if (mpi_wrank .eq. master) then
+      call hdf5_open_file(output_filename, ioutfile)
+      call hdf5_write_data(ioutfile, 'susceptibility/magn_phbar', chi_magn_phbar)
+      call hdf5_write_data(ioutfile, 'susceptibility/dens_phbar', chi_dens_phbar)
+    endif
+  endif
+
+
+  if (do_cond) then
 
 #ifdef MPI
     if (do_cond_phbar) then
       if (mpi_wrank.eq.master) then
          ! call MPI_reduce(MPI_IN_PLACE,cond_phbar,ndim*ndim*(2*iwbcond+1)*9,&
-         call MPI_reduce(MPI_IN_PLACE,cond_phbar,ndim*ndim*(iwbcond+1)*9,&
+         call MPI_reduce(MPI_IN_PLACE,cond_phbar,ndim*ndim*(iwbcond+1)*9*nqpphbar,&
                          MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
       else
          ! call MPI_reduce(cond_phbar,cond_phbar,ndim*ndim*(2*iwbcond+1)*9,&
-         call MPI_reduce(cond_phbar,cond_phbar,ndim*ndim*(iwbcond+1)*9,&
+         call MPI_reduce(cond_phbar,cond_phbar,ndim*ndim*(iwbcond+1)*9*nqpphbar,&
                          MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
       endif
     endif
@@ -1682,11 +1725,11 @@ end if
     if (do_cond_ph) then
       if (mpi_wrank.eq.master) then
          ! call MPI_reduce(MPI_IN_PLACE,cond_ph,ndim*ndim*(2*iwbcond+1)*9,&
-         call MPI_reduce(MPI_IN_PLACE,cond_ph,ndim*ndim*(iwbcond+1)*9,&
+         call MPI_reduce(MPI_IN_PLACE,cond_ph,ndim*ndim*(iwbcond+1)*9*nqpphbar,&
                          MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
       else
          ! call MPI_reduce(cond_ph,cond_ph,ndim*ndim*(2*iwbcond+1)*9,&
-         call MPI_reduce(cond_ph,cond_ph,ndim*ndim*(iwbcond+1)*9,&
+         call MPI_reduce(cond_ph,cond_ph,ndim*ndim*(iwbcond+1)*9*nqpphbar,&
                          MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
       endif
     endif
