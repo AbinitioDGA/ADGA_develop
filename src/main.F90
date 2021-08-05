@@ -465,18 +465,33 @@ endif
 if (do_cond) then
   ! allocate(cond_bubble(2*iwbcond+1,ndim,ndim,3,3)) ! N1iwbc = 0 -> one frequency
   allocate(cond_bubble(3,3,ndim,ndim,iwbcond+1,nqpphbar))
+  cond_bubble = 0.d0
   allocate(gkiw(ndim,ndim))
+  gkiw = 0.d0
 
-  if (do_cond_phbar .or. do_cond_ph) allocate(Fdw(maxdim,maxdim), Fmw(maxdim,maxdim))
-  if (do_cond_phbar .or. do_cond_ph) allocate(Fdqphbar(maxdim,maxdim))
-  ! if (do_cond_phbar) allocate(cond_phbar(2*iwbcond+1,ndim,ndim,3,3))
-  ! if (do_cond_phbar) allocate(cond_phbar(iwbcond+1,ndim,ndim,3,3)) ! old
-  if (do_cond_phbar) allocate(cond_phbar(3,3,ndim,ndim,iwbcond+1,nqpphbar))
-  if (do_cond_ph) allocate(Fdqnl(maxdim,maxdim))
-  if (do_cond_ph) allocate(Fmqnl(maxdim,maxdim))
-  ! if (do_cond_ph) allocate(cond_ph(2*iwbcond+1,ndim,ndim,3,3))
-  ! if (do_cond_ph) allocate(cond_ph(iwbcond+1,ndim,ndim,3,3)) ! old
-  if (do_cond_ph) allocate(cond_ph(3,3,ndim,ndim,iwbcond+1,nqpphbar))
+  if (do_cond_phbar .or. do_cond_ph) then
+    allocate(Fdw(maxdim,maxdim), Fmw(maxdim,maxdim))
+  endif
+  if (do_cond_phbar .or. do_cond_ph) then
+    allocate(Fdqphbar(maxdim,maxdim))
+    Fdqphbar = 0.d0
+  endif
+  if (do_cond_phbar) then
+    allocate(cond_phbar(3,3,ndim,ndim,iwbcond+1,nqpphbar))
+    cond_phbar = 0.d0
+  endif
+  if (do_cond_phbar) then
+    allocate(Fdqnl(maxdim,maxdim))
+    Fdqnl = 0.d0
+  endif
+  if (do_cond_phbar) then
+    allocate(Fmqnl(maxdim,maxdim))
+    Fmqnl = 0.d0
+  endif
+  if (do_cond_ph) then
+    allocate(cond_ph(3,3,ndim,ndim,iwbcond+1,nqpphbar))
+    cond_ph = 0.d0
+  endif
 
   if (ounit .ge. 1)  write(ounit,*)
   if (cond_dmftlegs) then
@@ -492,10 +507,6 @@ if (do_cond) then
     if (er .ne. 0) call mpi_stop(erstr,er)
   endif
   if (ounit .ge. 1) write(ounit,*) "Bubble range: ", iwcstart, iwcstop
-  cond_bubble = 0.d0
-  if (do_cond_phbar) cond_phbar = 0.d0
-  if (do_cond_ph)    cond_ph = 0.d0
-  if (do_cond_ph)    Fdqnl = 0.d0
 endif
 
 !distribute the qw compound index:
@@ -513,14 +524,22 @@ if (do_chi) then
     chi_dens_phbar = 0.d0
     if (.not. allocated(Fdw)) allocate(Fdw(maxdim,maxdim))
     if (.not. allocated(Fmw)) allocate(Fmw(maxdim,maxdim))
-    if (.not. allocated(Fdqnl)) allocate(Fdqnl(maxdim,maxdim))
-    Fdqnl = 0.d0
-    if (.not. allocated(Fmqnl)) allocate(Fmqnl(maxdim,maxdim))
-    Fmqnl = 0.d0
-    if (.not. allocated(Fdqphbar)) allocate(Fdqphbar(maxdim,maxdim))
-    Fdqphbar = 0.d0
-    if (.not. allocated(Fmqphbar)) allocate(Fmqphbar(maxdim,maxdim))
-    Fmqphbar = 0.d0
+    if (.not. allocated(Fdqnl)) then
+      allocate(Fdqnl(maxdim,maxdim))
+      Fdqnl = 0.d0
+    endif
+    if (.not. allocated(Fmqnl)) then
+      allocate(Fmqnl(maxdim,maxdim))
+      Fmqnl = 0.d0
+    endif
+    if (.not. allocated(Fdqphbar)) then
+      allocate(Fdqphbar(maxdim,maxdim))
+      Fdqphbar = 0.d0
+    endif
+    if (.not. allocated(Fmqphbar)) then
+      allocate(Fmqphbar(maxdim,maxdim))
+      Fmqphbar = 0.d0
+    endif
 
     if (.not. do_cond) then
       if (cond_dmftlegs) then
@@ -1030,7 +1049,9 @@ end if
 
                     ! vertex evaluated at iq,iwb,nu1,nu2, c,b,a,d
                     Fd = Fdqphbar(iv1,iv2)
-                    Fm = Fmqphbar(iv1,iv2)
+                    if (do_chi) then
+                      Fm = Fmqphbar(iv1,iv2)
+                    endif
 
                       do iqq=1,nqpphbar ! only affects greens funtions
                         do ik=1,nkp ! k prime
