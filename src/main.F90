@@ -1215,14 +1215,12 @@ end if
           ! do iwbc = -iwbcond, iwbcond
           do iwbc = 0, iwbcond
             if (ounit.ge.1) write(ounit,*) 'bubble iwbc: ', iwbc
-
-            do iqq=1,nqpphbar ! only affects greens funtions
-
-              ik_minus_q      = k_minus_q(ik,q_data_phbar(iqq)) ! k - q
-              ik_minus_q2     = k_minus_q(ik,q_half_data_phbar(iqq)) ! k - q/2
-
+            do iqq=1,nqpphbar
+              write(*,*) iwcstart, iwcstop
               do iwf = iwcstart, iwcstop ! depending on whether we extended the bubble or not (fermionic frequency)
                 do ik=1,nkp ! k
+                  ik_minus_q      = k_minus_q(ik,q_data_phbar(iqq)) ! k - q
+                  ik_minus_q2     = k_minus_q(ik,q_half_data_phbar(iqq)) ! k - q/2
                   do l=1,ndim
                     do m=1,ndim
 
