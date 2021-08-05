@@ -25,6 +25,7 @@ program main
   integer :: ik_minus_q, ik_minus_qtilde, ik_minus_q_minus_qtilde
   integer :: ik_minus_q2, ik_minus_q2_minus_qtilde
   integer :: i, j, k, l, n, i1, i2, i3, i4, idir1, idir2
+  integer :: ikx, iky, ikz
 
   integer :: m
   integer :: a, b, c, d
@@ -45,7 +46,6 @@ program main
   complex(kind=8), allocatable :: chi_loc_dens(:,:,:),chi_loc_magn(:,:,:),bubble_loc(:,:,:),bubble_loc_tmp(:,:)
   complex(kind=8), allocatable :: chi_loc_qmc(:,:,:)
   integer, allocatable :: kq_ind(:,:), qw(:,:), kq_ind_eom(:,:)
-  integer, allocatable :: qq_ind(:,:)
   complex(kind=8), allocatable :: bigwork_magn(:,:), etaqd(:,:), etaqm(:,:), rectanglework(:,:)
   complex(kind=8), allocatable :: bigwork_evproblem(:,:), bigwork_vectors(:,:), bigwork_values(:)
   complex(kind=8), allocatable :: smallwork(:,:), bigwork_dens(:,:)
@@ -418,7 +418,6 @@ program main
   allocate(chi0wFd(maxdim,maxdim))
 
   allocate(kq_ind(nkp,nqp)) ! full k-grid -- for chi k summation
-  allocate(qq_ind(nqp,nqp))
   if (do_eom) then
     allocate(kq_ind_eom(nkp_eom,nqp)) ! eom k-grid
   endif
@@ -426,7 +425,6 @@ program main
   ! calculate the index of all \vec{k} - \vec{q}
   call cpu_time(start)
   call index_kq(kq_ind) ! new method
-  call index_qq(qq_ind) ! new method
 
   if (do_eom) then
     if (k_path_eom) then
@@ -1045,12 +1043,36 @@ end if
                           ! index q (external) = q_data_susc_phbar
                           ! these are k-indices now
 
-                          ik_minus_qtilde = k_minus_q(ik,q_data(iq))
-                          ik_minus_q      = k_minus_q(ik,q_data_phbar(iqq))
-                          ik_minus_q2     = k_minus_q(ik,q_half_data_phbar(iqq))
-                          ik_minus_q_minus_qtilde = k_minus_q(ik,k_plus_q(q_data(iq),q_data_phbar(iqq)))
-                          ik_minus_q2_minus_qtilde = k_minus_q(ik,k_plus_q(q_data(iq),q_half_data_phbar(iqq)))
+                          ik_minus_qtilde = k_minus_q(ik,q_data(iq)) ! k - ~q
+                          ik_minus_q      = k_minus_q(ik,q_data_phbar(iqq)) ! k - q
+                          ik_minus_q2     = k_minus_q(ik,q_half_data_phbar(iqq)) ! k - q/2
+                          ik_minus_q_minus_qtilde = k_minus_q(ik,k_plus_q(q_data(iq),q_data_phbar(iqq))) ! k - q - ~q
+                          ik_minus_q2_minus_qtilde = k_minus_q(ik,k_plus_q(q_data(iq),q_half_data_phbar(iqq))) ! k - q/2 - ~q
 
+                          ! DEBUG .. DELETE LATER
+                          ! if (mpi_wrank.eq.master) then
+                          !   call k_vector(ik,ikx,iky,ikz)
+                          !   write(*,*) 'k: ', ik, ikx,iky,ikz
+                          !   call k_vector(iq,ikx,iky,ikz)
+                          !   write(*,*) 'qtilde: ', iq, ikx,iky,ikz
+                          !   call k_vector(iqq,ikx,iky,ikz)
+                          !   write(*,*) 'q: ',iqq, ikx,iky,ikz
+                          !   call k_vector(ik_minus_qtilde,ikx,iky,ikz)
+                          !   write(*,*) 'ik_minus_qtilde: ',ik_minus_qtilde, ikx,iky,ikz
+                          !   call k_vector(ik_minus_q,ikx,iky,ikz)
+                          !   write(*,*) 'ik_minus_q: ',ik_minus_q, ikx,iky,ikz
+                          !   call k_vector(ik_minus_q2,ikx,iky,ikz)
+                          !   write(*,*) 'ik_minus_q2: ',ik_minus_q2, ikx,iky,ikz
+                          !   call k_vector(ik_minus_q_minus_qtilde,ikx,iky,ikz)
+                          !   write(*,*) 'ik_minus_q_minus_qtilde: ',ik_minus_q_minus_qtilde, ikx,iky,ikz
+                          !   call k_vector(ik_minus_q2_minus_qtilde,ikx,iky,ikz)
+                          !   write(*,*) 'ik_minus_q2_minus_qtilde: ',ik_minus_q2_minus_qtilde, ikx,iky,ikz
+                          !   write(*,*)
+                          !   write(*,*)
+                          !   write(*,*)
+                          ! endif
+
+                          ! FIXME: full orbital dependency ... this is equivalent to intra-band only
                           do l=1,ndim ! conductivity orbital dependence
                             do m=1,ndim ! conductivity orbital dependence
 
@@ -1722,8 +1744,8 @@ end if
 
     if (mpi_wrank .eq. master) then
       call hdf5_open_file(output_filename, ioutfile)
-      call hdf5_write_data(ioutfile, 'susceptibility/magn_phbar', chi_magn_phbar)
-      call hdf5_write_data(ioutfile, 'susceptibility/dens_phbar', chi_dens_phbar)
+      call hdf5_write_data(ioutfile, 'susceptibility/nonloc/magn_phbar', chi_magn_phbar)
+      call hdf5_write_data(ioutfile, 'susceptibility/nonloc/dens_phbar', chi_dens_phbar)
     endif
   endif
 
@@ -1785,7 +1807,6 @@ end if
   if (allocated(n_dga)) deallocate(n_dga)
   if (allocated(n_dga_k)) deallocate(n_dga_k)
   if (allocated(kq_ind_eom)) deallocate(kq_ind_eom)
-  if (allocated(qq_ind)) deallocate(qq_ind)
   if (allocated(Fdw)) deallocate(Fdw)
   if (allocated(Fmw)) deallocate(Fmw)
   if (allocated(Fdqphbar)) deallocate(Fdqphbar)

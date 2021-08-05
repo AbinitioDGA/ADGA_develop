@@ -56,23 +56,6 @@ subroutine index_kq_eom(ind)
   end do
 end subroutine index_kq_eom
 
-! q + q tilde for the vertical contributions to susceptibilities
-! in order for this to make sense we restrict outside to full q volumina only
-! i.e. no paths
-subroutine index_qq(ind)
-  implicit none
-  integer, intent(out) :: ind(nqp,nqp)
-
-  integer ikp,jkp
-  ind = 0
-
-  do ikp=1,nqp
-    do jkp=1,nqpphbar
-      ind(ikp,jkp)=k_plus_q(q_data(ikp),q_data_phbar(jkp))
-    end do
-  end do
-end subroutine index_qq
-
 ! The following function calculates the index of \vec{k} - \vec{q}.
 ! It uses only integers
 ! \vec{k} is associated to (ix,iy,iz)
