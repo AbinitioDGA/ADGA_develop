@@ -21,9 +21,10 @@ program main
   use hdf5
 
   implicit none
-  integer :: iw, ik, iq, iqq, ikq, ikp, iwf, iwb, iv, dum, dum1, iwf1, iwf2
+  integer :: iw, ik,  iq, iqq, ikq, ikp, iwf, iwb, iv, dum, dum1, iwf1, iwf2
   integer :: ik_minus_q, ik_minus_qtilde, ik_minus_q_minus_qtilde
   integer :: ik_minus_q2, ik_minus_q2_minus_qtilde
+  integer :: ikp_minus_q, ikp_minus_q2
   integer :: i, j, k, l, n, i1, i2, i3, i4, idir1, idir2
   integer :: ikx, iky, ikz
 
@@ -316,9 +317,15 @@ program main
   if (q_path_suscphbar) then
     call qdata_susc_from_file()
   else
-    nqpphbar = nqpx*nqpy*nqpz
-    allocate(q_data_phbar(nqpphbar))
-    call generate_q_vol(nqpx,nqpy,nqpz,q_data_phbar)
+    call mpi_stop('Error: phbar contributions must be calculated with Q Data File')
+    ! nqpphbar = nqpx*nqpy*nqpz
+    ! allocate(q_data_phbar(nqpphbar))
+    ! allocate(q_data_half_phbar(nqpphbar))
+    ! call generate_q_vol(nqpx,nqpy,nqpz,q_data_phbar)
+  endif
+
+  if (q_path_suscphbar .and. (.not. (nqp == nkp)) .and. do_cond .and. do_cond_ph) then
+    call mpi_stop('Error: conductivity ph contributions must be calculated with full q-grid')
   endif
 
   if (ounit .ge. 1) then
@@ -480,11 +487,11 @@ if (do_cond) then
     allocate(cond_phbar(3,3,ndim,ndim,iwbcond+1,nqpphbar))
     cond_phbar = 0.d0
   endif
-  if (do_cond_phbar) then
+  if (do_cond_ph .or. do_cond_phbar) then
     allocate(Fdqnl(maxdim,maxdim))
     Fdqnl = 0.d0
   endif
-  if (do_cond_phbar) then
+  if (do_cond_ph .or. do_cond_phbar) then
     allocate(Fmqnl(maxdim,maxdim))
     Fmqnl = 0.d0
   endif
@@ -1152,71 +1159,78 @@ end if
           enddo ! w transfer
         endif ! do_cond_phbar
 
-        ! FIXME this needs to be adapted to support more than q===0
 
-        if (do_cond .and. do_cond_ph .and. iq==1) then ! particle-hole vertex contribution for q=0
-          ! do iwbc = -iwbcond, iwbcond ! w transfer
-          do iwbc =  0, iwbcond ! w transfer
-            if (iwbc /= iwb)  then ! only calculate the contribution if we are in the w transfer window we want to calculate = w ladder loop
+        if (do_cond .and. do_cond_ph) then ! particle-hole vertex contribution for q=0
+          do iqq = 1,nqpphbar
+            if (q_data(iq) /= q_data_phbar(iqq) ) then
               cycle
             endif
-            write(ounit,*) iwb, iq
 
-            i2 = 0
-            do iwf2 = -iwfmax_small,iwfmax_small-1
-              do d=1,ndim
-                do c=1,ndim
-                  i2 = i2+1
-                  i1 = 0
-                  do iwf1 = -iwfmax_small,iwfmax_small-1
-                    do a=1,ndim
-                      do b=1,ndim
-                        i1 = i1 + 1
+          ! do iwbc = -iwbcond, iwbcond ! w transfer
+            do iwbc =  0, iwbcond ! w transfer
+              if (iwbc /= iwb)  then ! only calculate the contribution if we are in the w transfer window we want to calculate = w ladder loop
+                cycle
+              endif
 
-                        ! local part and horizontal part of the density vertex
-                        Fd = Fdw(i1,i2) + Fdqnl(i1,i2) ! here have have w=[0,iwbcond], q = 0
+              i2 = 0
+              do iwf2 = -iwfmax_small,iwfmax_small-1
+                do d=1,ndim
+                  do c=1,ndim
+                    i2 = i2+1
+                    i1 = 0
+                    do iwf1 = -iwfmax_small,iwfmax_small-1
+                      do a=1,ndim
+                        do b=1,ndim
+                          i1 = i1 + 1
 
-                        do ik=1,nkp
-                          do ikp=1,nkp
+                          ! local part and horizontal part of the density vertex
+                          Fd = Fdw(i1,i2) + Fdqnl(i1,i2)
 
-                            do l=1,ndim ! conductivity orbital dependence
-                              do m=1,ndim ! conductivity orbital dependence
+                          do ik=1,nkp
+                            ik_minus_q      = k_minus_q(ik,q_data_phbar(iqq)) ! k - q
+                            ik_minus_q2     = k_minus_q(ik,q_half_data_phbar(iqq)) ! k - q/2
+                            do ikp=1,nkp
+                              ikp_minus_q      = k_minus_q(ikp,q_data_phbar(iqq)) ! k' - q
+                              ikp_minus_q2     = k_minus_q(ikp,q_half_data_phbar(iqq)) ! k' - q/2
 
-                                g1c = gkiwfull(l,a,ik,iwf1) ! left hand side : k
-                                g2c = gkiwfull(b,l,ik,iwf1-iwb) ! left hand side : k
-                                g3c = gkiwfull(d,m,ikp,iwf2) ! right hand side : k prime
-                                g4c = gkiwfull(m,c,ikp,iwf2-iwb) ! right hand side: k prime
+                              do l=1,ndim ! conductivity orbital dependence
+                                do m=1,ndim ! conductivity orbital dependence
 
-                                do idir1=1,3
-                                do idir2=1,3
-                                  ! cond_ph(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_ph(iwbc+iwbcond+1,m,l,idir2,idir1) + \
-                                  cond_ph(idir2,idir1,m,l,iwbc+1,1) = cond_ph(idir2,idir1,m,l,iwbc+1,1) + \
-                                  hkder(idir1,l,ik) * g1c * g2c * g3c * g4c * hkder(idir2,m,ikp) * Fd / nkp / nkp
-                                enddo
-                                enddo
-                              enddo ! l
-                            enddo ! m
+                                  g1c = gkiwfull(l,a,ik,iwf1) ! left hand side : k
+                                  g2c = gkiwfull(b,l,ik_minus_q,iwf1-iwb) ! left hand side : k
+                                  g3c = gkiwfull(d,m,ikp,iwf2) ! right hand side : k prime
+                                  g4c = gkiwfull(m,c,ikp_minus_q,iwf2-iwb) ! right hand side: k prime
 
-                          enddo ! ikp
-                        enddo ! ik
-                      enddo ! b (vertex)
-                    enddo ! a (vertex)
-                  enddo ! iwf1
-                enddo ! c
-              enddo ! d
-            enddo ! iwf2
-          enddo ! iwbc
+                                  do idir1=1,3
+                                  do idir2=1,3
+                                    ! cond_ph(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_ph(iwbc+iwbcond+1,m,l,idir2,idir1) + \
+                                    cond_ph(idir2,idir1,m,l,iwbc+1,iqq) = cond_ph(idir2,idir1,m,l,iwbc+1,iqq) + \
+                                    hkder(idir1,l,ik_minus_q2) * g1c * g2c * g3c * g4c * hkder(idir2,m,ikp_minus_q2) * Fd / nkp / nkp
+                                  enddo
+                                  enddo
+                                enddo ! l
+                              enddo ! m
+
+                            enddo ! ikp
+                          enddo ! ik
+                        enddo ! b (vertex)
+                      enddo ! a (vertex)
+                    enddo ! iwf1
+                  enddo ! c
+                enddo ! d
+              enddo ! iwf2
+            enddo ! iwbc
+          enddo ! iqq
         endif ! do_cond_ph
 
 
         ! bubble contribution (always if do_cond is on)
-        ! only calculated by master once
+        ! ONLY CALCULATED BY MASTER ONCE
         if (do_cond .and. (mpi_wrank .eq. master) .and. (iqw == qwstart)) then
           ! do iwbc = -iwbcond, iwbcond
           do iwbc = 0, iwbcond
             if (ounit.ge.1) write(ounit,*) 'bubble iwbc: ', iwbc
             do iqq=1,nqpphbar
-              write(*,*) iwcstart, iwcstop
               do iwf = iwcstart, iwcstop ! depending on whether we extended the bubble or not (fermionic frequency)
                 do ik=1,nkp ! k
                   ik_minus_q      = k_minus_q(ik,q_data_phbar(iqq)) ! k - q
