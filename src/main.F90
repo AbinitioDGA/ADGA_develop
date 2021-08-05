@@ -1022,7 +1022,7 @@ end if
       if ((do_chi .and. do_chi_phbar) .or. do_cond) then
 
 
-        if (do_chi_phbar .or. do_cond_phbar) then !  ! particle-hole bar vertex contribution
+        if ((do_chi .and. do_chi_phbar) .or. (do_cond .and. do_cond_phbar)) then !  ! particle-hole bar vertex contribution
           do iwbc = 0, iwbcond ! w transfer
           ! do iwbc = -iwbcond, iwbcond ! w transfer
             do iwfp = -iwfcond,iwfcond-1 ! nu prime
@@ -1152,6 +1152,8 @@ end if
           enddo ! w transfer
         endif ! do_cond_phbar
 
+        ! FIXME this needs to be adapted to support more than q===0
+
         if (do_cond .and. do_cond_ph .and. iq==1) then ! particle-hole vertex contribution for q=0
           ! do iwbc = -iwbcond, iwbcond ! w transfer
           do iwbc =  0, iwbcond ! w transfer
@@ -1212,37 +1214,45 @@ end if
         if (do_cond .and. (mpi_wrank .eq. master) .and. (iqw == qwstart)) then
           ! do iwbc = -iwbcond, iwbcond
           do iwbc = 0, iwbcond
-            if (ounit.ge.1) write(ounit,*) iwbc
-            do iwf = iwcstart, iwcstop ! depending on whether we extended the bubble or not (fermionic frequency)
-              do ik=1,nkp ! k
-                do l=1,ndim
-                  do m=1,ndim
+            if (ounit.ge.1) write(ounit,*) 'bubble iwbc: ', iwbc
 
-                    ! new ... factor 20 faster
-                    g1c = gkiwfullbubble(l,m,ik,iwf)
-                    g2c = gkiwfullbubble(m,l,ik,iwf-iwbc)
+            do iqq=1,nqpphbar ! only affects greens funtions
 
-                    ! old
-                    ! call get_gkiw(ik, iwf, 0, gkiw) ! nu, k
-                    ! g1c = gkiw(l,m)
-                    ! call get_gkiw(ik, iwf, iwbc, gkiw) ! nu-omega_transfer, k-q_transfer, q_transfer=0
-                    ! g2c = gkiw(m,l)
+              ik_minus_q      = k_minus_q(ik,q_data_phbar(iqq)) ! k - q
+              ik_minus_q2     = k_minus_q(ik,q_half_data_phbar(iqq)) ! k - q/2
 
-                    do idir1=1,3
-                    do idir2=1,3
-                      ! MINUS HERE
-                      ! cond_bubble(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_bubble(iwbc+iwbcond+1,m,l,idir2,idir1) - \
-                      cond_bubble(idir2,idir1,m,l,iwbc+1,1) = cond_bubble(idir2,idir1,m,l,iwbc+1,1) - \
-                      hkder(idir1,l,ik) * g1c * g2c * hkder(idir2,m,ik) / nkp / beta
-                      ! - beta G G / beta**2    (beta**2 from frequency sum)
-                      ! leads to - GG / beta
-                    enddo
-                    enddo
+              do iwf = iwcstart, iwcstop ! depending on whether we extended the bubble or not (fermionic frequency)
+                do ik=1,nkp ! k
+                  do l=1,ndim
+                    do m=1,ndim
 
-                  enddo ! l
-                enddo ! m
-              enddo ! ik
-            enddo ! iwf
+                      ! new ... factor 20 faster
+                      g1c = gkiwfullbubble(l,m,ik,iwf)
+                      g2c = gkiwfullbubble(m,l,ik_minus_q,iwf-iwbc)
+
+                      ! old
+                      ! call get_gkiw(ik, iwf, 0, gkiw) ! nu, k
+                      ! g1c = gkiw(l,m)
+                      ! call get_gkiw(ik, iwf, iwbc, gkiw) ! nu-omega_transfer, k-q_transfer, q_transfer=0
+                      ! g2c = gkiw(m,l)
+
+                      do idir1=1,3
+                      do idir2=1,3
+                        ! MINUS HERE
+                        ! cond_bubble(iwbc+iwbcond+1,m,l,idir2,idir1) = cond_bubble(iwbc+iwbcond+1,m,l,idir2,idir1) - \
+                        cond_bubble(idir2,idir1,m,l,iwbc+1,iqq) = cond_bubble(idir2,idir1,m,l,iwbc+1,iqq) - \
+                        hkder(idir1,l,ik_minus_q2) * g1c * g2c * hkder(idir2,m,ik_minus_q2) / nkp / beta
+
+                        ! - beta G G / beta**2    (beta**2 from frequency sum)
+                        ! leads to - GG / beta
+                      enddo
+                      enddo
+
+                    enddo ! l
+                  enddo ! m
+                enddo ! ik
+              enddo ! iwf
+            enddo ! iqq
           enddo ! iwbc
           if (allocated(gkiwfullbubble)) deallocate(gkiwfullbubble) ! we dont need this array anymore
         endif ! bubble endif

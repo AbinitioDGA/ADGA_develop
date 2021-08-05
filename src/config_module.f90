@@ -868,6 +868,12 @@ subroutine check_config(er,erstr)
     return
   endif
 
+  if (q_path_suscphbar .and. .not. q_vol) then
+    er = 12
+    erstr = TRIM(ADJUSTL(erstr))//"Error: phbar contribution must be calculated with full q-volume"
+    return
+  endif
+
   return
 end subroutine check_config
 
