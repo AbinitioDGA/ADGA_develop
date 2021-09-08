@@ -1769,18 +1769,16 @@ end if
   if (do_chi .and. do_chi_phbar) then
 
 #ifdef MPI
-    if (do_cond_phbar) then
-      if (mpi_wrank.eq.master) then
-         call MPI_reduce(MPI_IN_PLACE,chi_magn_phbar,ndim*ndim*(iwbcond+1)*nqpphbar,&
-                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-         call MPI_reduce(MPI_IN_PLACE,chi_dens_phbar,ndim*ndim*(iwbcond+1)*nqpphbar,&
-                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-      else
-         call MPI_reduce(chi_magn_phbar,chi_magn_phbar,ndim*ndim*(iwbcond+1)*nqpphbar,&
-                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-         call MPI_reduce(chi_dens_phbar,chi_dens_phbar,ndim*ndim*(iwbcond+1)*nqpphbar,&
-                         MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
-      endif
+    if (mpi_wrank.eq.master) then
+       call MPI_reduce(MPI_IN_PLACE,chi_magn_phbar,ndim*ndim*(iwbcond+1)*nqpphbar,&
+                       MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+       call MPI_reduce(MPI_IN_PLACE,chi_dens_phbar,ndim*ndim*(iwbcond+1)*nqpphbar,&
+                       MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+    else
+       call MPI_reduce(chi_magn_phbar,chi_magn_phbar,ndim*ndim*(iwbcond+1)*nqpphbar,&
+                       MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
+       call MPI_reduce(chi_dens_phbar,chi_dens_phbar,ndim*ndim*(iwbcond+1)*nqpphbar,&
+                       MPI_DOUBLE_COMPLEX,MPI_SUM,master,MPI_COMM_WORLD,ierr)
     endif
 #endif
     ! non-mpi ... we already have everything in cond_bubble and cond_phbar
