@@ -316,13 +316,15 @@ program main
 
   if (q_path_suscphbar) then
     call qdata_susc_from_file()
-  else
-    call mpi_stop('Error: phbar contributions must be calculated with Q Data File')
-    ! nqpphbar = nqpx*nqpy*nqpz
-    ! allocate(q_data_phbar(nqpphbar))
-    ! allocate(q_data_half_phbar(nqpphbar))
-    ! call generate_q_vol(nqpx,nqpy,nqpz,q_data_phbar)
   endif
+
+  ! else
+  !   call mpi_stop('Error: phbar contributions must be calculated with Q Data File')
+  !   ! nqpphbar = nqpx*nqpy*nqpz
+  !   ! allocate(q_data_phbar(nqpphbar))
+  !   ! allocate(q_data_half_phbar(nqpphbar))
+  !   ! call generate_q_vol(nqpx,nqpy,nqpz,q_data_phbar)
+  ! endif
 
   if (q_path_suscphbar .and. (.not. (nqp == nkp)) .and. do_cond .and. do_cond_ph) then
     call mpi_stop('Error: conductivity ph contributions must be calculated with full q-grid')
@@ -1028,8 +1030,12 @@ end if
       ! same routines for conductivity and magn/dens susc corrections
       if ((do_chi .and. do_chi_phbar) .or. do_cond) then
 
+        ! write(*,*) 'GOT1'
+
 
         if ((do_chi .and. do_chi_phbar) .or. (do_cond .and. do_cond_phbar)) then !  ! particle-hole bar vertex contribution
+
+          ! write(*,*) 'GOT2'
           do iwbc = 0, iwbcond ! w transfer
           ! do iwbc = -iwbcond, iwbcond ! w transfer
             do iwfp = -iwfcond,iwfcond-1 ! nu prime
@@ -1161,16 +1167,23 @@ end if
 
 
         if (do_cond .and. do_cond_ph) then ! particle-hole vertex contribution for q=0
+          ! write(*,*) 'GOT3'
           do iqq = 1,nqpphbar
             if (q_data(iq) /= q_data_phbar(iqq) ) then
               cycle
             endif
 
+            ! write(*,*) 'GOT4', iqq
+
           ! do iwbc = -iwbcond, iwbcond ! w transfer
             do iwbc =  0, iwbcond ! w transfer
               if (iwbc /= iwb)  then ! only calculate the contribution if we are in the w transfer window we want to calculate = w ladder loop
+              ! this is a debug option to speed test
+              ! if (iwbc /= abs(iwb))  then ! only calculate the contribution if we are in the w transfer window we want to calculate = w ladder loop
                 cycle
               endif
+              ! write(*,*) 'GOT5', iwbc
+              ! write(*,*) 'DEBUG . FIXME'
 
               i2 = 0
               do iwf2 = -iwfmax_small,iwfmax_small-1
@@ -1190,6 +1203,7 @@ end if
                             ik_minus_q      = k_minus_q(ik,q_data_phbar(iqq)) ! k - q
                             ik_minus_q2     = k_minus_q(ik,q_half_data_phbar(iqq)) ! k - q/2
                             do ikp=1,nkp
+                              write(*,*) ik, ikp
                               ikp_minus_q      = k_minus_q(ikp,q_data_phbar(iqq)) ! k' - q
                               ikp_minus_q2     = k_minus_q(ikp,q_half_data_phbar(iqq)) ! k' - q/2
 
