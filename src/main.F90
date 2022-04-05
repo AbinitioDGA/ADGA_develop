@@ -72,7 +72,9 @@ program main
   logical :: update_chi_loc_flag
   complex(kind=8), allocatable :: gammaqd(:,:), v(:,:)
   complex(kind=8), allocatable :: sigma_nl(:,:,:,:), sigma_hf(:,:,:), sigma_dmft(:,:,:)
+  complex(kind=8), allocatable :: sigma_nlqw(:,:,:,:,:,:)
   complex(kind=8), allocatable :: sigma_sum(:,:,:,:), sigma_sum_hf(:,:,:), sigma_sum_dmft(:,:,:), sigma_loc(:,:,:)
+  complex(kind=8), allocatable :: sigma_sumqw(:,:,:,:,:,:)
   complex(kind=8), allocatable :: mpi_c1work(:), mpi_c2work(:,:), mpi_c3work(:,:,:)
 ! variables for date-time string
   character(20) :: date,time,zone,iwb_str
@@ -594,8 +596,10 @@ endif
 if (do_eom) then
   allocate(gammaqd(ndim2,maxdim))
   allocate(sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom), sigma_hf(ndim,ndim,nkp_eom))
+  allocate(sigma_nlqw(nqp,2*iwbmax_small+1,ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom))
   allocate(sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1))
   gammaqd = 0d0
+  sigma_nlqw = 0d0
   sigma_nl = 0d0
   sigma_hf = 0d0
   sigma_dmft = 0d0
@@ -1317,7 +1321,7 @@ end if
       end if
       if (do_eom) then
          !equation of motion
-         call calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind_eom,iwb,iq,v,sigma_nl)
+         call calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind_eom,iwb,iq,v,sigma_nl,sigma_nlqw)
          ! TIME: eom
          call cpu_time(tfinish)
          timings(7) = timings(7) + tfinish - tstart
@@ -1447,16 +1451,20 @@ end if
 
   ! MPI reduction and output
   if (do_eom) then
+     allocate(sigma_sumqw(nqp,2*iwbmax_small+1,ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp_eom))
      allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp_eom),sigma_sum_hf(ndim,ndim,nkp_eom))
      allocate(sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1))
 #ifdef MPI
-     call MPI_reduce(sigma_nl, sigma_sum, ndim*ndim*2*iwfmax_small*nkp_eom, &
+     call MPI_reduce(sigma_nlqw, sigma_sumqw, ndim*ndim*2*iwfmax_small*nkp_eom*nqp*(2*iwbmax_small+1), &
+          MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
+     call MPI_reduce(sigma_nlqw, sigma_sum, ndim*ndim*2*iwfmax_small*nkp_eom, &
           MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      call MPI_reduce(sigma_hf,sigma_sum_hf,ndim*ndim*nkp_eom, &
           MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      call MPI_reduce(sigma_dmft,sigma_sum_dmft,ndim*ndim*2*iwfmax_small, &
           MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
 #else
+     sigma_sumqw = sigma_nlqw
      sigma_sum = sigma_nl
      sigma_sum_hf = sigma_hf
      sigma_sum_dmft = sigma_dmft
@@ -1846,6 +1854,11 @@ end if
       call hdf5_close_file(ioutfile)
     endif
 
+  endif
+
+  if (mpi_wrank .eq. master) then
+      call hdf5_open_file(output_filename, ioutfile)
+      call hdf5_write_data(ioutfile, 'selfenergy/nonloc/dga_qw', sigma_sumqw)
   endif
 
   call cpu_time(finish)

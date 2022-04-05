@@ -134,7 +134,7 @@ end subroutine calc_eom_dmft
 !=============================================================================================
 
 !=============================================================================================
-   subroutine calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind_eom,iwb,iq,v,sigma_nl)
+   subroutine calc_eom_dynamic(etaqd,etaqm,gammawd,gammaqd,kq_ind_eom,iwb,iq,v,sigma_nl,sigma_nlqw)
    implicit none
    complex(kind=8),intent(in)     :: etaqd(ndim2,maxdim)
    complex(kind=8),intent(in)     :: etaqm(ndim2,maxdim)
@@ -145,6 +145,7 @@ end subroutine calc_eom_dmft
    integer,intent(in)             :: iq
    complex(kind=8),intent(in)     :: v(ndim2,ndim2)
    complex(kind=8),intent(inout)  :: sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom)
+   complex(kind=8),intent(inout)  :: sigma_nlqw(nqp,2*iwbmax_small+1,ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom)
    integer :: dum,i,j,iw,iwf,iwf2,l,k,ik,ikq
    integer :: i1,i2,i3,i4
    complex(kind=8) :: m_tot(ndim2,maxdim)
@@ -197,6 +198,7 @@ end subroutine calc_eom_dmft
                   do j=1,ndim
                      i1 = i1+1 ! compound index {ji} (j fastest)
                      sigma_nl(i,l,iwf,ik) = sigma_nl(i,l,iwf,ik)+m_tot(i1,i2)*gkiw(j,k)
+                     sigma_nlqw(iq,iwb,i,l,iwf,ik) = sigma_nlqw(iq,iwb,i,l,iwf,ik)+m_tot(i1,i2)*gkiw(j,k)
                   enddo
                enddo
             enddo
