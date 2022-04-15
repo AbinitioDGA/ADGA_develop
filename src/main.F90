@@ -596,7 +596,7 @@ endif
 if (do_eom) then
   allocate(gammaqd(ndim2,maxdim))
   allocate(sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom), sigma_hf(ndim,ndim,nkp_eom))
-  allocate(sigma_nlqw(nqp,2*iwbmax_small+1,ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom))
+  allocate(sigma_nlqw(nqp,-iwbmax_small:iwbmax_small,ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom))
   allocate(sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1))
   gammaqd = 0d0
   sigma_nlqw = 0d0
