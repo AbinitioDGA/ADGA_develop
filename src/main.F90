@@ -168,6 +168,9 @@ program main
   call check_freq_range(er)
   if (er .ne. 0) call mpi_stop('Frequency range error.')
 
+  ! iwf_resolved = iwfmax_small ! full grid
+  iwf_resolved = 1 ! only first positive matsubara frequency
+
 ! read Hamiltonian
   if(read_ext_hk) then
     call read_hk_w2w(er,erstr)
@@ -596,7 +599,7 @@ endif
 if (do_eom) then
   allocate(gammaqd(ndim2,maxdim))
   allocate(sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom), sigma_hf(ndim,ndim,nkp_eom))
-  allocate(sigma_nlqw(nqp,-iwbmax_small:iwbmax_small,ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom))
+  allocate(sigma_nlqw(nqp,-iwbmax_small:iwbmax_small,ndim,ndim,-iwf_resolved:iwf_resolved-1,nkp_eom))
   allocate(sigma_dmft(ndim,ndim,-iwfmax_small:iwfmax_small-1))
   gammaqd = 0d0
   sigma_nlqw = 0d0
@@ -1451,11 +1454,11 @@ end if
 
   ! MPI reduction and output
   if (do_eom) then
-     allocate(sigma_sumqw(nqp,2*iwbmax_small+1,ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp_eom))
+     allocate(sigma_sumqw(nqp,2*iwbmax_small+1,ndim, ndim, -iwf_resolved:iwf_resolved-1, nkp_eom))
      allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp_eom),sigma_sum_hf(ndim,ndim,nkp_eom))
      allocate(sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1))
 #ifdef MPI
-     call MPI_reduce(sigma_nlqw, sigma_sumqw, ndim*ndim*2*iwfmax_small*nkp_eom*nqp*(2*iwbmax_small+1), &
+     call MPI_reduce(sigma_nlqw, sigma_sumqw, ndim*ndim*2*iwf_resolved*nkp_eom*nqp*(2*iwbmax_small+1), &
           MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)
      call MPI_reduce(sigma_nlqw, sigma_sum, ndim*ndim*2*iwfmax_small*nkp_eom, &
           MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)

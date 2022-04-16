@@ -18,6 +18,7 @@ module parameters_module
   integer :: nkp, ndim, ndim2, maxdim, nineq
   integer :: nkpx,nkpy,nkpz,nqpx,nqpy,nqpz
   integer :: iwmax, iwbmax, iwfmax, iwbmax_small, iwfmax_small,n2iwb,n3iwf,n3iwb
+  integer :: iwf_resolved
 
   integer :: iwbcond ! number of bosonic frequencies for the conductivity
   integer :: iwfcond ! number of fermionic frequencies (internal loop) for the conductivity

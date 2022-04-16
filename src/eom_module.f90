@@ -198,11 +198,16 @@ end subroutine calc_eom_dmft
                   do j=1,ndim
                      i1 = i1+1 ! compound index {ji} (j fastest)
                      sigma_nl(i,l,iwf,ik) = sigma_nl(i,l,iwf,ik)+m_tot(i1,i2)*gkiw(j,k)
-                     sigma_nlqw(iq,iwb,i,l,iwf,ik) = sigma_nlqw(iq,iwb,i,l,iwf,ik)+m_tot(i1,i2)*gkiw(j,k)
+                     if (iwf < iwf_resolved) then
+                       sigma_nlqw(iq,iwb,i,l,iwf,ik) = sigma_nlqw(iq,iwb,i,l,iwf,ik)+m_tot(i1,i2)*gkiw(j,k)
+                     endif
                   enddo
                enddo
             enddo
          enddo
+         if (iwf < iwf_resolved) then
+           sigma_nlqw(iq,iwb,:,:,-iwf-1,ik) = transpose(conjg(sigma_nlqw(iq,iwb,:,:,iwf,ik)))
+         endif
          sigma_nl(:,:,-iwf-1,ik) = transpose(conjg(sigma_nl(:,:,iwf,ik)))
       enddo !iwf 
    enddo !ik
