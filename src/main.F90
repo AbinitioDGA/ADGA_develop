@@ -1457,6 +1457,9 @@ end if
      allocate(sigma_sumqw(nqp,2*iwbmax_small+1,ndim, ndim, -iwf_resolved:iwf_resolved-1, nkp_eom))
      allocate(sigma_sum(ndim, ndim, -iwfmax_small:iwfmax_small-1, nkp_eom),sigma_sum_hf(ndim,ndim,nkp_eom))
      allocate(sigma_sum_dmft(ndim, ndim, -iwfmax_small:iwfmax_small-1))
+     sigma_sumqw = 0.d0
+     sigma_sum   = 0.d0
+     sigma_sum_dmft = 0.d0
 #ifdef MPI
      call MPI_reduce(sigma_nlqw, sigma_sumqw, ndim*ndim*2*iwf_resolved*nkp_eom*nqp*(2*iwbmax_small+1), &
           MPI_DOUBLE_COMPLEX, MPI_SUM, master, MPI_COMM_WORLD, ierr)

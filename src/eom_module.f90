@@ -145,7 +145,7 @@ end subroutine calc_eom_dmft
    integer,intent(in)             :: iq
    complex(kind=8),intent(in)     :: v(ndim2,ndim2)
    complex(kind=8),intent(inout)  :: sigma_nl(ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom)
-   complex(kind=8),intent(inout)  :: sigma_nlqw(nqp,-iwbmax_small:iwbmax_small,ndim,ndim,-iwfmax_small:iwfmax_small-1,nkp_eom)
+   complex(kind=8),intent(inout)  :: sigma_nlqw(nqp,-iwbmax_small:iwbmax_small,ndim,ndim,-iwf_resolved:iwf_resolved-1,nkp_eom)
    integer :: dum,i,j,iw,iwf,iwf2,l,k,ik,ikq
    integer :: i1,i2,i3,i4
    complex(kind=8) :: m_tot(ndim2,maxdim)
